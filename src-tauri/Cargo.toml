@@ -1,0 +1,24 @@
+[package]
+name = "grouper"
+version = "0.1.0"
+description = "Windows 11 tray utility for taskbar app groups and Launchpad"
+authors = ["Preston Sokol <prestonsokol1130@gmail.com>"]
+edition = "2021"
+
+[lib]
+name = "grouper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

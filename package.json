@@ -1,0 +1,39 @@
+{
+  "name": "grouper",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:loc": "node scripts/check-loc.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^24",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3",
+    "tailwindcss": "^4",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8",
+    "vite": "^8.0.16"
+  }
+}

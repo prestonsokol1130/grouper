@@ -33,11 +33,11 @@ Every `.rs`, `.ts`, and `.tsx` file must stay under **250 lines** (blank lines a
 
 All under the app data directory (`{app_data_dir}`):
 
-| Path | Purpose |
-|------|---------|
-| `{app_data_dir}/app_state.json` | App state; write atomically (temp file + rename) |
-| `{app_data_dir}/cache/icons/{app_id}.png` | Cached app icons |
-| `{app_data_dir}/cache/groups/{group_id}.ico` | Cached group composite icons |
+| Path                                         | Purpose                                          |
+| -------------------------------------------- | ------------------------------------------------ |
+| `{app_data_dir}/app_state.json`              | App state; write atomically (temp file + rename) |
+| `{app_data_dir}/cache/icons/{app_id}.png`    | Cached app icons                                 |
+| `{app_data_dir}/cache/groups/{group_id}.ico` | Cached group composite icons                     |
 
 ## Workflow
 
@@ -59,7 +59,8 @@ When the toolchain exists, a change is done only after:
 2. `cargo fmt --check` (in `src-tauri/`)
 3. `cargo clippy -- -D warnings` (in `src-tauri/`)
 4. `cargo test` (in `src-tauri/`)
-5. `pnpm lint` / `pnpm typecheck` / frontend tests as configured
-6. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
+5. `pnpm format:check`
+6. `pnpm lint` / `pnpm typecheck` / frontend tests as configured
+7. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
 
 Until those commands exist, at minimum run `node scripts/check-loc.mjs` and document anything left unverified.
