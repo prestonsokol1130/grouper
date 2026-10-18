@@ -53,14 +53,15 @@ All under the app data directory (`{app_data_dir}`):
 
 ## Definition of done
 
-When the toolchain exists, a change is done only after:
+A change is done only after the same commands CI runs on `windows-latest`:
 
-1. `node scripts/check-loc.mjs` exits 0
-2. `cargo fmt --check` (in `src-tauri/`)
-3. `cargo clippy -- -D warnings` (in `src-tauri/`)
-4. `cargo test` (in `src-tauri/`)
-5. `pnpm format:check`
-6. `pnpm lint` / `pnpm typecheck` / frontend tests as configured
-7. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
-
-Until those commands exist, at minimum run `node scripts/check-loc.mjs` and document anything left unverified.
+1. `pnpm install --frozen-lockfile`
+2. `pnpm format:check`
+3. `pnpm check:loc`
+4. `pnpm typecheck`
+5. `pnpm lint`
+6. `pnpm build`
+7. `cargo fmt --check` (in `src-tauri/`)
+8. `cargo clippy --all-targets -- -D warnings` (in `src-tauri/`)
+9. `cargo test` (in `src-tauri/`)
+10. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
