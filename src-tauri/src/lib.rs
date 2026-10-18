@@ -17,6 +17,7 @@ pub fn run() {
     }
 }
 
+/// Builds and runs the Tauri app, returning an error string if startup fails.
 fn start() -> Result<(), String> {
     tauri::Builder::default()
         .run(tauri::generate_context!())
@@ -25,6 +26,7 @@ fn start() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    /// Checks that the compiled package name is `grouper`.
     #[test]
     fn package_name_is_grouper() {
         assert_eq!(env!("CARGO_PKG_NAME"), "grouper");
