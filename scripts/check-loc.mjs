@@ -3,7 +3,7 @@
  * Fail if any .rs / .ts / .tsx file has 250 or more lines
  * (blank lines and comments count).
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,10 +15,9 @@ const SKIP_DIRS = new Set([
   "target",
   "dist",
   ".git",
-  "gen",
 ]);
 
-/** Skip src-tauri/gen and any nested gen/, plus listed dir names. */
+/** Skip listed dir names, plus src-tauri/gen and paths under it. */
 function shouldSkipDir(name, absPath) {
   if (SKIP_DIRS.has(name)) return true;
   const rel = relative(ROOT, absPath).replace(/\\/g, "/");
@@ -26,13 +25,9 @@ function shouldSkipDir(name, absPath) {
   return false;
 }
 
+/** Recursively collect .rs/.ts/.tsx paths under dir into out. */
 function walk(dir, out) {
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
+  const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const abs = join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -47,6 +42,7 @@ function walk(dir, out) {
   }
 }
 
+/** Return the number of lines in path (trailing newline not counted). */
 function countLines(path) {
   const text = readFileSync(path, "utf8");
   if (text.length === 0) return 0;
