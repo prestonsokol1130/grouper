@@ -10,12 +10,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const LIMIT = 250;
 const EXTENSIONS = new Set([".rs", ".ts", ".tsx"]);
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "target",
-  "dist",
-  ".git",
-]);
+const SKIP_DIRS = new Set(["node_modules", "target", "dist", ".git"]);
 
 /** Skip listed dir names, plus src-tauri/gen and paths under it. */
 function shouldSkipDir(name, absPath) {
@@ -67,9 +62,7 @@ for (const abs of files) {
 }
 
 if (offenders.length === 0) {
-  console.log(
-    `check-loc: ok (${files.length} file(s) under ${LIMIT} lines)`,
-  );
+  console.log(`check-loc: ok (${files.length} file(s) under ${LIMIT} lines)`);
   process.exit(0);
 }
 

@@ -18,13 +18,13 @@ Grouper is a **local Windows 11 tray utility** (Tauri v2 + React 19). It does no
 
 ### Actors
 
-| Actor | Trust | Notes |
-|-------|--------|--------|
-| Local interactive user | Mostly trusted | Owns the machine; can edit app data, shortcuts, and run other processes |
-| Other local processes / malware | Untrusted | May race or rewrite files Grouper reads |
-| Grouper frontend (WebView) | Semi-trusted | UI only; must not gain OS powers beyond allowlisted Tauri commands |
-| Grouper Rust backend | Trusted core | Owns Shell/COM, shortcuts, icons, process launch, persistence |
-| Windows Shell / COM | Trusted OS | Icon extraction (`IShellItemImageFactory`), shortcuts, taskbar |
+| Actor                           | Trust          | Notes                                                                   |
+| ------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Local interactive user          | Mostly trusted | Owns the machine; can edit app data, shortcuts, and run other processes |
+| Other local processes / malware | Untrusted      | May race or rewrite files Grouper reads                                 |
+| Grouper frontend (WebView)      | Semi-trusted   | UI only; must not gain OS powers beyond allowlisted Tauri commands      |
+| Grouper Rust backend            | Trusted core   | Owns Shell/COM, shortcuts, icons, process launch, persistence           |
+| Windows Shell / COM             | Trusted OS     | Icon extraction (`IShellItemImageFactory`), shortcuts, taskbar          |
 
 ### Trust boundaries
 
@@ -88,7 +88,7 @@ Grouper is a **local Windows 11 tray utility** (Tauri v2 + React 19). It does no
 
 ## Severity Calibration (Critical, High, Medium, Low)
 
-**Critical** — Local code execution as the user *beyond* launching apps they already chose, or silent replacement of launch targets so the UI shows App A but runs App B without further interaction. Example: IPC accepts an arbitrary executable path and spawns it; or group state points at attacker-controlled PE while the displayed name/icon stays trusted.
+**Critical** — Local code execution as the user _beyond_ launching apps they already chose, or silent replacement of launch targets so the UI shows App A but runs App B without further interaction. Example: IPC accepts an arbitrary executable path and spawns it; or group state points at attacker-controlled PE while the displayed name/icon stays trusted.
 
 **High** — Arbitrary file write/delete outside `{app_data_dir}`; path traversal via ids; WebView XSS that can invoke privileged commands; persistent shortcut that launches attacker PE under Grouper’s AUMID branding.
 

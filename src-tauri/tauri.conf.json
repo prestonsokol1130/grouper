@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Grouper",
+  "version": "0.1.0",
+  "identifier": "com.grouper.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "manager",
+        "title": "Grouper",
+        "url": "index.html?window=manager",
+        "width": 960,
+        "height": 640,
+        "visible": false,
+        "focus": false
+      },
+      {
+        "label": "launchpad",
+        "title": "Grouper",
+        "url": "index.html?window=launchpad",
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "noRedirectionBitmap": true,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false
+      },
+      {
+        "label": "flyout",
+        "title": "Grouper",
+        "url": "index.html?window=flyout",
+        "width": 360,
+        "height": 360,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "noRedirectionBitmap": true,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "visible": false,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

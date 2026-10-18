@@ -24,16 +24,16 @@ Rules:
 - Keep the whole title around **72 characters** or less.
 - Prefer one clear change; if the PR mixes concerns, the title names the primary intent.
 
-| Type | Use when |
-|------|----------|
-| `feat` | User-facing feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `chore` | Tooling, hygiene, config with no product behavior change |
-| `refactor` | Internal restructuring, same behavior |
-| `test` | Tests only |
-| `ci` | CI configuration |
-| `perf` | Performance improvement |
+| Type       | Use when                                                 |
+| ---------- | -------------------------------------------------------- |
+| `feat`     | User-facing feature                                      |
+| `fix`      | Bug fix                                                  |
+| `docs`     | Documentation only                                       |
+| `chore`    | Tooling, hygiene, config with no product behavior change |
+| `refactor` | Internal restructuring, same behavior                    |
+| `test`     | Tests only                                               |
+| `ci`       | CI configuration                                         |
+| `perf`     | Performance improvement                                  |
 
 Examples:
 
@@ -47,9 +47,11 @@ Use this Markdown body (omit a section only if it truly does not apply):
 
 ```markdown
 ## Summary
+
 - <what changed and why — 1–3 bullets>
 
 ## Test plan
+
 - [ ] <command or manual step that proves it>
 - [ ] <edge case or Windows smoke step if relevant>
 ```
