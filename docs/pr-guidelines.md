@@ -1,5 +1,15 @@
 # Pull request title and description
 
+## Agent handoff
+
+If you were given this file path:
+
+1. Follow the guideline exactly.
+2. In your response message paste the title in a code block `title` and the description in a separate code block `description`. Send the response with only these two separate code blocks in it.
+3. Then stop. Do not open a pull request.
+
+---
+
 Grouper uses the format most teams already recognize: **Conventional Commits** for the title, and a short structured body.
 
 ## Title
