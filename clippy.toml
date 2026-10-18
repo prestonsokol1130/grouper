@@ -1,0 +1,5 @@
+# Clippy project config for Grouper.
+# The crate root (src-tauri) will carry:
+#   #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+# Tests may allow those lints under #[cfg(test)].
+# Prefer Result-based error handling in all runtime paths.
