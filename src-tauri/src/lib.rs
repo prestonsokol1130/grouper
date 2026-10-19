@@ -50,7 +50,12 @@ fn start() -> Result<(), String> {
                 Ok(dir) => log::info!("logging to {}", dir.display()),
                 Err(error) => log::warn!("could not resolve log dir: {error}"),
             }
-            app.manage(open_store(handle)?);
+            let store = open_store(handle)?;
+            app.manage(Arc::clone(&store));
+            // A failed first scan is logged; the app still starts.
+            if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
+                log::error!("could not start the first app scan: {error}");
+            }
             tray::create(handle)?;
             // args_os: std::env::args panics on non-Unicode arguments.
             let args: Vec<String> = std::env::args_os()
