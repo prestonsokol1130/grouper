@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { installErrorForwarding } from "./logging";
 import "./styles.css";
 import { FlyoutRoot } from "./windows/FlyoutRoot";
 import { LaunchpadRoot } from "./windows/LaunchpadRoot";
@@ -21,6 +22,8 @@ function WindowRoot() {
   }
   return <ManagerRoot />;
 }
+
+installErrorForwarding(readWindowLabel());
 
 const root = document.getElementById("root");
 if (root) {

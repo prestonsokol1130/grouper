@@ -1,0 +1,150 @@
+//! Command-line parsing for launches and single-instance forwarding.
+
+/// What a launch (or a forwarded second launch) asks Grouper to do.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LaunchCommand {
+    /// Open the flyout for one taskbar group.
+    Flyout { group_id: String },
+    /// Open the fullscreen Launchpad.
+    Launchpad,
+    /// Open the Manager window.
+    Manager,
+    /// Nothing to do; stay in the tray.
+    None,
+}
+
+/// Parses process arguments. `args[0]` is the executable and is skipped.
+///
+/// The first recognised flag wins and unknown flags are ignored. `--flyout`
+/// needs a following id made only of `[A-Za-z0-9_-]`; anything else yields
+/// [`LaunchCommand::None`] and a log warning.
+pub fn parse_args(args: &[String]) -> LaunchCommand {
+    let mut rest = args.iter().skip(1);
+    while let Some(arg) = rest.next() {
+        match arg.as_str() {
+            "--flyout" => return parse_flyout(rest.next()),
+            "--launchpad" => return LaunchCommand::Launchpad,
+            "--manager" => return LaunchCommand::Manager,
+            _ => {}
+        }
+    }
+    LaunchCommand::None
+}
+
+/// Validates the id that follows `--flyout`.
+fn parse_flyout(value: Option<&String>) -> LaunchCommand {
+    match value {
+        None => {
+            log::warn!("--flyout needs a group id; ignoring");
+            LaunchCommand::None
+        }
+        Some(id) if id.starts_with("--") => {
+            log::warn!("--flyout needs a group id but got flag {id:?}; ignoring");
+            LaunchCommand::None
+        }
+        Some(id) if is_valid_group_id(id) => LaunchCommand::Flyout {
+            group_id: id.clone(),
+        },
+        Some(id) => {
+            log::warn!("--flyout group id {id:?} has invalid characters; ignoring");
+            LaunchCommand::None
+        }
+    }
+}
+
+/// True when `id` is non-empty and only uses ASCII letters, digits, `_` or `-`.
+fn is_valid_group_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        std::iter::once("Grouper.exe")
+            .chain(list.iter().copied())
+            .map(String::from)
+            .collect()
+    }
+
+    #[test]
+    fn valid_flyout() {
+        assert_eq!(
+            parse_args(&args(&["--flyout", "test-1_A"])),
+            LaunchCommand::Flyout {
+                group_id: "test-1_A".into()
+            }
+        );
+    }
+
+    #[test]
+    fn flyout_missing_id() {
+        assert_eq!(parse_args(&args(&["--flyout"])), LaunchCommand::None);
+    }
+
+    #[test]
+    fn flyout_empty_id() {
+        assert_eq!(parse_args(&args(&["--flyout", ""])), LaunchCommand::None);
+    }
+
+    #[test]
+    fn flyout_followed_by_flag_is_missing_id() {
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--manager"])),
+            LaunchCommand::None
+        );
+    }
+
+    #[test]
+    fn flyout_bad_characters() {
+        for bad in ["a b", "a/b", "../x", "é", "id;rm"] {
+            assert_eq!(
+                parse_args(&args(&["--flyout", bad])),
+                LaunchCommand::None,
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn multiple_flags_first_wins() {
+        assert_eq!(
+            parse_args(&args(&["--launchpad", "--manager"])),
+            LaunchCommand::Launchpad
+        );
+        assert_eq!(
+            parse_args(&args(&["--manager", "--flyout", "g1"])),
+            LaunchCommand::Manager
+        );
+        assert_eq!(
+            parse_args(&args(&["--flyout", "g1", "--launchpad"])),
+            LaunchCommand::Flyout {
+                group_id: "g1".into()
+            }
+        );
+    }
+
+    #[test]
+    fn unknown_flags_ignored() {
+        assert_eq!(
+            parse_args(&args(&["--verbose", "x", "--manager"])),
+            LaunchCommand::Manager
+        );
+    }
+
+    #[test]
+    fn no_args() {
+        assert_eq!(parse_args(&args(&[])), LaunchCommand::None);
+        assert_eq!(parse_args(&[]), LaunchCommand::None);
+    }
+
+    #[test]
+    fn argv0_is_skipped() {
+        let argv = vec!["--manager".to_string()];
+        assert_eq!(parse_args(&argv), LaunchCommand::None);
+    }
+}
