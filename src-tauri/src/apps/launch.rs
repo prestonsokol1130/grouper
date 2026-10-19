@@ -30,6 +30,9 @@ pub struct LaunchSummary {
 /// When neither the app's `.lnk` nor its target exists, the app is marked
 /// `missing` (the new state is passed to `publish`) and
 /// `Err("App not found: <name>")` is returned without calling `launcher`.
+/// When one exists but the app is marked missing, the mark is cleared and
+/// published before `launcher` runs, whatever the launcher then returns: a
+/// Shell failure is not a missing file.
 pub fn launch_app_with(
     store: &Store,
     app_id: &str,
@@ -41,29 +44,32 @@ pub fn launch_app_with(
         .app_by_id(app_id)
         .cloned()
         .ok_or_else(|| format!("Unknown app: {app_id}"))?;
-    if launch_target(&entry, std::path::Path::exists).is_none() {
-        if !entry.missing {
-            mark_missing(store, app_id, publish);
-        }
+    let found = launch_target(&entry, std::path::Path::exists).is_some();
+    // Publish only when the flag actually changes.
+    if entry.missing != !found {
+        set_missing(store, app_id, !found, publish);
+    }
+    if !found {
         return Err(not_found(&entry.name));
     }
     launcher(&entry)
 }
 
-/// Sets `missing` on app `app_id` and publishes the new state. A store that
-/// refuses changes only gets a log line: the launch error says enough.
-fn mark_missing(store: &Store, app_id: &str, publish: &dyn Fn(&AppState)) {
-    let marked = store.update_and_publish(
+/// Sets `missing` on app `app_id` to `missing` and publishes the new state.
+/// A store that refuses changes only gets a log line: the launch result
+/// says enough.
+fn set_missing(store: &Store, app_id: &str, missing: bool, publish: &dyn Fn(&AppState)) {
+    let changed = store.update_and_publish(
         |state| {
             if let Some(app) = state.apps.iter_mut().find(|app| app.id == app_id) {
-                app.missing = true;
+                app.missing = missing;
             }
             Ok(())
         },
         publish,
     );
-    if let Err(error) = marked {
-        log::warn!("could not mark app {app_id} missing: {error}");
+    if let Err(error) = changed {
+        log::warn!("could not set app {app_id} missing={missing}: {error}");
     }
 }
 

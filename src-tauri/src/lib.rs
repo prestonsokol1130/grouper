@@ -42,7 +42,6 @@ fn start() -> Result<(), String> {
             router::route(app, cli::parse_args(&argv));
         }))
         .plugin(logging::plugin())
-        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(commands.invoke_handler())
         .on_window_event(windows::handle_window_event)
         .setup(|app| {

@@ -6,6 +6,8 @@
 //! Win32 handle types and so exists on Windows only.
 
 pub mod com;
+pub mod env;
+pub mod file_dialog;
 #[cfg(windows)]
 pub mod gdi;
 pub mod launch;

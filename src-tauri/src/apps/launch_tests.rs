@@ -98,6 +98,34 @@ fn a_missing_path_marks_the_app_missing() {
 }
 
 #[test]
+fn a_found_app_is_no_longer_missing_even_when_the_launch_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store(&dir);
+    store
+        .update(|state| {
+            state.apps[0].missing = true;
+            Ok(())
+        })
+        .unwrap();
+    let published = Cell::new(0);
+    let publish = |state: &AppState| {
+        assert!(state.app_by_id("a").is_some_and(|app| !app.missing));
+        published.set(published.get() + 1);
+    };
+    let fails = |_: &AppEntry| Err("Could not start App a: denied".to_owned());
+    let result = launch_app_with(&store, "a", &fails, &publish);
+    assert_eq!(result, Err("Could not start App a: denied".into()));
+    assert_eq!(published.get(), 1);
+    assert!(store
+        .snapshot()
+        .app_by_id("a")
+        .is_some_and(|app| !app.missing));
+    // Not missing any more: a second launch publishes nothing.
+    assert_eq!(launch_app_with(&store, "a", &|_| Ok(()), &publish), Ok(()));
+    assert_eq!(published.get(), 1);
+}
+
+#[test]
 fn an_existing_app_is_handed_to_the_launcher() {
     let dir = tempfile::tempdir().unwrap();
     let store = store(&dir);

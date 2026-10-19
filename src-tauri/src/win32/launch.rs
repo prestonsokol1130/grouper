@@ -72,6 +72,7 @@ mod imp {
 
     use super::LaunchTarget;
     use crate::win32::com::ComGuard;
+    use crate::win32::env::expand_env;
     use crate::win32::wide::to_wide;
 
     /// Opens `target` with the Shell. Runs on the launch thread.
@@ -85,19 +86,21 @@ mod imp {
             log::debug!("AllowSetForegroundWindow failed: {error}");
         }
         let (file, args, dir) = match target {
-            LaunchTarget::Shortcut(lnk) => (lnk.as_str(), "", ""),
+            LaunchTarget::Shortcut(lnk) => (lnk.as_str(), "", String::new()),
+            // A working folder from a shortcut may hold %VARIABLES%, which
+            // the Shell does not expand in lpDirectory.
             LaunchTarget::Program {
                 file,
                 args,
                 working_dir,
-            } => (file.as_str(), args.as_str(), working_dir.as_str()),
+            } => (file.as_str(), args.as_str(), expand_env(working_dir)),
         };
         // Every buffer below is NUL-terminated and lives until this
         // function returns, after ShellExecuteExW is done with it.
         let verb = to_wide("open");
         let file = to_wide(file);
         let args = to_wide(args);
-        let dir = to_wide(dir);
+        let dir = to_wide(&dir);
         let mut info = SHELLEXECUTEINFOW {
             // The struct is about a hundred bytes, so the cast is exact.
             cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,

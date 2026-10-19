@@ -46,11 +46,11 @@ mod imp {
     use windows::Win32::System::Com::{
         CoCreateInstance, IPersistFile, CLSCTX_INPROC_SERVER, STGM_READ,
     };
-    use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
     use windows::Win32::UI::Shell::{IShellLinkW, ShellLink, SLGP_RAWPATH};
 
     use super::ResolvedLink;
-    use crate::win32::wide::{from_wide, to_wide};
+    use crate::win32::env::expand_env;
+    use crate::win32::wide::from_wide;
 
     /// Characters in each string buffer handed to `IShellLinkW`.
     const BUF_LEN: usize = MAX_PATH as usize * 4;
@@ -108,32 +108,6 @@ mod imp {
         let mut buf = vec![0u16; BUF_LEN];
         fill(&mut buf)?;
         Ok(from_wide(&buf))
-    }
-
-    /// Expands `%VARIABLES%` in `raw`. Falls back to `raw` unchanged if the
-    /// expansion fails, so a bad variable never loses the path.
-    fn expand_env(raw: &str) -> String {
-        if !raw.contains('%') {
-            return raw.to_owned();
-        }
-        let source = to_wide(raw);
-        let mut buf = vec![0u16; BUF_LEN];
-        for _ in 0..2 {
-            // SAFETY: source is NUL-terminated; buf is valid and writable.
-            let needed =
-                unsafe { ExpandEnvironmentStringsW(PCWSTR(source.as_ptr()), Some(&mut buf)) };
-            let needed = needed as usize;
-            if needed == 0 {
-                break;
-            }
-            if needed <= buf.len() {
-                return from_wide(&buf);
-            }
-            // Too small: `needed` is the full size including the NUL.
-            buf = vec![0u16; needed];
-        }
-        log::warn!("could not expand environment variables in {raw:?}");
-        raw.to_owned()
     }
 }
 

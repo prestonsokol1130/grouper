@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Core defaults for the manager, launchpad, and flyout windows",
   "windows": ["manager", "launchpad", "flyout"],
-  "permissions": ["core:default", "log:default", "dialog:allow-open"]
+  "permissions": ["core:default", "log:default"]
 }

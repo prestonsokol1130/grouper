@@ -4,13 +4,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tauri::{AppHandle, State, WebviewWindow};
-use tauri_plugin_dialog::DialogExt;
 
 use super::icon_cmds::queue_icons;
 use super::state_cmds::emit_state_changed;
-use crate::apps::add::{add_paths, PROGRAM_EXTENSIONS};
+use crate::apps::add::add_paths;
 use crate::apps::remove::remove_or_hide;
 use crate::state::{AppEntry, Store};
+use crate::win32::file_dialog::pick_programs;
 
 /// Adds `paths`, emits `state:changed` and queues the icons of the added
 /// apps. Blocks.
@@ -27,8 +27,9 @@ fn add_and_publish(
 }
 
 /// Opens the native file dialog (Programs: `.exe`, `.lnk`, several at
-/// once) and adds the picked programs. Returns their entries; an empty list
-/// when the dialog was cancelled.
+/// once) over the calling window and adds the picked programs. Returns
+/// their entries; an empty list, with nothing changed, when the dialog was
+/// cancelled.
 #[tauri::command]
 #[specta::specta]
 pub async fn pick_and_add_apps(
@@ -40,27 +41,29 @@ pub async fn pick_and_add_apps(
     // The dialog and the shortcut reads block; keep them off the async
     // runtime's worker threads.
     tauri::async_runtime::spawn_blocking(move || {
-        let picked = app
-            .dialog()
-            .file()
-            .set_parent(&window)
-            .add_filter("Programs", PROGRAM_EXTENSIONS)
-            .blocking_pick_files()
-            .unwrap_or_default();
-        let paths: Vec<PathBuf> = picked
-            .into_iter()
-            .filter_map(|file| match file.into_path() {
-                Ok(path) => Some(path),
-                Err(error) => {
-                    log::warn!("skipping a picked file that is not a path: {error}");
-                    None
-                }
-            })
-            .collect();
+        let paths = pick_programs(owner_handle(&window))?;
         add_and_publish(&app, &store, &paths)
     })
     .await
     .map_err(|e| format!("adding apps did not finish: {e}"))?
+}
+
+/// The `HWND` of `window` as a number, for parenting the file dialog. A
+/// window without one gets an unowned dialog.
+#[cfg(windows)]
+fn owner_handle(window: &WebviewWindow) -> Option<isize> {
+    match window.hwnd() {
+        Ok(hwnd) => Some(hwnd.0 as isize),
+        Err(error) => {
+            log::warn!("no window handle for the file dialog: {error}");
+            None
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn owner_handle(_window: &WebviewWindow) -> Option<isize> {
+    None
 }
 
 /// Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry,

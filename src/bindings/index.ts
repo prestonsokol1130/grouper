@@ -46,8 +46,9 @@ export const commands = {
 	launchGroup: (groupId: string) => typedError<LaunchSummary, string>(__TAURI_INVOKE("launch_group", { groupId })),
 	/**
 	 *  Opens the native file dialog (Programs: `.exe`, `.lnk`, several at
-	 *  once) and adds the picked programs. Returns their entries; an empty list
-	 *  when the dialog was cancelled.
+	 *  once) over the calling window and adds the picked programs. Returns
+	 *  their entries; an empty list, with nothing changed, when the dialog was
+	 *  cancelled.
 	 */
 	pickAndAddApps: () => typedError<AppEntry[], string>(__TAURI_INVOKE("pick_and_add_apps")),
 	/**
