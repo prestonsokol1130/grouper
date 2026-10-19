@@ -1,6 +1,6 @@
 //! Table tests for the shortcut filter.
 
-use super::filter::{check, Rejection};
+use super::filter::{check, is_file, Rejection};
 
 const APP: &str = r"C:\Program Files\App\app.exe";
 
@@ -87,12 +87,24 @@ fn filter_table() {
 }
 
 #[test]
-fn missing_target_is_rejected() {
-    assert_eq!(check("App", APP, |_| false), Err(Rejection::MissingTarget));
+fn only_existing_files_are_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("App");
+    std::fs::create_dir(&folder).unwrap();
+    let exe = folder.join("app.exe");
+    std::fs::write(&exe, b"").unwrap();
+    let folder = folder.to_str().unwrap();
+    let exe = exe.to_str().unwrap();
+    let absent = dir.path().join("gone.exe");
+    let absent = absent.to_str().unwrap();
+    assert_eq!(check("App", exe, is_file), Ok(()));
+    // A shortcut to an install folder is not an app.
+    assert_eq!(check("App", folder, is_file), Err(Rejection::NotAFile));
+    assert_eq!(check("App", absent, is_file), Err(Rejection::NotAFile));
 }
 
 #[test]
-fn existence_is_checked_last_and_with_the_target() {
+fn file_check_runs_last_and_gets_the_target() {
     let mut called = false;
     let outcome = check("Uninstall", APP, |_| {
         called = true;
@@ -121,8 +133,5 @@ fn rejections_explain_themselves() {
         Rejection::Extension(".url").to_string(),
         "target is a .url file"
     );
-    assert_eq!(
-        Rejection::MissingTarget.to_string(),
-        "target does not exist"
-    );
+    assert_eq!(Rejection::NotAFile.to_string(), "target is not a file");
 }

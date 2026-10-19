@@ -24,14 +24,26 @@ use dedupe::Candidate;
 /// Name of the thread [`scan`] runs on.
 const SCAN_THREAD: &str = "app-scan";
 
-/// Scans the Start Menu and returns one entry per app found, with
-/// `lnk_path` set. Blocks the caller until the scan is done.
+/// The result of one [`scan`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ScanOutcome {
+    /// One entry per app found, with `lnk_path` set.
+    pub apps: Vec<AppEntry>,
+    /// True only when both Start Menu folders were found and read in full.
+    /// A partial scan must never mark saved apps as missing.
+    pub complete: bool,
+    /// Shortcuts that exist but could not be read. Saved apps that came from
+    /// one of these are not marked missing.
+    pub unreadable: Vec<String>,
+}
+
+/// Scans the Start Menu. Blocks the caller until the scan is done.
 ///
 /// The work runs on its own background thread, which holds its own
 /// [`ComGuard`]. A shortcut that cannot be read is logged and skipped; it
 /// never stops the scan. Returns `Err` only when no Start Menu folder can be
 /// found or COM cannot start (always, on non-Windows platforms).
-pub fn scan() -> Result<Vec<AppEntry>, String> {
+pub fn scan() -> Result<ScanOutcome, String> {
     std::thread::Builder::new()
         .name(SCAN_THREAD.to_owned())
         .spawn(scan_on_this_thread)
@@ -40,41 +52,43 @@ pub fn scan() -> Result<Vec<AppEntry>, String> {
         .map_err(|_| format!("thread {SCAN_THREAD:?} panicked"))?
 }
 
-/// Counts for the summary log line.
-#[derive(Default)]
-struct Tally {
-    shortcuts: usize,
-    unreadable: usize,
-    rejected: usize,
-}
-
 /// The scan itself. COM stays initialised until every shortcut is read.
-fn scan_on_this_thread() -> Result<Vec<AppEntry>, String> {
+fn scan_on_this_thread() -> Result<ScanOutcome, String> {
     let _com = ComGuard::new()?;
-    let mut tally = Tally::default();
+    let roots = roots::scan_roots()?;
+    let mut complete = roots.len() == roots::ROOT_COUNT;
+    let (mut shortcuts, mut rejected) = (0_usize, 0_usize);
     let mut candidates = Vec::new();
-    for root in roots::scan_roots()? {
-        for lnk in walk::find_shortcuts(&root.path) {
-            tally.shortcuts += 1;
+    let mut unreadable = Vec::new();
+    for root in roots {
+        let walked = walk::find_shortcuts(&root.path);
+        complete &= walked.complete;
+        for lnk in walked.shortcuts {
+            shortcuts += 1;
             match read_candidate(&lnk, root.per_user) {
                 Ok(Some(candidate)) => candidates.push(candidate),
-                Ok(None) => tally.rejected += 1,
+                Ok(None) => rejected += 1,
                 Err(error) => {
-                    tally.unreadable += 1;
                     log::warn!("skipping shortcut {}: {error}", lnk.display());
+                    unreadable.push(lnk.to_string_lossy().into_owned());
                 }
             }
         }
     }
     let apps = dedupe::dedupe(candidates);
     log::info!(
-        "app scan: {} apps from {} shortcuts ({} rejected, {} unreadable)",
+        "app scan: {} apps from {shortcuts} shortcuts ({rejected} rejected, {} unreadable)",
         apps.len(),
-        tally.shortcuts,
-        tally.rejected,
-        tally.unreadable
+        unreadable.len()
     );
-    Ok(apps)
+    if !complete {
+        log::warn!("app scan was incomplete; no saved app will be marked missing");
+    }
+    Ok(ScanOutcome {
+        apps,
+        complete,
+        unreadable,
+    })
 }
 
 /// Reads one shortcut. `Ok(None)` means it was read but is not an app (the
@@ -85,7 +99,7 @@ fn read_candidate(lnk: &Path, per_user: bool) -> Result<Option<Candidate>, Strin
         .map(|stem| stem.to_string_lossy().into_owned())
         .unwrap_or_default();
     let link = resolve_lnk(lnk)?;
-    if let Err(reason) = filter::check(&name, &link.target, |t| Path::new(t).exists()) {
+    if let Err(reason) = filter::check(&name, &link.target, filter::is_file) {
         log::debug!("not an app: {} ({reason})", lnk.display());
         return Ok(None);
     }
@@ -106,9 +120,9 @@ mod tests {
     /// Every Windows install (CI included) has Start Menu apps.
     #[test]
     fn scan_finds_apps() {
-        let apps = scan().unwrap();
-        assert!(!apps.is_empty());
-        for app in &apps {
+        let outcome = scan().unwrap();
+        assert!(!outcome.apps.is_empty());
+        for app in &outcome.apps {
             assert!(!app.target.is_empty(), "{app:?}");
             assert!(app.lnk_path.is_some(), "{app:?}");
             assert_eq!(app.id.len(), 16, "{app:?}");

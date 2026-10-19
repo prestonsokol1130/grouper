@@ -5,17 +5,17 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 use super::state_cmds::emit_state_changed;
-use crate::scanner::{self, merge::merge_scan};
-use crate::state::{AppEntry, Store};
+use crate::scanner::{self, merge::merge_scan, ScanOutcome};
+use crate::state::Store;
 use crate::util::spawn::spawn_logged;
 
-/// Merges `apps` into the store and emits `state:changed`. Returns how many
+/// Merges `scan` into the store and emits `state:changed`. Returns how many
 /// apps the scan found.
-fn apply_scan(app: &AppHandle, store: &Store, apps: Vec<AppEntry>) -> Result<u32, String> {
+fn apply_scan(app: &AppHandle, store: &Store, scan: ScanOutcome) -> Result<u32, String> {
     // u32, not usize: the TypeScript bindings refuse 64-bit integers.
-    let found = u32::try_from(apps.len()).unwrap_or(u32::MAX);
+    let found = u32::try_from(scan.apps.len()).unwrap_or(u32::MAX);
     let summary = store.update_and_publish(
-        |state| Ok(merge_scan(state, apps)),
+        |state| Ok(merge_scan(state, scan)),
         |state| emit_state_changed(app, state),
     )?;
     log::info!(
@@ -35,10 +35,10 @@ pub async fn rescan_apps(app: AppHandle, store: State<'_, Arc<Store>>) -> Result
     let store = Arc::clone(&store);
     // The scan blocks while it waits for its own thread; keep that off the
     // async runtime's worker threads.
-    let apps = tauri::async_runtime::spawn_blocking(scanner::scan)
+    let scan = tauri::async_runtime::spawn_blocking(scanner::scan)
         .await
         .map_err(|e| format!("app scan did not finish: {e}"))??;
-    apply_scan(&app, &store, apps)
+    apply_scan(&app, &store, scan)
 }
 
 /// On startup, scans in the background if the app list is still empty.
@@ -49,8 +49,8 @@ pub fn scan_if_empty(app: &AppHandle, store: &Arc<Store>) -> Result<(), String> 
     let app = app.clone();
     let store = Arc::clone(store);
     spawn_logged("startup-scan", move || {
-        let apps = scanner::scan()?;
-        apply_scan(&app, &store, apps).map(|_| ())
+        let scan = scanner::scan()?;
+        apply_scan(&app, &store, scan).map(|_| ())
     })
     .map(|_| ())
 }

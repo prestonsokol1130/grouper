@@ -12,25 +12,40 @@ pub const MAX_DEPTH: usize = 6;
 /// It is never scanned, so those shortcuts never show up as apps.
 pub const OWN_FOLDER: &str = "Grouper";
 
+/// What [`find_shortcuts`] found under one root.
+#[derive(Debug)]
+pub struct Walked {
+    pub shortcuts: Vec<PathBuf>,
+    /// False when part of the tree (or the root itself) could not be read,
+    /// so `shortcuts` may be missing some.
+    pub complete: bool,
+}
+
 /// Every `.lnk` file under `root`, at most [`MAX_DEPTH`] levels deep, sorted
 /// by path. Symbolic links are not followed (or returned), and the
 /// [`OWN_FOLDER`] directly under `root` is skipped. A folder that cannot be
-/// read is logged and skipped.
-pub fn find_shortcuts(root: &Path) -> Vec<PathBuf> {
+/// read is logged and skipped, and marks the result incomplete.
+pub fn find_shortcuts(root: &Path) -> Walked {
     let walker = WalkDir::new(root)
         .follow_links(false)
         .max_depth(MAX_DEPTH)
         .sort_by_file_name()
         .into_iter()
         .filter_entry(|entry| !is_own_folder(entry));
-    let mut found = Vec::new();
+    let mut found = Walked {
+        shortcuts: Vec::new(),
+        complete: true,
+    };
     for entry in walker {
         match entry {
             Ok(entry) if entry.file_type().is_file() && is_lnk(entry.path()) => {
-                found.push(entry.into_path());
+                found.shortcuts.push(entry.into_path());
             }
             Ok(_) => {}
-            Err(error) => log::debug!("skipping part of {}: {error}", root.display()),
+            Err(error) => {
+                found.complete = false;
+                log::warn!("could not read part of {}: {error}", root.display());
+            }
         }
     }
     found
@@ -75,7 +90,9 @@ mod tests {
         touch(&root.join("grouper").join("Other.lnk"));
         touch(&root.join("Vendor").join("Grouper").join("Nested.lnk"));
         let found = find_shortcuts(root);
+        assert!(found.complete);
         let names: Vec<_> = found
+            .shortcuts
             .iter()
             .map(|p| p.strip_prefix(root).unwrap().to_path_buf())
             .collect();
@@ -97,14 +114,24 @@ mod tests {
             deep.push(format!("d{level}"));
         }
         touch(&deep.join("too-deep.lnk"));
-        let found = find_shortcuts(dir.path());
+        let found = find_shortcuts(dir.path()).shortcuts;
         assert_eq!(found.len(), MAX_DEPTH);
         assert!(!found.iter().any(|p| p.ends_with("too-deep.lnk")));
     }
 
     #[test]
-    fn missing_root_gives_nothing() {
+    fn missing_root_is_empty_and_incomplete() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(find_shortcuts(&dir.path().join("absent")).is_empty());
+        let found = find_shortcuts(&dir.path().join("absent"));
+        assert!(found.shortcuts.is_empty());
+        assert!(!found.complete);
+    }
+
+    #[test]
+    fn empty_root_is_complete() {
+        let dir = tempfile::tempdir().unwrap();
+        let found = find_shortcuts(dir.path());
+        assert!(found.shortcuts.is_empty());
+        assert!(found.complete);
     }
 }

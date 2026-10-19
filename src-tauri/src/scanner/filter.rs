@@ -1,7 +1,8 @@
 //! Decides which Start Menu shortcuts are real apps. Pure: the only outside
-//! check (does the target exist) is passed in by the caller.
+//! check (is the target a file) is passed in by the caller.
 
 use std::fmt;
+use std::path::Path;
 
 /// Words and phrases that mark a shortcut as not an app (uninstallers,
 /// installers, documentation, web links). Matched case-insensitively as
@@ -38,8 +39,8 @@ pub enum Rejection {
     TargetWord(&'static str),
     /// The target ends with this document or web-link extension.
     Extension(&'static str),
-    /// The target does not exist on disk.
-    MissingTarget,
+    /// The target is not an existing file (missing, or a folder).
+    NotAFile,
 }
 
 impl fmt::Display for Rejection {
@@ -49,17 +50,18 @@ impl fmt::Display for Rejection {
             Self::NameWord(word) => write!(f, "name contains {word:?}"),
             Self::TargetWord(word) => write!(f, "target file name contains {word:?}"),
             Self::Extension(ext) => write!(f, "target is a {ext} file"),
-            Self::MissingTarget => write!(f, "target does not exist"),
+            Self::NotAFile => write!(f, "target is not a file"),
         }
     }
 }
 
 /// Checks one shortcut with display name `name` and target path `target`.
-/// `target_exists` is only called when every other check has passed.
+/// `target_is_file` (normally [`is_file`]) is only called when every other
+/// check has passed.
 pub fn check(
     name: &str,
     target: &str,
-    target_exists: impl FnOnce(&str) -> bool,
+    target_is_file: impl FnOnce(&str) -> bool,
 ) -> Result<(), Rejection> {
     let target = target.trim();
     if target.is_empty() {
@@ -75,10 +77,16 @@ pub fn check(
     if let Some(ext) = REJECT_EXTENSIONS.iter().find(|ext| lower.ends_with(*ext)) {
         return Err(Rejection::Extension(ext));
     }
-    if !target_exists(target) {
-        return Err(Rejection::MissingTarget);
+    if !target_is_file(target) {
+        return Err(Rejection::NotAFile);
     }
     Ok(())
+}
+
+/// True when `target` is an existing file on disk (not a folder), the
+/// predicate the scanner passes to [`check`].
+pub fn is_file(target: &str) -> bool {
+    Path::new(target).is_file()
 }
 
 /// The last component of a Windows or Unix style path.
