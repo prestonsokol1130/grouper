@@ -23,6 +23,11 @@ export const commands = {
 	updateSettings: (patch: SettingsPatch) => typedError<Settings, string>(__TAURI_INVOKE("update_settings", { patch })),
 	/**  Replaces the Launchpad layout (dangling ids are dropped). */
 	setLaunchpadLayout: (layout: LaunchpadLayout) => typedError<LaunchpadLayout, string>(__TAURI_INVOKE("set_launchpad_layout", { layout })),
+	/**
+	 *  Scans the Start Menu again, merges the result into the app list and
+	 *  returns how many apps were found.
+	 */
+	rescanApps: () => typedError<number, string>(__TAURI_INVOKE("rescan_apps")),
 };
 
 /* Types */
