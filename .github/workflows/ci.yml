@@ -62,6 +62,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Unused files, exports and dependencies (Knip)
+        run: pnpm knip
+
+      - name: Spelling (typos)
+        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+
       - name: Build frontend
         run: pnpm build
 
@@ -81,3 +87,12 @@ jobs:
       - name: Test
         working-directory: src-tauri
         run: cargo test
+
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-machete
+
+      - name: Unused Rust dependencies (cargo-machete)
+        working-directory: src-tauri
+        run: cargo machete

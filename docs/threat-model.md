@@ -71,7 +71,7 @@ Grouper is a **local Windows 11 tray utility** (Tauri v2 + React 19). It does no
 - Malware or a shared-machine peer rewrites `app_state.json` or a cache path so Grouper launches a different binary than the UI shows.
 - A compromised or XSS’d WebView calls a Tauri command with `../../../` style ids or absolute paths.
 - A crafted `--flyout` argument or group id causes a panic, hang, or write outside app data.
-- Icon extraction on a hostile Shell item exhausts handles or crashes the process if `HBITMAP` is not freed or COM is mis-initialized.
+- Icon extraction on a hostile Shell item exhausts handles or crashes the process if `HBITMAP` is not freed or COM is initialized incorrectly.
 
 ### Attacker stories (out of scope / unrealistic)
 
