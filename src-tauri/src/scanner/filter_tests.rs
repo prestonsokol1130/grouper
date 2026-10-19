@@ -104,6 +104,19 @@ fn only_existing_files_are_kept() {
 }
 
 #[test]
+fn network_targets_are_kept_without_touching_the_disk() {
+    // "server" does not exist; a real lookup would fail or hang, so these
+    // passing shows the file system was never asked.
+    assert!(is_file(r"\\server\share\app.exe"));
+    assert!(is_file("//server/share/app.exe"));
+    assert_eq!(check("App", r"\\server\share\app.exe", is_file), Ok(()));
+    assert_eq!(check("App", "//server/share/app.exe", is_file), Ok(()));
+    let dir = tempfile::tempdir().unwrap();
+    let absent = dir.path().join("gone.exe");
+    assert!(!is_file(absent.to_str().unwrap()));
+}
+
+#[test]
 fn file_check_runs_last_and_gets_the_target() {
     let mut called = false;
     let outcome = check("Uninstall", APP, |_| {

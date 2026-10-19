@@ -84,8 +84,13 @@ pub fn check(
 }
 
 /// True when `target` is an existing file on disk (not a folder), the
-/// predicate the scanner passes to [`check`].
+/// predicate the scanner passes to [`check`]. A network (UNC) path such as
+/// `\\server\share\app.exe` or `//server/share/app.exe` is trusted without
+/// being checked, so a scan never waits on the network.
 pub fn is_file(target: &str) -> bool {
+    if target.starts_with(r"\\") || target.starts_with("//") {
+        return true;
+    }
     Path::new(target).is_file()
 }
 

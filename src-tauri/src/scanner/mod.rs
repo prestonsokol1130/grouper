@@ -29,8 +29,9 @@ const SCAN_THREAD: &str = "app-scan";
 pub struct ScanOutcome {
     /// One entry per app found, with `lnk_path` set.
     pub apps: Vec<AppEntry>,
-    /// True only when both Start Menu folders were found and read in full.
-    /// A partial scan must never mark saved apps as missing.
+    /// True only when both Start Menu folders were found and read in full
+    /// and every shortcut in them could be read. A partial scan must never
+    /// mark saved apps as missing.
     pub complete: bool,
     /// Shortcuts that exist but could not be read. Saved apps that came from
     /// one of these are not marked missing.
@@ -56,13 +57,14 @@ pub fn scan() -> Result<ScanOutcome, String> {
 fn scan_on_this_thread() -> Result<ScanOutcome, String> {
     let _com = ComGuard::new()?;
     let roots = roots::scan_roots()?;
-    let mut complete = roots.len() == roots::ROOT_COUNT;
+    let roots_found = roots.len();
+    let mut walks_complete = true;
     let (mut shortcuts, mut rejected) = (0_usize, 0_usize);
     let mut candidates = Vec::new();
     let mut unreadable = Vec::new();
     for root in roots {
         let walked = walk::find_shortcuts(&root.path);
-        complete &= walked.complete;
+        walks_complete &= walked.complete;
         for lnk in walked.shortcuts {
             shortcuts += 1;
             match read_candidate(&lnk, root.per_user) {
@@ -75,6 +77,7 @@ fn scan_on_this_thread() -> Result<ScanOutcome, String> {
             }
         }
     }
+    let complete = is_complete(roots_found, walks_complete, unreadable.len());
     let apps = dedupe::dedupe(candidates);
     log::info!(
         "app scan: {} apps from {shortcuts} shortcuts ({rejected} rejected, {} unreadable)",
@@ -89,6 +92,12 @@ fn scan_on_this_thread() -> Result<ScanOutcome, String> {
         complete,
         unreadable,
     })
+}
+
+/// A scan is complete only when every Start Menu folder was found, every
+/// walk read its whole tree, and no shortcut failed to read.
+fn is_complete(roots_found: usize, walks_complete: bool, unreadable: usize) -> bool {
+    roots_found == roots::ROOT_COUNT && walks_complete && unreadable == 0
 }
 
 /// Reads one shortcut. `Ok(None)` means it was read but is not an app (the
@@ -113,13 +122,27 @@ fn read_candidate(lnk: &Path, per_user: bool) -> Result<Option<Candidate>, Strin
     }))
 }
 
-#[cfg(all(test, windows))]
+#[cfg(test)]
 mod tests {
-    use super::scan;
+    use super::{is_complete, roots::ROOT_COUNT};
+
+    #[test]
+    fn only_a_full_clean_scan_is_complete() {
+        assert!(is_complete(ROOT_COUNT, true, 0));
+        // One Start Menu folder could not be found.
+        assert!(!is_complete(ROOT_COUNT - 1, true, 0));
+        // Part of a folder tree could not be read.
+        assert!(!is_complete(ROOT_COUNT, false, 0));
+        // One shortcut could not be read.
+        assert!(!is_complete(ROOT_COUNT, true, 1));
+    }
 
     /// Every Windows install (CI included) has Start Menu apps.
+    #[cfg(windows)]
     #[test]
     fn scan_finds_apps() {
+        use super::scan;
+
         let outcome = scan().unwrap();
         assert!(!outcome.apps.is_empty());
         for app in &outcome.apps {
