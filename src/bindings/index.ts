@@ -33,6 +33,34 @@ export const commands = {
 	 *  are `{appId}.png` in it and the fallback icon is `_fallback.png`.
 	 */
 	getCacheDir: () => typedError<string, string>(__TAURI_INVOKE("get_cache_dir")),
+	/**
+	 *  Launches app `app_id` through its shortcut (or its target when the
+	 *  shortcut is gone). An app with neither on disk is marked missing and
+	 *  the error is `App not found: <name>`.
+	 */
+	launchApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_app", { appId })),
+	/**
+	 *  Launches every app of group `group_id` in order, 150 ms apart, and
+	 *  reports how many started and which (by name) could not.
+	 */
+	launchGroup: (groupId: string) => typedError<LaunchSummary, string>(__TAURI_INVOKE("launch_group", { groupId })),
+	/**
+	 *  Opens the native file dialog (Programs: `.exe`, `.lnk`, several at
+	 *  once) over the calling window and adds the picked programs. Returns
+	 *  their entries; an empty list, with nothing changed, when the dialog was
+	 *  cancelled.
+	 */
+	pickAndAddApps: () => typedError<AppEntry[], string>(__TAURI_INVOKE("pick_and_add_apps")),
+	/**
+	 *  Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry,
+	 *  or the existing entry when that app is already in the list.
+	 */
+	addAppFromPath: (path: string) => typedError<AppEntry, string>(__TAURI_INVOKE("add_app_from_path", { path })),
+	/**
+	 *  Removes app `app_id`: a Manual app is deleted from the list, its groups
+	 *  and the Launchpad; a Start Menu app is hidden instead.
+	 */
+	removeApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("remove_app", { appId })),
 };
 
 /* Types */
@@ -77,6 +105,14 @@ export type Group = {
 	appIds?: string[],
 	/**  Bumped whenever the group's composite icon must be rebuilt. */
 	iconVersion?: number,
+};
+
+/**  What a group launch did. */
+export type LaunchSummary = {
+	/**  How many apps were started (u32: the bindings refuse 64-bit ints). */
+	launched: number,
+	/**  Names of the apps that could not be started, in group order. */
+	failed: string[],
 };
 
 /**  One cell on a Launchpad page. */
