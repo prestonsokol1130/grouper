@@ -1,0 +1,8 @@
+# Spell checker config for `typos` (https://github.com/crate-ci/typos).
+
+[files]
+extend-exclude = ["pnpm-lock.yaml", "src-tauri/Cargo.lock", "src-tauri/icons/"]
+
+[default.extend-identifiers]
+# "PNGs" is the plural of PNG, not a misspelling of "ONs".
+PNGs = "PNGs"
