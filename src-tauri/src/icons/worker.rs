@@ -5,11 +5,13 @@
 //! function on one app at a time; when every app of a batch is done, the
 //! batch's `on_done` gets the ids that `process` reported.
 
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 
+use crate::logging::panic_message;
 use crate::state::AppEntry;
 use crate::util::spawn::{spawn_logged, ThreadOutcome};
 use crate::win32::com::ComGuard;
@@ -162,7 +164,14 @@ fn run_thread(receiver: &Mutex<Receiver<Job>>, process: &Process, stopping: &Ato
             job.batch.finish_one(None, false);
             continue;
         }
-        let id = process(&job.app);
+        // A panicking job counts as not written, and the batch still finishes.
+        // Release builds use panic = "abort", so this only helps in debug and
+        // test builds.
+        let id = catch_unwind(AssertUnwindSafe(|| process(&job.app))).unwrap_or_else(|payload| {
+            let message = panic_message(payload.as_ref());
+            log::error!("icon job for app {} panicked: {message}", job.app.id);
+            None
+        });
         job.batch.finish_one(id, !stopping.load(Ordering::SeqCst));
     }
 }

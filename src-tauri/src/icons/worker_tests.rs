@@ -104,3 +104,36 @@ fn shutdown_ends_the_threads_and_refuses_new_work() {
     }
     assert!(worker.queue(apps(&["late"]), |_| {}).is_err());
 }
+
+#[test]
+fn a_panicking_job_does_not_stop_its_batch_or_the_pool() {
+    let process: Process = Arc::new(|app: &AppEntry| {
+        if app.id == "boom" {
+            panic!("bad icon");
+        }
+        Some(app.id.clone())
+    });
+    let worker = IconWorker::start(THREADS, process).unwrap();
+    let (done, reported) = mpsc::channel();
+    let second = done.clone();
+    worker
+        .queue(apps(&["a", "boom", "b"]), move |ids| {
+            done.send(ids).unwrap()
+        })
+        .unwrap();
+    let mut first = reported.recv_timeout(Duration::from_secs(10)).unwrap();
+    first.sort();
+    assert_eq!(first, vec!["a", "b"]);
+
+    // The pool still takes a second batch, and no thread has died.
+    let ids = ["c", "d", "e", "f", "g", "h"];
+    worker
+        .queue(apps(&ids), move |ids| second.send(ids).unwrap())
+        .unwrap();
+    let mut next = reported.recv_timeout(Duration::from_secs(10)).unwrap();
+    next.sort();
+    assert_eq!(next, ids);
+    for handle in worker.shutdown() {
+        assert_eq!(handle.join().unwrap(), ThreadOutcome::Completed);
+    }
+}
