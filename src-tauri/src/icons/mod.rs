@@ -1,1 +1,28 @@
-//! Reserved for icon extraction and composite group icons.
+//! App icons: extraction through the Windows Shell ([`extract`]), with a
+//! generic fallback icon ([`fallback`]) when extraction fails.
+
+pub mod extract;
+pub mod fallback;
+pub mod pixels;
+
+#[cfg(all(test, windows))]
+mod extract_tests;
+
+use std::path::Path;
+
+use image::RgbaImage;
+
+/// Largest icon size, in pixels per side, that can be asked for.
+pub const MAX_ICON_SIZE: u32 = 1024;
+
+/// Extracts the icon at `path` as a `size` x `size` image, or returns the
+/// fallback icon if extraction fails (the failure is logged).
+///
+/// Like [`extract::extract_icon`], the caller's thread must hold a live
+/// [`ComGuard`](crate::win32::com::ComGuard).
+pub fn icon_or_fallback(path: &Path, size: u32) -> RgbaImage {
+    extract::extract_icon(path, size).unwrap_or_else(|error| {
+        log::warn!("using the fallback icon: {error}");
+        fallback::fallback_icon(size)
+    })
+}
