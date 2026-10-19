@@ -9,6 +9,8 @@ pub mod pixels;
 pub mod worker;
 
 #[cfg(test)]
+mod cache_lnk_tests;
+#[cfg(test)]
 mod cache_tests;
 #[cfg(all(test, windows))]
 mod extract_tests;

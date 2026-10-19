@@ -13,20 +13,20 @@ use crate::state::AppEntry;
 
 /// A fake extractor that records every path it is asked for and returns a
 /// solid image of `colour` (or `Err` when `colour` is None).
-struct Fake {
-    calls: RefCell<Vec<PathBuf>>,
+pub(super) struct Fake {
+    pub(super) calls: RefCell<Vec<PathBuf>>,
     colour: Option<[u8; 4]>,
 }
 
 impl Fake {
-    fn new(colour: Option<[u8; 4]>) -> Self {
+    pub(super) fn new(colour: Option<[u8; 4]>) -> Self {
         Self {
             calls: RefCell::new(Vec::new()),
             colour,
         }
     }
 
-    fn run(&self, app: &AppEntry, dir: &Path) -> Result<Ensured, String> {
+    pub(super) fn run(&self, app: &AppEntry, dir: &Path) -> Result<Ensured, String> {
         let extract = |path: &Path, size: u32| {
             self.calls.borrow_mut().push(path.to_path_buf());
             self.colour
@@ -39,7 +39,7 @@ impl Fake {
 }
 
 /// An app whose target is a real file in `dir`, with mtime `target_at`.
-fn app_with_target(dir: &Path, target_at: SystemTime) -> AppEntry {
+pub(super) fn app_with_target(dir: &Path, target_at: SystemTime) -> AppEntry {
     let target = dir.join("app.exe");
     let file = File::create(&target).unwrap();
     file.set_modified(target_at).unwrap();
@@ -51,7 +51,7 @@ fn app_with_target(dir: &Path, target_at: SystemTime) -> AppEntry {
     }
 }
 
-fn set_mtime(path: &Path, at: SystemTime) {
+pub(super) fn set_mtime(path: &Path, at: SystemTime) {
     File::options()
         .write(true)
         .open(path)
@@ -60,14 +60,14 @@ fn set_mtime(path: &Path, at: SystemTime) {
         .unwrap();
 }
 
-fn pixel(path: &Path) -> [u8; 4] {
+pub(super) fn pixel(path: &Path) -> [u8; 4] {
     let image = image::open(path).unwrap().into_rgba8();
     assert_eq!(image.dimensions(), (ICON_SIZE, ICON_SIZE));
     image.get_pixel(0, 0).0
 }
 
-const RED: [u8; 4] = [255, 0, 0, 255];
-const BLUE: [u8; 4] = [0, 0, 255, 255];
+pub(super) const RED: [u8; 4] = [255, 0, 0, 255];
+pub(super) const BLUE: [u8; 4] = [0, 0, 255, 255];
 
 #[test]
 fn icon_path_is_app_id_png_in_the_cache_dir() {
@@ -120,42 +120,6 @@ fn a_stale_cache_file_is_rewritten() {
         .map(|e| e.unwrap().file_name())
         .collect();
     assert_eq!(names.len(), 2, "{names:?}");
-}
-
-#[test]
-fn the_lnk_is_preferred_over_the_target() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with_target(dir.path(), SystemTime::now());
-    let fake = Fake::new(Some(RED));
-    fake.run(&app, dir.path()).unwrap();
-    app.lnk_path = Some(r"C:\Start Menu\Test.lnk".into());
-    set_mtime(&icon_path(dir.path(), &app.id), SystemTime::UNIX_EPOCH);
-    fake.run(&app, dir.path()).unwrap();
-    let calls = fake.calls.borrow();
-    assert_eq!(calls[0], Path::new(&app.target));
-    assert_eq!(calls[1], Path::new(r"C:\Start Menu\Test.lnk"));
-    assert_eq!(calls.len(), 2);
-}
-
-#[test]
-fn a_failed_lnk_falls_back_to_the_target() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with_target(dir.path(), SystemTime::now());
-    app.lnk_path = Some(r"C:\Start Menu\Deleted.lnk".into());
-    let calls = RefCell::new(Vec::new());
-    let extract = |path: &Path, size: u32| {
-        calls.borrow_mut().push(path.to_path_buf());
-        if path.extension().is_some_and(|ext| ext == "lnk") {
-            Err("no such shortcut".to_owned())
-        } else {
-            Ok(RgbaImage::from_pixel(size, size, Rgba(BLUE)))
-        }
-    };
-    let png = icon_path(dir.path(), &app.id);
-    let ensured = ensure_icon_with(&app, dir.path(), &extract);
-    assert_eq!(ensured, Ok(Ensured::Written(png.clone())));
-    assert_eq!(pixel(&png), BLUE);
-    assert_eq!(calls.borrow()[1], Path::new(&app.target));
 }
 
 #[test]

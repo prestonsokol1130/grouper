@@ -66,7 +66,8 @@ pub fn ensure_icon(app: &AppEntry, cache_dir: &Path) -> Result<PathBuf, String> 
 
 /// Like [`ensure_icon`], with the extractor passed in.
 ///
-/// - A cached PNG is reused when it is newer than the target's mtime. When
+/// - A cached PNG is reused when it is newer than the target's mtime and,
+///   when `lnk_path` is a regular file, the shortcut's mtime too. When
 ///   the target's mtime cannot be read (the target is missing), a cached PNG
 ///   is reused as it is the best icon left; with no cached PNG the fallback
 ///   is used and nothing is extracted.
@@ -87,15 +88,23 @@ pub fn ensure_icon_with(
     let cached = icon_path(cache_dir, &app.id);
     let target = Path::new(&app.target);
     let target_mtime = fs::metadata(target).and_then(|meta| meta.modified()).ok();
+    let lnk = app.lnk_path.as_deref().filter(|lnk| !lnk.is_empty());
     if let Some(cached_at) = regular_file_mtime(&cached) {
-        if target_mtime.is_none_or(|target_at| cached_at > target_at) {
+        let fresh = match target_mtime {
+            // The target is missing: the cached PNG is the best icon left.
+            None => true,
+            Some(target_at) => {
+                let lnk_mtime = lnk.and_then(|lnk| regular_file_mtime(Path::new(lnk)));
+                cached_at > target_at && lnk_mtime.is_none_or(|lnk_at| cached_at > lnk_at)
+            }
+        };
+        if fresh {
             return Ok(Ensured::Fresh(cached));
         }
     }
     if target_mtime.is_none() {
         return ensure_fallback(cache_dir).map(Ensured::Fallback);
     }
-    let lnk = app.lnk_path.as_deref().filter(|lnk| !lnk.is_empty());
     let extracted = match lnk {
         Some(lnk) => extract(Path::new(lnk), ICON_SIZE).or_else(|lnk_error| {
             extract(target, ICON_SIZE).map_err(|e| format!("{lnk_error}; then the target: {e}"))
