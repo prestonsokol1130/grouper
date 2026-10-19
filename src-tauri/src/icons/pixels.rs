@@ -8,7 +8,7 @@ use super::MAX_ICON_SIZE;
 
 /// Swaps the blue and red bytes of every 4-byte pixel: BGRA becomes RGBA.
 pub fn bgra_to_rgba(buf: &mut [u8]) {
-    for px in buf.chunks_exact_mut(4) {
+    for px in buf.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
     }
 }
@@ -21,15 +21,34 @@ pub fn bgra_to_rgba(buf: &mut [u8]) {
 ///   (clamped to 255) where `0 < a < 255`. Pixels with alpha 0 or 255 are
 ///   left as they are.
 pub fn straighten_alpha(buf: &mut [u8]) {
-    if buf.chunks_exact(4).all(|px| px[3] == 0) {
-        if buf.chunks_exact(4).any(|px| px[..3] != [0, 0, 0]) {
-            for px in buf.chunks_exact_mut(4) {
+    let pixels = buf.as_chunks_mut::<4>().0;
+    if pixels.iter().all(|px| px[3] == 0) {
+        if pixels.iter().any(|px| px[..3] != [0, 0, 0]) {
+            for px in pixels {
                 px[3] = u8::MAX;
             }
         }
         return;
     }
-    for px in buf.chunks_exact_mut(4) {
+    unpremultiply(buf);
+}
+
+/// Multiplies each colour channel by its pixel's alpha: `c * a / 255`.
+fn premultiply(buf: &mut [u8]) {
+    for px in buf.as_chunks_mut::<4>().0 {
+        let alpha = u16::from(px[3]);
+        for channel in &mut px[..3] {
+            // c and a are both at most 255, so the result is too.
+            let premultiplied = u16::from(*channel) * alpha / 255;
+            *channel = u8::try_from(premultiplied).unwrap_or(u8::MAX);
+        }
+    }
+}
+
+/// Divides each colour channel by its pixel's alpha: `c * 255 / a`, clamped
+/// to 255, only where `0 < a < 255`.
+fn unpremultiply(buf: &mut [u8]) {
+    for px in buf.as_chunks_mut::<4>().0 {
         let alpha = u16::from(px[3]);
         if alpha == 0 || alpha == 255 {
             continue;
@@ -45,9 +64,13 @@ pub fn straighten_alpha(buf: &mut [u8]) {
 /// scaled with Lanczos3 so its longer side is `size`, keeping its aspect
 /// ratio, and centred on a transparent canvas.
 ///
+/// The scaling runs on premultiplied pixels (Lanczos3 assumes them), so
+/// transparent pixels do not darken the edges; the result is straight
+/// alpha again.
+///
 /// `size` is capped at [`MAX_ICON_SIZE`]. An image with no pixels gives a
 /// fully transparent result.
-pub fn fit_square(image: RgbaImage, size: u32) -> RgbaImage {
+pub fn fit_square(mut image: RgbaImage, size: u32) -> RgbaImage {
     let size = size.min(MAX_ICON_SIZE);
     let (width, height) = image.dimensions();
     if (width, height) == (size, size) {
@@ -62,7 +85,9 @@ pub fn fit_square(image: RgbaImage, size: u32) -> RgbaImage {
     } else {
         (scale(width, size, height), size)
     };
-    let resized = imageops::resize(&image, new_width, new_height, FilterType::Lanczos3);
+    premultiply(&mut image);
+    let mut resized = imageops::resize(&image, new_width, new_height, FilterType::Lanczos3);
+    unpremultiply(&mut resized);
     let x = i64::from((size - new_width) / 2);
     let y = i64::from((size - new_height) / 2);
     imageops::replace(&mut canvas, &resized, x, y);
@@ -80,9 +105,10 @@ fn scale(value: u32, to: u32, from: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use image::imageops::{self, FilterType};
     use image::{Rgba, RgbaImage};
 
-    use super::{bgra_to_rgba, fit_square, straighten_alpha};
+    use super::{bgra_to_rgba, fit_square, premultiply, straighten_alpha, unpremultiply};
 
     #[test]
     fn swaps_blue_and_red() {
@@ -136,6 +162,26 @@ mod tests {
         assert_eq!(fitted.get_pixel(16, 16)[3], 255);
         assert_eq!(fitted.get_pixel(16, 0)[3], 0);
         assert_eq!(fitted.get_pixel(16, 31)[3], 0);
+    }
+
+    #[test]
+    fn resizing_runs_on_premultiplied_pixels() {
+        // Left half opaque red, right half transparent black.
+        let red = Rgba([255, 0, 0, 255]);
+        let clear = Rgba([0, 0, 0, 0]);
+        let image = RgbaImage::from_fn(8, 8, |x, _| if x < 4 { red } else { clear });
+
+        let mut expected = image.clone();
+        premultiply(&mut expected);
+        let mut expected = imageops::resize(&expected, 5, 5, FilterType::Lanczos3);
+        unpremultiply(&mut expected);
+
+        let fitted = fit_square(image, 5);
+        assert_eq!(fitted, expected);
+        // The edge is partly transparent, but stays pure red: no dark fringe.
+        assert!(fitted.pixels().any(|p| p[3] > 0 && p[3] < 255));
+        let mut visible = fitted.pixels().filter(|p| p[3] > 0);
+        assert!(visible.all(|p| p.0[..3] == [255, 0, 0]));
     }
 
     #[test]
