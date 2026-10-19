@@ -21,6 +21,9 @@ use tauri::{Manager, RunEvent};
 pub fn run() {
     logging::install_panic_hook();
     if let Err(error) = start() {
+        // stderr too: a failure before the log plugin starts has no logger.
+        eprintln!("grouper: startup failed: {error}");
+        let _ = std::io::Write::flush(&mut std::io::stderr());
         log::error!("grouper: startup failed: {error}");
         std::process::exit(1);
     }
@@ -44,7 +47,10 @@ fn start() -> Result<(), String> {
                 Err(error) => log::warn!("could not resolve log dir: {error}"),
             }
             tray::create(handle)?;
-            let args: Vec<String> = std::env::args().collect();
+            // args_os: std::env::args panics on non-Unicode arguments.
+            let args: Vec<String> = std::env::args_os()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect();
             router::route(handle, cli::parse_args(&args));
             Ok(())
         })
