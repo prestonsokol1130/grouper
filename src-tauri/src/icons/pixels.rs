@@ -6,8 +6,23 @@ use image::RgbaImage;
 
 use super::MAX_ICON_SIZE;
 
+/// Turns the premultiplied 32-bit BGRA pixels read from GDI into
+/// straight-alpha RGBA, in place (see [`straighten_alpha`] for the alpha
+/// rules).
+///
+/// Returns `Err` for a fully blank bitmap (every byte zero), so the caller
+/// can use a fallback icon instead.
+pub fn gdi_to_rgba(buf: &mut [u8]) -> Result<(), String> {
+    bgra_to_rgba(buf);
+    straighten_alpha(buf);
+    if buf.iter().all(|&byte| byte == 0) {
+        return Err("shell returned a blank icon".to_owned());
+    }
+    Ok(())
+}
+
 /// Swaps the blue and red bytes of every 4-byte pixel: BGRA becomes RGBA.
-pub fn bgra_to_rgba(buf: &mut [u8]) {
+fn bgra_to_rgba(buf: &mut [u8]) {
     for px in buf.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
     }
@@ -20,7 +35,7 @@ pub fn bgra_to_rgba(buf: &mut [u8]) {
 /// - Otherwise each colour channel is un-premultiplied as `c * 255 / a`
 ///   (clamped to 255) where `0 < a < 255`. Pixels with alpha 0 or 255 are
 ///   left as they are.
-pub fn straighten_alpha(buf: &mut [u8]) {
+fn straighten_alpha(buf: &mut [u8]) {
     let pixels = buf.as_chunks_mut::<4>().0;
     if pixels.iter().all(|px| px[3] == 0) {
         if pixels.iter().any(|px| px[..3] != [0, 0, 0]) {
@@ -30,12 +45,12 @@ pub fn straighten_alpha(buf: &mut [u8]) {
         }
         return;
     }
-    unpremultiply(buf);
+    unpremultiply(pixels);
 }
 
 /// Multiplies each colour channel by its pixel's alpha: `c * a / 255`.
-fn premultiply(buf: &mut [u8]) {
-    for px in buf.as_chunks_mut::<4>().0 {
+fn premultiply(pixels: &mut [[u8; 4]]) {
+    for px in pixels {
         let alpha = u16::from(px[3]);
         for channel in &mut px[..3] {
             // c and a are both at most 255, so the result is too.
@@ -47,8 +62,8 @@ fn premultiply(buf: &mut [u8]) {
 
 /// Divides each colour channel by its pixel's alpha: `c * 255 / a`, clamped
 /// to 255, only where `0 < a < 255`.
-fn unpremultiply(buf: &mut [u8]) {
-    for px in buf.as_chunks_mut::<4>().0 {
+fn unpremultiply(pixels: &mut [[u8; 4]]) {
+    for px in pixels {
         let alpha = u16::from(px[3]);
         if alpha == 0 || alpha == 255 {
             continue;
@@ -85,9 +100,9 @@ pub fn fit_square(mut image: RgbaImage, size: u32) -> RgbaImage {
     } else {
         (scale(width, size, height), size)
     };
-    premultiply(&mut image);
+    premultiply(image.as_chunks_mut::<4>().0);
     let mut resized = imageops::resize(&image, new_width, new_height, FilterType::Lanczos3);
-    unpremultiply(&mut resized);
+    unpremultiply(resized.as_chunks_mut::<4>().0);
     let x = i64::from((size - new_width) / 2);
     let y = i64::from((size - new_height) / 2);
     imageops::replace(&mut canvas, &resized, x, y);
@@ -108,7 +123,33 @@ mod tests {
     use image::imageops::{self, FilterType};
     use image::{Rgba, RgbaImage};
 
-    use super::{bgra_to_rgba, fit_square, premultiply, straighten_alpha, unpremultiply};
+    use super::{
+        bgra_to_rgba, fit_square, gdi_to_rgba, premultiply, straighten_alpha, unpremultiply,
+    };
+
+    #[test]
+    fn gdi_pixels_become_straight_rgba() {
+        // BGRA, premultiplied: B 0, G 32, R 64, A 128; then transparent.
+        let mut buf = vec![0, 32, 64, 128, 0, 0, 0, 0];
+        gdi_to_rgba(&mut buf).unwrap();
+        assert_eq!(buf, vec![127, 63, 0, 128, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn gdi_colour_without_alpha_is_not_blank() {
+        let mut buf = vec![9, 8, 7, 0, 0, 0, 0, 0];
+        gdi_to_rgba(&mut buf).unwrap();
+        assert_eq!(buf, vec![7, 8, 9, 255, 0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn blank_gdi_bitmap_is_an_error() {
+        let mut buf = vec![0; 16];
+        assert_eq!(
+            gdi_to_rgba(&mut buf),
+            Err("shell returned a blank icon".to_owned())
+        );
+    }
 
     #[test]
     fn swaps_blue_and_red() {
@@ -172,9 +213,9 @@ mod tests {
         let image = RgbaImage::from_fn(8, 8, |x, _| if x < 4 { red } else { clear });
 
         let mut expected = image.clone();
-        premultiply(&mut expected);
+        premultiply(expected.as_chunks_mut::<4>().0);
         let mut expected = imageops::resize(&expected, 5, 5, FilterType::Lanczos3);
-        unpremultiply(&mut expected);
+        unpremultiply(expected.as_chunks_mut::<4>().0);
 
         let fitted = fit_square(image, 5);
         assert_eq!(fitted, expected);

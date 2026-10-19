@@ -23,8 +23,8 @@ use image::RgbaImage;
 ///
 /// Returns `Err` if `size` is 0 or above
 /// [`MAX_ICON_SIZE`](super::MAX_ICON_SIZE), if the item cannot be found, or
-/// if the Shell gives no usable bitmap. On non-Windows platforms it always
-/// returns `Err("unsupported platform")`.
+/// if the Shell gives no usable bitmap, including a fully blank one. On
+/// non-Windows platforms it always returns `Err("unsupported platform")`.
 pub fn extract_icon(path: &Path, size: u32) -> Result<RgbaImage, String> {
     if size == 0 || size > super::MAX_ICON_SIZE {
         return Err(format!(
@@ -51,7 +51,7 @@ mod imp {
         SIIGBF_ICONONLY,
     };
 
-    use crate::icons::pixels::{bgra_to_rgba, fit_square, straighten_alpha};
+    use crate::icons::pixels::{fit_square, gdi_to_rgba};
     use crate::win32::gdi::{OwnedDC, OwnedHBitmap};
 
     /// Largest bitmap side accepted from the Shell. With
@@ -70,8 +70,7 @@ mod imp {
         // The pixels are copied out, so free the bitmap now.
         drop(bitmap);
 
-        bgra_to_rgba(&mut buf);
-        straighten_alpha(&mut buf);
+        gdi_to_rgba(&mut buf).map_err(|e| format!("icon of {shown}: {e}"))?;
         let image = RgbaImage::from_raw(width, height, buf)
             .ok_or_else(|| format!("icon of {shown}: pixel buffer has the wrong length"))?;
         Ok(fit_square(image, size))
