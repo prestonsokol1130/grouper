@@ -80,12 +80,14 @@ mod imp {
             unsafe { link.GetPath(buf, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32) }
         })
         .map_err(|e| format!("read target of {shown}: {e}"))?;
-        // SAFETY (all three): buf is a valid, writable buffer.
+        // SAFETY: buf is a valid, writable buffer.
         let args = read_string(|buf| unsafe { link.GetArguments(buf) })
             .map_err(|e| format!("read arguments of {shown}: {e}"))?;
+        // SAFETY: buf is a valid, writable buffer.
         let working_dir = read_string(|buf| unsafe { link.GetWorkingDirectory(buf) })
             .map_err(|e| format!("read working directory of {shown}: {e}"))?;
         let mut icon_index = 0i32;
+        // SAFETY: buf is a valid, writable buffer; icon_index is a live i32.
         let icon_path = read_string(|buf| unsafe { link.GetIconLocation(buf, &mut icon_index) })
             .map_err(|e| format!("read icon location of {shown}: {e}"))?;
 

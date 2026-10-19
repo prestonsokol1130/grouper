@@ -27,11 +27,15 @@ fn write_lnk_to(
     working_dir: &str,
     icon: Option<(&str, i32)>,
 ) {
+    // SAFETY: the caller holds a ComGuard, so COM is initialised on this
+    // thread.
     let link: IShellLinkW =
         unsafe { CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER) }.unwrap();
     let notepad = to_wide(target);
     let args = to_wide(args);
     let working_dir = to_wide(working_dir);
+    // SAFETY: SetPath, SetArguments and SetWorkingDirectory each get a
+    // NUL-terminated wide buffer that outlives the call.
     unsafe {
         link.SetPath(PCWSTR(notepad.as_ptr())).unwrap();
         link.SetArguments(PCWSTR(args.as_ptr())).unwrap();
@@ -40,10 +44,13 @@ fn write_lnk_to(
     }
     if let Some((icon_path, index)) = icon {
         let icon_path = to_wide(icon_path);
+        // SAFETY: icon_path is NUL-terminated and outlives the call.
         unsafe { link.SetIconLocation(PCWSTR(icon_path.as_ptr()), index) }.unwrap();
     }
     let file: IPersistFile = link.cast().unwrap();
     let lnk_wide = to_wide(lnk.to_str().unwrap());
+    // SAFETY: lnk_wide is NUL-terminated and outlives the call; fRemember
+    // TRUE only makes the saved file the link's current file.
     unsafe { file.Save(PCWSTR(lnk_wide.as_ptr()), true) }.unwrap();
 }
 
