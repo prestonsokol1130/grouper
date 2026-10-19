@@ -52,6 +52,15 @@ fn start() -> Result<(), String> {
             }
             let store = open_store(handle)?;
             app.manage(Arc::clone(&store));
+            // Icons are cached in the background; a failure only leaves
+            // them uncached.
+            match commands::icon_cmds::start_icon_worker(handle) {
+                Ok(worker) => {
+                    app.manage(worker);
+                    commands::icon_cmds::queue_icons(handle, store.snapshot().apps);
+                }
+                Err(error) => log::error!("could not start the icon worker: {error}"),
+            }
             // A failed first scan is logged; the app still starts.
             if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
                 log::error!("could not start the first app scan: {error}");
@@ -74,6 +83,7 @@ fn start() -> Result<(), String> {
             code: None, api, ..
         } => api.prevent_exit(),
         RunEvent::Exit => {
+            commands::icon_cmds::stop_icon_worker(app);
             if let Some(store) = app.try_state::<Arc<state::Store>>() {
                 if let Err(error) = store.shutdown() {
                     log::error!("saving app state on exit failed: {error}");

@@ -1,12 +1,21 @@
 //! App icons: extraction through the Windows Shell ([`extract`]), with a
-//! generic fallback icon ([`fallback`]) when extraction fails.
+//! generic fallback icon ([`fallback`]) when extraction fails, a PNG cache on
+//! disk ([`cache`]) and the background pool that fills it ([`worker`]).
 
+pub mod cache;
 pub mod extract;
 pub mod fallback;
 pub mod pixels;
+pub mod worker;
 
+#[cfg(test)]
+mod cache_lnk_tests;
+#[cfg(test)]
+mod cache_tests;
 #[cfg(all(test, windows))]
 mod extract_tests;
+#[cfg(test)]
+mod worker_tests;
 
 use std::path::Path;
 

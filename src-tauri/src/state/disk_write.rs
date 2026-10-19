@@ -9,7 +9,7 @@ use super::model::AppState;
 
 /// Errors if `path` exists and is a symlink: writes must never follow a
 /// link out of the app data folder.
-fn reject_symlink(path: &Path) -> Result<(), String> {
+pub(crate) fn reject_symlink(path: &Path) -> Result<(), String> {
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_symlink() => Err(format!(
             "refusing to write through symlink {}",
@@ -34,7 +34,7 @@ fn create_fresh(path: &Path) -> Result<File, String> {
 }
 
 /// Writes `bytes` to a fresh file at `path`, then flushes and syncs it.
-fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let mut file = create_fresh(path)?;
     file.write_all(bytes)
         .map_err(|e| format!("write {}: {e}", path.display()))?;
@@ -45,7 +45,7 @@ fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 /// Removes a temp file after a failed write; only logs if that fails too.
-fn discard(path: &Path) {
+pub(crate) fn discard(path: &Path) {
     let is_file = fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file());
     if is_file {
         if let Err(error) = fs::remove_file(path) {

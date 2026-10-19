@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { iconUrl, initIconUrls } from "./lib/iconUrl";
 import { installErrorForwarding } from "./logging";
 import "./styles.css";
 import { FlyoutRoot } from "./windows/FlyoutRoot";
@@ -24,6 +25,14 @@ function WindowRoot() {
 }
 
 installErrorForwarding(readWindowLabel());
+// Preload the fallback icon so it is warm for the first UI. The Image is
+// never attached to the DOM, so nothing is shown.
+initIconUrls()
+  .then(() => {
+    const fallback = iconUrl("_fallback");
+    if (fallback !== null) new Image().src = fallback;
+  })
+  .catch((error: unknown) => console.error("icon URLs:", error));
 
 const root = document.getElementById("root");
 if (root) {

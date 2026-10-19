@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use tauri::{AppHandle, State};
 
+use super::icon_cmds::queue_icons;
 use super::state_cmds::emit_state_changed;
 use crate::scanner::{self, merge::merge_scan, ScanOutcome};
 use crate::state::Store;
@@ -28,8 +29,8 @@ fn scan_and_apply(app: &AppHandle, store: &Store) -> Result<u32, String> {
     apply_scan(app, store, scan)
 }
 
-/// Merges `scan` into the store and emits `state:changed`. Returns how many
-/// apps the scan found.
+/// Merges `scan` into the store, emits `state:changed` and queues the apps
+/// for the icon cache. Returns how many apps the scan found.
 fn apply_scan(app: &AppHandle, store: &Store, scan: ScanOutcome) -> Result<u32, String> {
     // u32, not usize: the TypeScript bindings refuse 64-bit integers.
     let found = u32::try_from(scan.apps.len()).unwrap_or(u32::MAX);
@@ -43,6 +44,7 @@ fn apply_scan(app: &AppHandle, store: &Store, scan: ScanOutcome) -> Result<u32, 
         summary.updated,
         summary.missing
     );
+    queue_icons(app, store.snapshot().apps);
     Ok(found)
 }
 
