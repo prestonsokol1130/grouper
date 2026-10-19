@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { initIconUrls } from "./lib/iconUrl";
 import { installErrorForwarding } from "./logging";
 import "./styles.css";
 import { FlyoutRoot } from "./windows/FlyoutRoot";
@@ -24,6 +25,7 @@ function WindowRoot() {
 }
 
 installErrorForwarding(readWindowLabel());
+initIconUrls().catch((error: unknown) => console.error("icon URLs:", error));
 
 const root = document.getElementById("root");
 if (root) {

@@ -28,6 +28,11 @@ export const commands = {
 	 *  returns how many apps were found.
 	 */
 	rescanApps: () => typedError<number, string>(__TAURI_INVOKE("rescan_apps")),
+	/**
+	 *  Returns the icon cache folder, `{app_data_dir}/cache/icons`. App icons
+	 *  are `{appId}.png` in it and the fallback icon is `_fallback.png`.
+	 */
+	getCacheDir: () => typedError<string, string>(__TAURI_INVOKE("get_cache_dir")),
 };
 
 /* Types */
