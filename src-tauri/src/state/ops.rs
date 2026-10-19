@@ -25,7 +25,11 @@ impl AppState {
         let index = self.apps.iter().position(|app| app.id == id)?;
         let removed = self.apps.remove(index);
         for group in &mut self.groups {
+            let before = group.app_ids.len();
             group.app_ids.retain(|app_id| app_id != id);
+            if group.app_ids.len() < before {
+                group.icon_version = group.icon_version.wrapping_add(1);
+            }
         }
         for page in &mut self.launchpad.pages {
             page.retain(|item| !matches!(item, LaunchpadItem::App { app_id } if app_id == id));
@@ -69,8 +73,23 @@ impl AppState {
         Some(removed)
     }
 
-    /// Drops dangling and duplicate ids from groups and the Launchpad.
-    /// Returns how many references were removed.
+    /// Sets group `id`'s apps, dropping unknown and repeated ids (first one
+    /// wins), and bumps its icon version. Returns the updated group.
+    pub fn set_group_apps(&mut self, id: &str, app_ids: Vec<String>) -> Option<Group> {
+        let mut seen = HashSet::new();
+        let known: Vec<String> = app_ids
+            .into_iter()
+            .filter(|app_id| self.app_by_id(app_id).is_some() && seen.insert(app_id.clone()))
+            .collect();
+        let group = self.group_by_id_mut(id)?;
+        group.app_ids = known;
+        group.icon_version = group.icon_version.wrapping_add(1);
+        Some(group.clone())
+    }
+
+    /// Drops dangling and duplicate ids from groups and the Launchpad, and
+    /// bumps the icon version of each group that lost apps. Returns how many
+    /// references were removed.
     pub fn validate(&mut self) -> usize {
         let app_ids: HashSet<String> = self.apps.iter().map(|app| app.id.clone()).collect();
         let group_ids: HashSet<String> = self.groups.iter().map(|g| g.id.clone()).collect();
@@ -81,7 +100,10 @@ impl AppState {
             group
                 .app_ids
                 .retain(|id| app_ids.contains(id) && seen.insert(id.clone()));
-            removed += before - group.app_ids.len();
+            if group.app_ids.len() < before {
+                removed += before - group.app_ids.len();
+                group.icon_version = group.icon_version.wrapping_add(1);
+            }
         }
         let mut seen_items = HashSet::new();
         for page in &mut self.launchpad.pages {

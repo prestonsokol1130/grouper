@@ -92,6 +92,34 @@ impl Default for Settings {
     }
 }
 
+/// A partial settings update: only the fields that are set are changed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SettingsPatch {
+    pub hotkey: Option<String>,
+    pub autostart: Option<bool>,
+    pub theme: Option<String>,
+    pub first_run_done: Option<bool>,
+}
+
+impl Settings {
+    /// Applies the fields set in `patch`, keeping every other setting.
+    pub fn apply(&mut self, patch: SettingsPatch) {
+        if let Some(hotkey) = patch.hotkey {
+            self.hotkey = hotkey;
+        }
+        if let Some(autostart) = patch.autostart {
+            self.autostart = autostart;
+        }
+        if let Some(theme) = patch.theme {
+            self.theme = theme;
+        }
+        if let Some(first_run_done) = patch.first_run_done {
+            self.first_run_done = first_run_done;
+        }
+    }
+}
+
 /// Everything Grouper persists in `app_state.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]

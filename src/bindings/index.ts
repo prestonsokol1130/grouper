@@ -15,12 +15,12 @@ export const commands = {
 	/**  Deletes group `id`; its Launchpad folder unfolds into its apps. */
 	deleteGroup: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_group", { id })),
 	/**
-	 *  Replaces the apps in group `id` (unknown app ids are dropped) and bumps
+	 *  Replaces the apps in group `id` (unknown and repeated app ids are dropped) and bumps
 	 *  its icon version so the composite icon is rebuilt.
 	 */
 	setGroupApps: (id: string, appIds: string[]) => typedError<Group, string>(__TAURI_INVOKE("set_group_apps", { id, appIds })),
-	/**  Replaces the user settings. */
-	updateSettings: (settings: Settings) => typedError<Settings, string>(__TAURI_INVOKE("update_settings", { settings })),
+	/**  Changes only the settings present in `patch`; the rest are kept. */
+	updateSettings: (patch: SettingsPatch) => typedError<Settings, string>(__TAURI_INVOKE("update_settings", { patch })),
 	/**  Replaces the Launchpad layout (dangling ids are dropped). */
 	setLaunchpadLayout: (layout: LaunchpadLayout) => typedError<LaunchpadLayout, string>(__TAURI_INVOKE("set_launchpad_layout", { layout })),
 };
@@ -84,6 +84,14 @@ export type Settings = {
 	/**  `"system"`, `"light"` or `"dark"`. */
 	theme?: string,
 	firstRunDone?: boolean,
+};
+
+/**  A partial settings update: only the fields that are set are changed. */
+export type SettingsPatch = {
+	hotkey?: string | null,
+	autostart?: boolean | null,
+	theme?: string | null,
+	firstRunDone?: boolean | null,
 };
 
 /* Tauri Specta runtime */

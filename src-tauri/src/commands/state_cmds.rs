@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::state::ids::new_group_id;
-use crate::state::{AppState, Group, LaunchpadLayout, Settings, Store};
+use crate::state::{AppState, Group, LaunchpadLayout, Settings, SettingsPatch, Store};
 
 /// Emitted to every window with the full new [`AppState`] after a change.
 pub const STATE_CHANGED_EVENT: &str = "state:changed";
@@ -24,9 +24,9 @@ fn mutate<T>(
     store: &Store,
     change: impl FnOnce(&mut AppState) -> Result<T, String>,
 ) -> Result<T, String> {
-    let (value, state) = store.update(change)?;
-    emit_state_changed(app, &state);
-    Ok(value)
+    // Emitting inside the store's publish section keeps every window's
+    // state:changed events in the same order the changes were committed.
+    store.update_and_publish(change, |state| emit_state_changed(app, state))
 }
 
 /// Trims a user-entered name and rejects an empty one.
@@ -108,7 +108,7 @@ pub fn delete_group(
     })
 }
 
-/// Replaces the apps in group `id` (unknown app ids are dropped) and bumps
+/// Replaces the apps in group `id` (unknown and repeated app ids are dropped) and bumps
 /// its icon version so the composite icon is rebuilt.
 #[tauri::command]
 #[specta::specta]
@@ -119,27 +119,22 @@ pub fn set_group_apps(
     app_ids: Vec<String>,
 ) -> Result<Group, String> {
     mutate(&app, &store, |state| {
-        let known: Vec<String> = app_ids
-            .into_iter()
-            .filter(|app_id| state.app_by_id(app_id).is_some())
-            .collect();
-        let group = group_mut(state, &id)?;
-        group.app_ids = known;
-        group.icon_version = group.icon_version.wrapping_add(1);
-        Ok(group.clone())
+        state
+            .set_group_apps(&id, app_ids)
+            .ok_or_else(|| format!("Group not found: {id}"))
     })
 }
 
-/// Replaces the user settings.
+/// Changes only the settings present in `patch`; the rest are kept.
 #[tauri::command]
 #[specta::specta]
 pub fn update_settings(
     app: AppHandle,
     store: State<'_, Arc<Store>>,
-    settings: Settings,
+    patch: SettingsPatch,
 ) -> Result<Settings, String> {
     mutate(&app, &store, |state| {
-        state.settings = settings;
+        state.settings.apply(patch);
         Ok(state.settings.clone())
     })
 }

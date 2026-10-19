@@ -88,7 +88,11 @@ fn open_store(app: &tauri::AppHandle) -> Result<Arc<state::Store>, String> {
         .app_data_dir()
         .map_err(|e| format!("resolve app data dir: {e}"))?;
     state::paths::ensure_dirs(&dir)?;
-    let store = Arc::new(state::Store::load(&dir)?);
+    // A state file that cannot be loaded safely is left untouched on disk;
+    // Grouper still starts, keeping changes in memory only.
+    let store = Arc::new(
+        state::Store::load(&dir).unwrap_or_else(|error| state::Store::in_memory(&dir, error)),
+    );
     log::info!("app state at {}", store.path().display());
     store.start_flusher()?;
     Ok(store)

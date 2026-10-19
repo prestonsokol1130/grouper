@@ -121,12 +121,62 @@ fn validate_drops_dangling_and_duplicate_ids() {
     state.launchpad.pages[0].push(folder_item("no-group"));
     state.launchpad.pages[1].push(app_item("c"));
     assert_eq!(state.validate(), 5);
-    assert_eq!(state, populated());
+    // Group g1 lost apps, so its icon is due for a rebuild.
+    let mut expected = populated();
+    expected.groups[0].icon_version += 1;
+    assert_eq!(state, expected);
     assert_eq!(state.validate(), 0);
+    assert_eq!(
+        state.groups[0].icon_version,
+        expected.groups[0].icon_version
+    );
+}
+
+#[test]
+fn remove_app_bumps_only_groups_that_held_it() {
+    let mut state = populated();
+    state.groups.push(Group {
+        id: "g2".into(),
+        name: "Other".into(),
+        app_ids: vec!["c".into()],
+        icon_version: 7,
+    });
+    state.remove_app("a");
+    assert_eq!(state.group_by_id("g1").map(|g| g.icon_version), Some(4));
+    assert_eq!(state.group_by_id("g2").map(|g| g.icon_version), Some(7));
+}
+
+#[test]
+fn set_group_apps_drops_unknown_and_repeated_ids() {
+    let mut state = populated();
+    let group = state
+        .set_group_apps(
+            "g1",
+            vec!["c".into(), "ghost".into(), "c".into(), "a".into()],
+        )
+        .unwrap();
+    assert_eq!(group.app_ids, vec!["c".to_string(), "a".to_string()]);
+    assert_eq!(group.icon_version, 4);
+    assert!(state.set_group_apps("nope", Vec::new()).is_none());
 }
 
 #[test]
 fn app_id_matches_entry_ids() {
     let id = app_id(r"C:\Program Files\App\App.EXE", "-x");
     assert_eq!(id, app_id(r"c:\program files\app\app.exe", "-x"));
+}
+
+#[test]
+fn settings_patch_changes_only_given_fields() {
+    let mut settings = Settings {
+        hotkey: "Alt+Space".into(),
+        autostart: true,
+        ..Settings::default()
+    };
+    let patch: SettingsPatch = serde_json::from_str(r#"{"theme": "dark"}"#).unwrap();
+    settings.apply(patch);
+    assert_eq!(settings.theme, "dark");
+    assert_eq!(settings.hotkey, "Alt+Space");
+    assert!(settings.autostart);
+    assert!(!settings.first_run_done);
 }

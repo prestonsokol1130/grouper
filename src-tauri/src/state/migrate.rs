@@ -8,10 +8,7 @@ use super::model::{AppState, CURRENT_SCHEMA};
 /// `if state.schema_version < N { ... }` step per bump, in order.
 pub fn migrate(mut state: AppState) -> AppState {
     if state.schema_version > CURRENT_SCHEMA {
-        log::warn!(
-            "app_state.json is schema v{} but this build knows v{CURRENT_SCHEMA}; loading as-is",
-            state.schema_version
-        );
+        // Newer files are never migrated down; the store keeps them read-only.
         return state;
     }
     // Files written before versioning (or with 0) are treated as v1.

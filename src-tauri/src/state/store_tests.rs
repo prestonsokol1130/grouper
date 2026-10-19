@@ -128,7 +128,9 @@ fn load_validates_dangling_ids() {
         serde_json::to_string(&state).unwrap(),
     )
     .unwrap();
-    assert_eq!(Store::load(dir.path()).unwrap().snapshot(), sample());
+    let mut expected = sample();
+    expected.groups[0].icon_version = 1;
+    assert_eq!(Store::load(dir.path()).unwrap().snapshot(), expected);
 }
 
 #[test]
