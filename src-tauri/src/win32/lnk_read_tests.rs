@@ -19,8 +19,9 @@ fn write_lnk(lnk: &Path, args: &str, working_dir: &str, icon: Option<(&str, i32)
     write_lnk_to(lnk, NOTEPAD, args, working_dir, icon);
 }
 
-/// Like `write_lnk`, but with any target path.
-fn write_lnk_to(
+/// Like `write_lnk`, but with any target path. Also used by the icon
+/// extraction tests.
+pub(crate) fn write_lnk_to(
     lnk: &Path,
     target: &str,
     args: &str,
