@@ -1,6 +1,8 @@
 //! Tauri commands invoked from the frontend, and their TypeScript bindings.
 
+pub mod app_cmds;
 pub mod icon_cmds;
+pub mod launch_cmds;
 pub mod scan_cmds;
 pub mod state_cmds;
 
@@ -22,6 +24,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             state_cmds::set_launchpad_layout,
             scan_cmds::rescan_apps,
             icon_cmds::get_cache_dir,
+            launch_cmds::launch_app,
+            launch_cmds::launch_group,
+            app_cmds::pick_and_add_apps,
+            app_cmds::add_app_from_path,
+            app_cmds::remove_app,
         ])
         .typ::<AppState>()
 }

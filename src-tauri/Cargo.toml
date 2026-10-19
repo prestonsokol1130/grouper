@@ -23,6 +23,7 @@ sha2 = "0.11"
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "0.0.12"
 tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
 tauri-plugin-single-instance = "2"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
@@ -35,7 +36,10 @@ windows = { version = "0.62", features = [
   "Win32_Storage_FileSystem",
   "Win32_System_Com",
   "Win32_System_Environment",
+  # SHELLEXECUTEINFOW has an HKEY field, so ShellExecuteExW needs Registry.
+  "Win32_System_Registry",
   "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
 ] }
 
 # https://tauri.app/concept/size/#cargo-configuration

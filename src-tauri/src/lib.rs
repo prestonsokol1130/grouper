@@ -1,6 +1,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod apps;
 pub mod cli;
 pub mod commands;
 pub mod icons;
@@ -41,6 +42,7 @@ fn start() -> Result<(), String> {
             router::route(app, cli::parse_args(&argv));
         }))
         .plugin(logging::plugin())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(commands.invoke_handler())
         .on_window_event(windows::handle_window_event)
         .setup(|app| {
