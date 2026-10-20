@@ -73,8 +73,7 @@ function MissingBadge() {
   return (
     <span
       aria-hidden="true"
-      className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full bg-danger type-caption text-surface"
-      style={{ fontWeight: 600, lineHeight: "16px" }}
+      className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full bg-danger type-caption leading-4 font-semibold text-surface"
     >
       !
     </span>

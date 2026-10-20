@@ -25,13 +25,13 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   return (
     <div
-      role={toast.kind === "error" ? "alert" : "status"}
+      role={toast.kind === "error" ? "alert" : undefined}
       className="pointer-events-auto flex w-[360px] max-w-full items-start gap-3 rounded-control border border-stroke-card bg-layer py-3 pr-2 pl-4 text-primary shadow-raised"
     >
       <span
         aria-label={icon.label}
-        className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full type-caption text-surface"
-        style={{ background: icon.color, fontWeight: 600 }}
+        className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full type-caption font-semibold text-surface"
+        style={{ background: icon.color }}
       >
         {icon.glyph}
       </span>
@@ -66,7 +66,13 @@ function ToastItem({ toast }: { toast: Toast }) {
 export function Toaster() {
   const toasts = useToastStore((store) => store.toasts);
   return (
-    <div className="pointer-events-none fixed right-3 bottom-3 z-50 flex flex-col items-end gap-2">
+    // A live region that exists before any toast, so screen readers
+    // announce success and info toasts too; errors are also alerts.
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed right-3 bottom-3 z-50 flex flex-col items-end gap-2"
+    >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

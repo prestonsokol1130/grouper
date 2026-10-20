@@ -52,7 +52,16 @@ pub fn wanted(setting: BackgroundSetting, label: &str) -> Material {
 }
 
 /// What to try, in order, for `wanted`. Windows 10 has no Mica, so Mica
-/// falls back to Acrylic; everything ends at Solid, which always works.
+/// falls back to Acrylic, as DESIGN.md section 4 specifies for the
+/// Manager; everything ends at Solid, which always works.
+///
+/// Known trade-off: on Windows 10 v1903+ (and Windows 11 build 22000)
+/// `apply_acrylic` uses an undocumented API that makes a window lag while
+/// it is resized or dragged (window-vibrancy's documented warning). That
+/// hits only the resizable Manager on Windows 10, since Windows 11 gives it
+/// Mica and the flyout and Launchpad are never resized or dragged. Falling
+/// back to Solid there instead is a DESIGN.md change for Preston to make;
+/// it would be a one-line change to the Mica chain below.
 pub fn fallbacks(wanted: Material) -> &'static [Material] {
     match wanted {
         Material::Mica => &[Material::Mica, Material::Acrylic, Material::Solid],

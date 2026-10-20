@@ -12,6 +12,11 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("Toaster", () => {
+  it("is a polite live region before any toast appears", () => {
+    render(<Toaster />);
+    expect(screen.getByRole("status").getAttribute("aria-live")).toBe("polite");
+  });
+
   it("shows a toast and closes it after five seconds", () => {
     render(<Toaster />);
     act(() => {
@@ -35,7 +40,7 @@ describe("Toaster", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Fix" }));
     expect(run).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Shortcut taken")).toBeNull();
   });
 
   it("closes from its close button", () => {
@@ -43,8 +48,10 @@ describe("Toaster", () => {
     act(() => {
       showToast({ kind: "success", title: "Done" });
     });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("Done");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Done")).toBeNull();
   });
 });
 
