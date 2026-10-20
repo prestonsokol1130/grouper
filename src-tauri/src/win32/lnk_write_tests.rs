@@ -187,7 +187,9 @@ fn a_renamed_group_never_replaces_another_groups_shortcut() {
     // Writing again reuses A's own file, and finding it skips B's.
     let again = write_group_shortcut(&state, "ga", &cache, &menu, &exe()).unwrap();
     assert_eq!(again, renamed);
+    // Revealing A shows A's own file, never B's "Beta.lnk", and B's own.
     assert_eq!(find_group_shortcut(&state, "ga", &menu), Ok(Some(renamed)));
+    assert_eq!(find_group_shortcut(&state, "gb", &menu), Ok(Some(beta)));
     // The old "Alpha.lnk" is left as it was (stale shortcuts are not
     // cleaned up here).
     assert!(alpha.is_file());

@@ -1,17 +1,18 @@
 //! Writes and finds a group's Start Menu shortcut without ever replacing
-//! another group's shortcut.
+//! or picking another group's shortcut.
 
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use super::group_icon::build_group_icon;
 use super::shortcut::{
-    description, flyout_args, group_aumid, numbered_file_name, shortcut_name_parts,
+    candidate_names, description, flyout_args, group_aumid, numbered_file_name, shortcut_name_parts,
 };
 use crate::icons::cache::check_id;
 use crate::state::AppState;
 use crate::win32::com::ComGuard;
 use crate::win32::lnk_aumid::read_lnk_aumid;
+use crate::win32::lnk_read::resolve_lnk;
 use crate::win32::lnk_write::{write_group_lnk, LnkSpec};
 
 /// How many numbered names are tried before giving up.
@@ -54,8 +55,23 @@ pub fn classify(path: &Path, aumid: &str) -> Slot {
     }
 }
 
+/// Whether a shortcut belongs to group `group_id`: its AppUserModelID
+/// (`aumid_read`) is `aumid`. Only when the ID cannot be read at all are
+/// its arguments (`args`, read lazily) checked for `--flyout <group_id>`.
+pub fn owned_by(
+    aumid_read: Result<Option<String>, String>,
+    args: impl FnOnce() -> Option<String>,
+    aumid: &str,
+    group_id: &str,
+) -> bool {
+    match aumid_read {
+        Ok(found) => found.as_deref() == Some(aumid),
+        Err(_) => args().is_some_and(|args| args.trim() == flyout_args(group_id)),
+    }
+}
+
 /// The first of `{base}.lnk`, `{base} (2).lnk`, ... (from `start`) in `dir`
-/// that is not foreign: where this group's shortcut is written.
+/// that is not foreign: where a new shortcut for this group is written.
 pub fn choose_path(
     dir: &Path,
     base: &str,
@@ -74,29 +90,38 @@ pub fn choose_path(
     ))
 }
 
-/// This group's existing shortcut: the first path from `start` that is
-/// ours, skipping other groups' files and stopping at a missing one.
+/// The first of `candidates` (file names in `dir`, see
+/// [`candidate_names`]) that `owned` accepts.
 pub fn find_path(
     dir: &Path,
-    base: &str,
-    start: u32,
-    mut slot: impl FnMut(&Path) -> Slot,
+    candidates: &[String],
+    mut owned: impl FnMut(&Path) -> bool,
 ) -> Option<PathBuf> {
-    for number in start..start.saturating_add(MAX_TRIES) {
-        let path = dir.join(numbered_file_name(base, number));
-        match slot(&path) {
-            Slot::Ours => return Some(path),
-            Slot::Missing => return None,
-            Slot::Unclaimed | Slot::Foreign => {}
-        }
-    }
-    None
+    candidates
+        .iter()
+        .map(|name| dir.join(name))
+        .find(|path| owned(path))
 }
 
-/// The base name and start number of group `group_id`'s shortcut.
-fn name_parts(state: &AppState, group_id: &str) -> Result<(String, u32), String> {
-    shortcut_name_parts(&state.groups, group_id)
-        .ok_or_else(|| format!("Group not found: {group_id}"))
+/// The file names in `dir`. Names that are not valid Unicode are skipped.
+fn list_names(dir: &Path) -> Result<Vec<String>, String> {
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("list {}: {e}", dir.display()))?;
+    Ok(entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect())
+}
+
+/// This group's base name, start number and the candidate names in `dir`.
+fn candidates(
+    state: &AppState,
+    group_id: &str,
+    dir: &Path,
+) -> Result<(String, u32, Vec<String>), String> {
+    let (base, start) = shortcut_name_parts(&state.groups, group_id)
+        .ok_or_else(|| format!("Group not found: {group_id}"))?;
+    let names = candidate_names(&list_names(dir)?, &base, start);
+    Ok((base, start, names))
 }
 
 /// Builds group `group_id`'s icon in `cache_dir` (`{app_data_dir}/cache`,
@@ -105,10 +130,10 @@ fn name_parts(state: &AppState, group_id: &str) -> Result<(String, u32), String>
 ///
 /// The shortcut starts `exe` with `--flyout <group_id>` in `exe`'s folder,
 /// shows the group's `.ico`, and carries the AppUserModelID
-/// `com.grouper.group.<group_id>`. It replaces this group's own shortcut
-/// atomically, and never another group's: when the name is held by a
-/// different AppUserModelID (or one that cannot be read), the next
-/// ` (n)` name is used.
+/// `com.grouper.group.<group_id>`. An existing shortcut of this group
+/// (same AppUserModelID) is replaced atomically. Another group's shortcut,
+/// or a file whose ID cannot be read, is never replaced: the next ` (n)`
+/// name is used instead.
 ///
 /// Holds its own `ComGuard` while reading and writing shortcuts. Blocks;
 /// call it off the async runtime. `Err` for an unknown group, an unsafe
@@ -124,13 +149,17 @@ pub fn write_group_shortcut(
     let group = state
         .group_by_id(group_id)
         .ok_or_else(|| format!("Group not found: {group_id}"))?;
-    let (base, start) = name_parts(state, group_id)?;
+    let (base, start, names) = candidates(state, group_id, dir)?;
     let icon_path = build_group_icon(state, group_id, cache_dir)?;
     let aumid = group_aumid(group_id);
     // Every COM interface lives inside classify and write_group_lnk, so
     // all are released before this guard drops.
     let _com = ComGuard::new()?;
-    let lnk_path = choose_path(dir, &base, start, |path| classify(path, &aumid))?;
+    let own = find_path(dir, &names, |path| classify(path, &aumid) == Slot::Ours);
+    let lnk_path = match own {
+        Some(path) => path,
+        None => choose_path(dir, &base, start, |path| classify(path, &aumid))?,
+    };
     write_group_lnk(&LnkSpec {
         lnk_path: lnk_path.clone(),
         exe_path: exe.to_path_buf(),
@@ -142,15 +171,20 @@ pub fn write_group_shortcut(
     Ok(lnk_path)
 }
 
-/// Group `group_id`'s shortcut in `dir`, or `None` when it has not been
-/// written yet. Holds its own `ComGuard`. `Err` for an unknown group.
+/// Group `group_id`'s own shortcut in `dir` (see [`owned_by`]): its
+/// computed name when that file is its own, else any ` (n)` variant that
+/// is. `None` when it has not been written yet; never another group's
+/// file. Holds its own `ComGuard`. `Err` for an unknown group.
 pub fn find_group_shortcut(
     state: &AppState,
     group_id: &str,
     dir: &Path,
 ) -> Result<Option<PathBuf>, String> {
-    let (base, start) = name_parts(state, group_id)?;
+    let (_, _, names) = candidates(state, group_id, dir)?;
     let aumid = group_aumid(group_id);
     let _com = ComGuard::new()?;
-    Ok(find_path(dir, &base, start, |path| classify(path, &aumid)))
+    Ok(find_path(dir, &names, |path| {
+        let args = || resolve_lnk(path).ok().map(|link| link.args);
+        owned_by(read_lnk_aumid(path), args, &aumid, group_id)
+    }))
 }

@@ -39,23 +39,32 @@ pub fn flyout_args(group_id: &str) -> String {
     format!("--flyout {group_id}")
 }
 
+/// The last-resort shortcut name, when neither the group name nor its id
+/// leaves a usable file name.
+pub const FALLBACK_NAME: &str = "group";
+
 /// A file name (without `.lnk`) for a group called `name`: the characters
 /// `<>:"/\|?*` and control characters are removed, trailing dots and spaces
-/// are stripped, and the result is cut to [`MAX_NAME_CHARS`]. Falls back to
-/// `group_id` when nothing is left or the result is a reserved device name
-/// such as `CON`.
+/// are stripped, and the result is cut to [`MAX_NAME_CHARS`]. When nothing
+/// is left or the result is a reserved device name such as `CON`, the same
+/// cleaning is applied to `group_id`, and if that fails too the name is
+/// [`FALLBACK_NAME`].
 pub fn sanitise_name(name: &str, group_id: &str) -> String {
-    let kept: String = name
+    clean_name(name)
+        .or_else(|| clean_name(group_id))
+        .unwrap_or_else(|| FALLBACK_NAME.to_owned())
+}
+
+/// `text` cleaned as described in [`sanitise_name`], or `None` when the
+/// result is empty or a reserved device name.
+fn clean_name(text: &str) -> Option<String> {
+    let kept: String = text
         .chars()
         .filter(|c| !INVALID_CHARS.contains(c) && !c.is_control())
         .collect();
     let cut: String = strip_trailing(&kept).chars().take(MAX_NAME_CHARS).collect();
     let cleaned = strip_trailing(&cut);
-    if cleaned.is_empty() || is_reserved(cleaned) {
-        group_id.to_owned()
-    } else {
-        cleaned.to_owned()
-    }
+    (!cleaned.is_empty() && !is_reserved(cleaned)).then(|| cleaned.to_owned())
 }
 
 /// `text` without trailing dots and spaces.
@@ -101,6 +110,35 @@ pub fn shortcut_name_parts(groups: &[Group], group_id: &str) -> Option<(String, 
         }
     }
     None
+}
+
+/// The number in shortcut file name `name` for `base` (both lowercase):
+/// 1 for `{base}.lnk`, `n` for `{base} (n).lnk` with `n >= 2`.
+fn name_number(name: &str, base: &str) -> Option<u32> {
+    let stem = name.strip_suffix(".lnk")?;
+    if stem == base {
+        return Some(1);
+    }
+    let digits = stem
+        .strip_prefix(base)?
+        .strip_prefix(" (")?
+        .strip_suffix(')')?;
+    let canonical = !digits.is_empty()
+        && !digits.starts_with('0')
+        && digits.bytes().all(|b| b.is_ascii_digit());
+    digits.parse().ok().filter(|&n| canonical && n >= 2)
+}
+
+/// The names in `names` that are `{base}.lnk` or `{base} (n).lnk` (any
+/// letter case): the one numbered `start` first, then the rest by number.
+pub fn candidate_names(names: &[String], base: &str, start: u32) -> Vec<String> {
+    let base = base.to_lowercase();
+    let mut numbered: Vec<(u32, &String)> = names
+        .iter()
+        .filter_map(|name| name_number(&name.to_lowercase(), &base).map(|n| (n, name)))
+        .collect();
+    numbered.sort_by_key(|&(number, _)| (number != start, number));
+    numbered.into_iter().map(|(_, name)| name.clone()).collect()
 }
 
 /// The `.lnk` file name group `group_id` starts at, or `None` for an

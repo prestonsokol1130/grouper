@@ -3,8 +3,10 @@
 
 use std::path::Path;
 
-use super::shortcut::{sanitise_name, shortcut_file_name, shortcut_name_parts, MAX_NAME_CHARS};
-use super::shortcut_write::{choose_path, find_path, Slot};
+use super::shortcut::{
+    candidate_names, sanitise_name, shortcut_file_name, shortcut_name_parts, MAX_NAME_CHARS,
+};
+use super::shortcut_write::{choose_path, find_path, owned_by, Slot};
 use crate::state::Group;
 
 fn group(id: &str, name: &str) -> Group {
@@ -46,6 +48,16 @@ fn nothing_left_falls_back_to_the_group_id() {
     for name in ["", "   ", "...", "<>:\"/\\|?*", ". . ?"] {
         assert_eq!(sanitise_name(name, "g1"), "g1", "{name:?}");
     }
+}
+
+#[test]
+fn an_unusable_id_falls_back_to_group() {
+    for id in ["", "...", "CON", "nul", "?*"] {
+        assert_eq!(sanitise_name("", id), "group", "{id:?}");
+        assert_eq!(sanitise_name("<>", id), "group", "{id:?}");
+    }
+    // The id is cleaned like a name before it is used.
+    assert_eq!(sanitise_name("", "a:b."), "ab");
 }
 
 #[test]
@@ -174,21 +186,56 @@ fn the_writer_skips_only_foreign_files() {
     assert!(choose_path(dir, "Beta", 1, &mut all_foreign).is_err());
 }
 
+fn strings(names: &[&str]) -> Vec<String> {
+    names.iter().map(|&name| name.to_owned()).collect()
+}
+
 #[test]
-fn finding_skips_other_groups_and_stops_at_a_gap() {
+fn candidates_are_the_numbered_names_with_start_first() {
+    let names = strings(&[
+        "Beta (10).lnk",
+        "beta (3).LNK",
+        "Beta (02).lnk",
+        "Beta (1).lnk",
+        "Beta.lnk",
+        "Beta (2).lnk.tmp",
+        "Betamax.lnk",
+        "Alpha.lnk",
+    ]);
+    let expected = strings(&["beta (3).LNK", "Beta.lnk", "Beta (10).lnk"]);
+    assert_eq!(candidate_names(&names, "Beta", 3), expected);
+    let by_number = strings(&["Beta.lnk", "beta (3).LNK", "Beta (10).lnk"]);
+    assert_eq!(candidate_names(&names, "Beta", 1), by_number);
+    assert!(candidate_names(&names, "Gamma", 1).is_empty());
+}
+
+#[test]
+fn finding_returns_only_this_groups_file_even_after_a_gap() {
     let dir = Path::new("menu");
-    let find = |map: &[(&str, Slot)]| find_path(dir, "Beta", 1, slots(map));
-    assert_eq!(find(&[]), None);
+    let names = strings(&["Beta.lnk", "Beta (3).lnk"]);
+    let ours_is = |own: &'static str| move |path: &Path| path.ends_with(own);
     assert_eq!(
-        find(&[("Beta.lnk", Slot::Ours)]),
+        find_path(dir, &names, ours_is("Beta (3).lnk")),
+        Some(dir.join("Beta (3).lnk"))
+    );
+    assert_eq!(
+        find_path(dir, &names, ours_is("Beta.lnk")),
         Some(dir.join("Beta.lnk"))
     );
-    let skipped = [
-        ("Beta.lnk", Slot::Foreign),
-        ("Beta (2).lnk", Slot::Unclaimed),
-        ("Beta (3).lnk", Slot::Ours),
-    ];
-    assert_eq!(find(&skipped), Some(dir.join("Beta (3).lnk")));
-    let gap = [("Beta.lnk", Slot::Foreign), ("Beta (3).lnk", Slot::Ours)];
-    assert_eq!(find(&gap), None);
+    assert_eq!(find_path(dir, &names, |_| false), None);
+}
+
+#[test]
+fn ownership_is_the_aumid_and_args_only_when_it_cannot_be_read() {
+    let aumid = "com.grouper.group.ga";
+    let args = |text: &str| Some(text.to_owned());
+    let own = Ok(Some(aumid.to_owned()));
+    assert!(owned_by(own, || args("--flyout gb"), aumid, "ga"));
+    let other = Ok(Some("com.grouper.group.gb".to_owned()));
+    assert!(!owned_by(other, || args("--flyout ga"), aumid, "ga"));
+    assert!(!owned_by(Ok(None), || args("--flyout ga"), aumid, "ga"));
+    let unreadable = || Err("bad type".to_owned());
+    assert!(owned_by(unreadable(), || args("--flyout ga"), aumid, "ga"));
+    assert!(!owned_by(unreadable(), || args("--flyout gb"), aumid, "ga"));
+    assert!(!owned_by(unreadable(), || None, aumid, "ga"));
 }
