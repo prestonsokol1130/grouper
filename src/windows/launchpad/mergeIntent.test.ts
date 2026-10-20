@@ -1,6 +1,6 @@
 import type { ClientRect, CollisionDetection } from "@dnd-kit/core";
 import { describe, expect, it } from "vitest";
-import { centreTarget, inCentre, intentCollision } from "./mergeIntent";
+import { centreTarget, inCentre, intentCollision, REORDER_SETTLE_MS } from "./mergeIntent";
 
 /** A 100px square cell at column `index` of one row, 100px apart. */
 const cell = (index: number): ClientRect => {
@@ -63,6 +63,39 @@ describe("intentCollision", () => {
     reset();
     expect(detect(args(50)).map((hit) => hit.id)[0]).toBe("a");
     expect(centre()).toBeNull();
+  });
+
+  it("lets a new reorder target settle before the tiles slide", () => {
+    let time = 0;
+    const { detect, settling } = intentCollision(
+      () => true,
+      () => time,
+    );
+    expect(detect(args(50)).map((hit) => hit.id)[0]).toBe("a");
+    // Past "a"'s edge, closest to "b": "a" holds until "b" has settled.
+    expect(detect(args(110)).map((hit) => hit.id)).toEqual(["a"]);
+    expect(settling()).toBe("b");
+    time = REORDER_SETTLE_MS - 1;
+    expect(detect(args(112)).map((hit) => hit.id)).toEqual(["a"]);
+    time = REORDER_SETTLE_MS;
+    expect(detect(args(112)).map((hit) => hit.id)[0]).toBe("b");
+    expect(settling()).toBeNull();
+  });
+
+  it("restarts the wait while the pointer is still moving", () => {
+    let time = 0;
+    const { detect } = intentCollision(
+      () => true,
+      () => time,
+    );
+    detect(args(50));
+    detect(args(110));
+    time = 100;
+    expect(detect(args(118)).map((hit) => hit.id)).toEqual(["a"]);
+    time = 200;
+    expect(detect(args(119)).map((hit) => hit.id)).toEqual(["a"]);
+    time = 250;
+    expect(detect(args(119)).map((hit) => hit.id)[0]).toBe("b");
   });
 
   it("never merges what cannot merge", () => {

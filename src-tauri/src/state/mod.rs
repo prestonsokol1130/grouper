@@ -15,6 +15,8 @@ pub mod store;
 #[cfg(test)]
 mod disk_tests;
 #[cfg(test)]
+mod folders_store_tests;
+#[cfg(test)]
 mod folders_tests;
 #[cfg(test)]
 mod model_tests;

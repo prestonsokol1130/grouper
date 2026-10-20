@@ -8,6 +8,7 @@ import {
   useSensors,
   type DropAnimation,
   type MeasuringConfiguration,
+  type Over,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCallback, useMemo, type ReactNode } from "react";
@@ -129,7 +130,13 @@ export function ReorderGrid({
       merge.move();
       onDragMove(event);
     },
-    onDragEnd: (event) => (merge.drop(String(event.active.id)) ? onDragCancel() : onDragEnd(event)),
+    onDragEnd: (event) => {
+      // A drop before a new reorder target settled still lands on it.
+      const settling = merge.reorderOver();
+      if (merge.drop(String(event.active.id))) return onDragCancel();
+      const over = settling === null ? event.over : ({ ...event.over, id: settling } as Over);
+      onDragEnd({ ...event, over });
+    },
     onDragCancel: () => {
       merge.cancel();
       onDragCancel();

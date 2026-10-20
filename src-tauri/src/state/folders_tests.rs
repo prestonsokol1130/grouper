@@ -1,10 +1,7 @@
 //! Tests for Launchpad folders made and edited by drag and drop.
 
-use std::sync::{Arc, Mutex};
-
 use super::folders::LaunchpadSlot;
 use super::model::{AppEntry, AppState, Group, LaunchpadItem};
-use super::store::Store;
 
 fn app(id: &str, name: &str) -> AppEntry {
     AppEntry {
@@ -14,11 +11,11 @@ fn app(id: &str, name: &str) -> AppEntry {
     }
 }
 
-fn a(id: &str) -> LaunchpadItem {
+pub(super) fn a(id: &str) -> LaunchpadItem {
     LaunchpadItem::App { app_id: id.into() }
 }
 
-fn f(id: &str) -> LaunchpadItem {
+pub(super) fn f(id: &str) -> LaunchpadItem {
     LaunchpadItem::Folder {
         group_id: id.into(),
     }
@@ -28,13 +25,13 @@ fn ids(list: &[&str]) -> Vec<String> {
     list.iter().map(|id| (*id).to_string()).collect()
 }
 
-fn fixed_id(_: &[&str]) -> Result<String, String> {
+pub(super) fn fixed_id(_: &[&str]) -> Result<String, String> {
     Ok("new".into())
 }
 
 /// Word and Excel (Microsoft), Notes and Paint loose on page one, folder
 /// "g" (apps x, y) and Calc on page two.
-fn state() -> AppState {
+pub(super) fn state() -> AppState {
     AppState {
         apps: vec![
             app("w", "Microsoft Word"),
@@ -58,7 +55,7 @@ fn state() -> AppState {
     }
 }
 
-fn slot(page: u32, index: u32) -> LaunchpadSlot {
+pub(super) fn slot(page: u32, index: u32) -> LaunchpadSlot {
     LaunchpadSlot { page, index }
 }
 
@@ -194,64 +191,4 @@ fn taking_out_an_app_not_in_the_folder_is_an_error() {
     assert!(s.take_out_of_folder("g", "w", slot(0, 0), 35).is_err());
     assert!(s.take_out_of_folder("zz", "x", slot(0, 0), 35).is_err());
     assert_eq!(s, before);
-}
-
-/// A store holding [`state`], with group "g" given a shortcut, and a
-/// listener that records every icon change it hears.
-fn store() -> (tempfile::TempDir, Store, Arc<Mutex<Vec<Vec<String>>>>) {
-    let dir = tempfile::tempdir().unwrap();
-    let store = Store::load(dir.path()).unwrap();
-    store
-        .update(|s| {
-            *s = state();
-            s.groups[0].has_shortcut = true;
-            Ok(())
-        })
-        .unwrap();
-    let calls = Arc::new(Mutex::new(Vec::new()));
-    let seen = Arc::clone(&calls);
-    store.set_icon_listener(Box::new(move |ids| seen.lock().unwrap().push(ids.to_vec())));
-    (dir, store, calls)
-}
-
-#[test]
-fn merging_into_a_folder_bumps_its_icon_and_tells_the_shortcut_worker() {
-    let (_dir, store, calls) = store();
-    store
-        .update(|s| s.merge_on_launchpad("c", &f("g"), &fixed_id))
-        .unwrap();
-    assert_eq!(store.snapshot().group_by_id("g").unwrap().icon_version, 1);
-    assert_eq!(*calls.lock().unwrap(), [vec!["g".to_owned()]]);
-    // The fourth app joins the icon; a fifth does not.
-    for id in ["w", "e"] {
-        store
-            .update(|s| s.merge_on_launchpad(id, &f("g"), &fixed_id))
-            .unwrap();
-    }
-    assert_eq!(store.snapshot().group_by_id("g").unwrap().icon_version, 2);
-    assert_eq!(calls.lock().unwrap().len(), 2);
-}
-
-#[test]
-fn taking_an_app_out_of_a_kept_folder_bumps_its_icon() {
-    let (_dir, store, calls) = store();
-    store
-        .update(|s| s.merge_on_launchpad("c", &f("g"), &fixed_id))
-        .unwrap();
-    store
-        .update(|s| s.take_out_of_folder("g", "x", slot(0, 0), 35))
-        .unwrap();
-    assert_eq!(store.snapshot().group_by_id("g").unwrap().icon_version, 2);
-    assert_eq!(calls.lock().unwrap().len(), 2);
-}
-
-#[test]
-fn a_failed_merge_is_rolled_back_in_the_store() {
-    let (_dir, store, calls) = store();
-    let before = store.snapshot();
-    assert!(store
-        .update(|s| s.merge_on_launchpad("w", &a("w"), &fixed_id))
-        .is_err());
-    assert_eq!(store.snapshot(), before);
-    assert!(calls.lock().unwrap().is_empty());
 }

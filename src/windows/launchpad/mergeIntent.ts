@@ -66,11 +66,24 @@ function sortedIds(data: Record<string, unknown> | undefined): readonly UniqueId
   return sortable?.items ?? [];
 }
 
+/**
+ * How long (ms) a dragged app must rest (within REST_PX) by a new reorder
+ * target before the tiles slide for it. Without the pause the tile the
+ * app heads for would slide away before the pointer reached its centre
+ * (iOS pauses too). A drop before then still lands on that target.
+ */
+export const REORDER_SETTLE_MS = 150;
+
+/** How far (px) the pointer may drift and still count as resting. */
+const REST_PX = 6;
+
 /** Collision detection with drop intent, and what it last saw. */
 export type IntentCollision = {
   readonly detect: CollisionDetection;
   /** The tile whose centre the pointer was last over, if it can merge. */
   readonly centre: () => UniqueIdentifier | null;
+  /** A reorder target still settling (see REORDER_SETTLE_MS), if any. */
+  readonly settling: () => UniqueIdentifier | null;
   /** Forgets the last drag; called when a drag starts. */
   readonly reset: () => void;
 };
@@ -79,31 +92,56 @@ export type IntentCollision = {
  * Collision detection with drop intent. With the pointer over another
  * tile's centre, and `canMerge(activeId)`, it records that tile (see
  * `centre`) and keeps the last reorder target, so no tile slides out from
- * under the pointer. Elsewhere it is dnd-kit's closestCenter.
+ * under the pointer. Elsewhere it is dnd-kit's closestCenter, except that
+ * for an app a new target only takes over once it has held for
+ * REORDER_SETTLE_MS (the caller re-renders then; see `settling`). A
+ * folder, a keyboard drag and the first target of a drag switch at once.
  */
 export function intentCollision(
   canMerge: (activeId: UniqueIdentifier) => boolean,
+  now: () => number = () => performance.now(),
 ): IntentCollision {
   let over: UniqueIdentifier | null = null;
   let centre: UniqueIdentifier | null = null;
+  let pending: UniqueIdentifier | null = null;
+  let since = 0;
+  let anchor: Coordinates = { x: 0, y: 0 };
+  const held = () => (over === null ? [] : [{ id: over }]);
   const detect: CollisionDetection = (args) => {
     const point = args.pointerCoordinates;
     const { id, data } = args.active;
-    centre =
-      point === null || !canMerge(id)
-        ? null
-        : centreTarget(point, sortedIds(data.current), id, over, args.droppableRects);
-    if (centre !== null) return over === null ? [] : [{ id: over }];
+    const merges = point !== null && canMerge(id);
+    centre = merges
+      ? centreTarget(point, sortedIds(data.current), id, over, args.droppableRects)
+      : null;
     const hits = closestCenter(args);
-    over = hits[0]?.id ?? null;
+    const next = hits[0]?.id ?? null;
+    if (centre !== null || next === over) {
+      pending = null;
+      return held();
+    }
+    if (merges && over !== null) {
+      // The wait restarts while the pointer is still on its way.
+      const moved = Math.hypot(point.x - anchor.x, point.y - anchor.y) > REST_PX;
+      if (next !== pending || moved) {
+        pending = next;
+        since = now();
+        anchor = point;
+      }
+      if (now() - since < REORDER_SETTLE_MS) return held();
+    }
+    pending = null;
+    over = next;
     return hits;
   };
   return {
     detect,
     centre: () => centre,
+    settling: () => pending,
     reset: () => {
       over = null;
       centre = null;
+      pending = null;
     },
   };
 }

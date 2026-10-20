@@ -112,6 +112,16 @@ describe("Launchpad drag to make folders", () => {
     });
   });
 
+  it("reaches the centre of a neighbour by way of its edge", async () => {
+    await lift("App c", 3);
+    // Through the gap and the folder's right edge, then into its centre.
+    for (const x of [mid(3) - 40, mid(3) - 60, mid(2) + 30, mid(2) + 10]) move(x);
+    advance(MERGE_HOLD_MS);
+    expect(cellOf("Tools")?.getAttribute("data-merge")).toBe("folder");
+    await drop(mid(2) + 10);
+    expect(calls("apply_launchpad_merge")).toHaveLength(1);
+  });
+
   it("adds an app to a folder it rests on", async () => {
     await lift("App c", 3);
     move(mid(2));
