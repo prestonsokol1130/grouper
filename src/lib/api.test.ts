@@ -55,6 +55,7 @@ describe("api wrappers", () => {
         "pickAndAddApps",
         "removeApp",
         "renameGroup",
+        "reorderGroups",
         "rescanApps",
         "revealGroupShortcut",
         "setGroupApps",

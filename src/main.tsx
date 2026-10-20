@@ -9,7 +9,7 @@ import { useAppStore } from "./store/appStore";
 import "./styles.css";
 import { FlyoutRoot } from "./windows/flyout/FlyoutRoot";
 import { LaunchpadRoot } from "./windows/LaunchpadRoot";
-import { ManagerRoot } from "./windows/ManagerRoot";
+import { ManagerRoot } from "./windows/manager/ManagerRoot";
 
 /** Dev only (`?window=styleguide`); the import is dropped from builds. */
 const StyleguideRoot = import.meta.env.DEV

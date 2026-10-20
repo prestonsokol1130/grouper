@@ -2,6 +2,7 @@
 @import "./styles/tokens.css";
 @import "./styles/components.css";
 @import "./windows/flyout/flyout.css";
+@import "./windows/manager/manager.css";
 
 /*
  * Tailwind names for the DESIGN.md tokens. `inline` makes each utility use

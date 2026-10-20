@@ -25,6 +25,21 @@ export function withGroupApps(state: AppState, id: string, appIds: string[]): Ap
   return withGroup(state, id, (group) => ({ ...group, appIds: unique }));
 }
 
+/**
+ * Optimistic group reorder: the groups in the order of `ids`. The same
+ * object unless `ids` names every group exactly once (the backend rule).
+ */
+export function withGroupOrder(state: AppState, ids: string[]): AppState {
+  const groups = state.groups ?? [];
+  const byId = new Map(groups.map((group) => [group.id ?? "", group]));
+  if (ids.length !== groups.length || new Set(ids).size !== ids.length) return state;
+  const ordered = ids.flatMap((id) => {
+    const group = byId.get(id);
+    return group === undefined ? [] : [group];
+  });
+  return ordered.length === groups.length ? { ...state, groups: ordered } : state;
+}
+
 /** Optimistic Launchpad reorder: the whole layout replaced. */
 export function withLaunchpadLayout(state: AppState, layout: LaunchpadLayout): AppState {
   return { ...state, launchpad: layout };

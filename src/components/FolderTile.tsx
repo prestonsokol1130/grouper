@@ -32,7 +32,6 @@ export function FolderTile({
   preview,
 }: Props) {
   const group = useGroup(groupId);
-  const apps = useFolderIconApps(groupId);
   const name = group?.name ?? "";
   const open = () => onOpen?.(groupId);
 
@@ -48,28 +47,7 @@ export function FolderTile({
       {...activationKeys(open)}
     >
       <span className="tile-art block">
-        <span
-          className="relative block bg-folder"
-          style={{ width: size, height: size, ...shapeStyle(shape) }}
-          data-testid="folder-art"
-        >
-          {miniLayout(apps.length).map((cell, index) => {
-            const appId = apps[index]?.id ?? "";
-            return (
-              <span
-                key={appId}
-                className="absolute"
-                style={{ left: `${cell.x * 100}%`, top: `${cell.y * 100}%` }}
-              >
-                <AppIcon
-                  appId={appId}
-                  size={Math.round(cell.size * size)}
-                  radius="var(--radius-mini-icon)"
-                />
-              </span>
-            );
-          })}
-        </span>
+        <FolderArt groupId={groupId} size={size} shape={shape} />
       </span>
       {showLabel && (
         <span
@@ -80,5 +58,47 @@ export function FolderTile({
         </span>
       )}
     </button>
+  );
+}
+
+/**
+ * Just the folder picture: the section 5 background and the mini grid of
+ * the group's first four visible apps. Decorative; for places such as the
+ * Manager sidebar, where the row around it is the control.
+ */
+export function FolderArt({
+  groupId,
+  size,
+  shape = "square",
+}: {
+  groupId: string;
+  size: number;
+  shape?: FolderShape;
+}) {
+  const apps = useFolderIconApps(groupId);
+  return (
+    <span
+      aria-hidden="true"
+      className="relative block shrink-0 bg-folder"
+      style={{ width: size, height: size, ...shapeStyle(shape) }}
+      data-testid="folder-art"
+    >
+      {miniLayout(apps.length).map((cell, index) => {
+        const appId = apps[index]?.id ?? "";
+        return (
+          <span
+            key={appId}
+            className="absolute"
+            style={{ left: `${cell.x * 100}%`, top: `${cell.y * 100}%` }}
+          >
+            <AppIcon
+              appId={appId}
+              size={Math.round(cell.size * size)}
+              radius="var(--radius-mini-icon)"
+            />
+          </span>
+        );
+      })}
+    </span>
   );
 }

@@ -48,6 +48,7 @@ export const api = {
   renameGroup: (id: string, name: string) => typed(() => commands.renameGroup(id, name)),
   deleteGroup: (id: string) => typed(() => commands.deleteGroup(id)),
   setGroupApps: (id: string, appIds: string[]) => typed(() => commands.setGroupApps(id, appIds)),
+  reorderGroups: (ids: string[]) => typed(() => commands.reorderGroups(ids)),
   updateSettings: (patch: SettingsPatch) => typed(() => commands.updateSettings(patch)),
   setLaunchpadLayout: (layout: LaunchpadLayout) => typed(() => commands.setLaunchpadLayout(layout)),
   rescanApps: () => typed(() => commands.rescanApps()),

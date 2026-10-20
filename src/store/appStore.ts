@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { AppState, LaunchpadLayout } from "../bindings";
 import { api, type Result } from "../lib/api";
 import { onEvent } from "../lib/events";
-import { withGroupApps, withGroupRenamed, withLaunchpadLayout } from "./reducers";
+import { withGroupApps, withGroupOrder, withGroupRenamed, withLaunchpadLayout } from "./reducers";
 import { showToast } from "./toastStore";
 
 export type AppStore = {
@@ -26,6 +26,7 @@ export type AppStore = {
   bumpIconVersion: () => void;
   renameGroup: (id: string, name: string) => Promise<boolean>;
   setGroupApps: (id: string, appIds: string[]) => Promise<boolean>;
+  reorderGroups: (ids: string[]) => Promise<boolean>;
   setLaunchpadLayout: (layout: LaunchpadLayout) => Promise<boolean>;
 };
 
@@ -150,6 +151,15 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       (state) => withGroupApps(state, id, appIds),
       () => api.setGroupApps(id, appIds),
       "Couldn't save the new app order.",
+    ),
+
+  reorderGroups: (ids) =>
+    optimistic(
+      get,
+      set,
+      (state) => withGroupOrder(state, ids),
+      () => api.reorderGroups(ids),
+      "Couldn't save the new group order.",
     ),
 
   setLaunchpadLayout: (layout) =>
