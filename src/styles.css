@@ -1,1 +1,88 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/components.css";
+
+/*
+ * Tailwind names for the DESIGN.md tokens. `inline` makes each utility use
+ * the var() itself, so the light/dark switch and the live accent apply
+ * without rebuilding anything.
+ */
+@theme inline {
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-disabled: var(--text-disabled);
+  --color-subtle-hover: var(--fill-subtle-hover);
+  --color-subtle-pressed: var(--fill-subtle-pressed);
+  --color-card: var(--card-bg);
+  --color-stroke-card: var(--stroke-card);
+  --color-stroke-surface: var(--stroke-surface);
+  --color-surface: var(--solid-bg);
+  --color-layer: var(--layer-bg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-on-accent: var(--text-on-accent);
+  --color-folder: var(--folder-bg);
+}
+
+/* Section 6 type ramp: family, size, line height and weight together. */
+@utility type-caption {
+  font-family: var(--font-text);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+@utility type-body {
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+@utility type-body-strong {
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+@utility type-subtitle {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+@utility type-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+}
+
+@utility type-title-large {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 52px;
+  font-weight: 600;
+}
+
+@layer base {
+  /* Mica and Acrylic are drawn by the window behind the page, so the page
+     stays transparent unless the window fell back to Solid. */
+  html,
+  body {
+    background: transparent;
+    color: var(--text-primary);
+    font-family: var(--font-text);
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  html[data-material="solid"] body {
+    background: var(--solid-bg);
+  }
+}

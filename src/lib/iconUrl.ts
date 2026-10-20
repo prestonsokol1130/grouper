@@ -32,13 +32,29 @@ export async function initIconUrls(): Promise<void> {
 }
 
 /**
+ * Stand-in icon URLs for the dev style guide outside Tauri, where there is
+ * no icon cache. Never set in the app.
+ */
+let previewUrls: ReadonlyMap<string, string> | null = null;
+
+/** Sets the style guide's stand-in icons (outside Tauri only). */
+export function setPreviewIconUrls(urls: ReadonlyMap<string, string>): void {
+  previewUrls = urls;
+}
+
+/**
  * The asset URL of `appId`'s cached icon PNG, or `null` before
  * {@link initIconUrls} has finished. `iconUrl("_fallback")` is the fallback
- * icon shown for apps with no icon of their own.
+ * icon shown for apps with no icon of their own. `cacheBuster` defaults to
+ * this module's own counter; components pass the app store's
+ * `iconVersion` so they re-render when it changes.
  */
-export function iconUrl(appId: string): string | null {
+export function iconUrl(appId: string, cacheBuster: number = version): string | null {
+  if (previewUrls !== null) {
+    return previewUrls.get(appId) ?? null;
+  }
   if (cacheDir === null) {
     return null;
   }
-  return `${convertFileSrc(`${cacheDir}${sep()}${appId}.png`)}?v=${version}`;
+  return `${convertFileSrc(`${cacheDir}${sep()}${appId}.png`)}?v=${cacheBuster}`;
 }
