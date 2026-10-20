@@ -12,6 +12,10 @@ pub enum LaunchCommand {
     /// Started by Windows at sign-in (`--background`): open no window,
     /// not even the first-run welcome.
     Background,
+    /// Run by the uninstaller (`--cleanup`): remove Grouper's Start Menu
+    /// folder and sign-in entry, and with `--delete-data` its app data,
+    /// then exit. Handled before the app starts; see [`crate::cleanup`].
+    Cleanup { delete_data: bool },
     /// Nothing to do; stay in the tray.
     None,
 }
@@ -30,6 +34,10 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
             "--launchpad" => return LaunchCommand::Launchpad,
             "--manager" => return LaunchCommand::Manager,
             BACKGROUND_FLAG => return LaunchCommand::Background,
+            CLEANUP_FLAG => {
+                let delete_data = rest.any(|arg| arg == DELETE_DATA_FLAG);
+                return LaunchCommand::Cleanup { delete_data };
+            }
             _ => {}
         }
     }
@@ -39,9 +47,22 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
 /// The flag the Windows sign-in (Run key) launch passes.
 pub const BACKGROUND_FLAG: &str = "--background";
 
+/// The flag the uninstaller passes. A later [`DELETE_DATA_FLAG`] also
+/// deletes the app data.
+pub const CLEANUP_FLAG: &str = "--cleanup";
+
+/// With [`CLEANUP_FLAG`]: the user ticked "Delete the application data".
+pub const DELETE_DATA_FLAG: &str = "--delete-data";
+
 /// The flags [`parse_args`] knows. One of them after `--flyout` is a
 /// missing id, not an id.
-const KNOWN_FLAGS: [&str; 4] = ["--flyout", "--launchpad", "--manager", BACKGROUND_FLAG];
+const KNOWN_FLAGS: [&str; 5] = [
+    "--flyout",
+    "--launchpad",
+    "--manager",
+    BACKGROUND_FLAG,
+    CLEANUP_FLAG,
+];
 
 /// Validates the id that follows `--flyout`. Group ids may start with `--`
 /// (`-` is in their alphabet), so only the exact known flags are refused.
@@ -177,6 +198,18 @@ mod tests {
             parse_args(&args(&["--flyout", "--background"])),
             LaunchCommand::None
         );
+    }
+
+    #[test]
+    fn cleanup_with_and_without_data() {
+        let cleanup = |delete_data| LaunchCommand::Cleanup { delete_data };
+        assert_eq!(parse_args(&args(&["--cleanup"])), cleanup(false));
+        let with_data = args(&["--cleanup", "--delete-data"]);
+        assert_eq!(parse_args(&with_data), cleanup(true));
+        let data_first = args(&["--delete-data", "--cleanup"]);
+        assert_eq!(parse_args(&data_first), cleanup(false));
+        let as_id = args(&["--flyout", "--cleanup"]);
+        assert_eq!(parse_args(&as_id), LaunchCommand::None);
     }
 
     #[test]

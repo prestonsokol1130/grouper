@@ -15,6 +15,7 @@ pub mod flyout_window;
 pub mod foreground;
 #[cfg(windows)]
 pub mod gdi;
+pub mod known_folder;
 pub mod launch;
 pub mod lnk_aumid;
 pub mod lnk_read;
@@ -23,6 +24,7 @@ pub mod material;
 pub mod monitor;
 pub mod reveal;
 pub mod shell_notify;
+pub mod unpin;
 pub mod version_info;
 pub mod wide;
 

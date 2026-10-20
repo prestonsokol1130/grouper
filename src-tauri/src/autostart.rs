@@ -8,12 +8,14 @@ use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_autostart::ManagerExt;
 
+use crate::cleanup::autostart_entry::RUN_VALUE_NAME;
 use crate::cli::BACKGROUND_FLAG;
 use crate::state::Store;
 
 /// The plugin, registering Grouper with `--background`.
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_autostart::Builder::new()
+        .app_name(RUN_VALUE_NAME)
         .arg(BACKGROUND_FLAG)
         .build()
 }

@@ -4,6 +4,7 @@
 pub mod appearance;
 pub mod apps;
 pub mod autostart;
+pub mod cleanup;
 pub mod cli;
 pub mod commands;
 pub mod flyout;
@@ -31,6 +32,14 @@ use tauri::{Manager, RunEvent};
 
 /// Starts Grouper. Startup failures are logged and the process exits.
 pub fn run() {
+    // The uninstaller's --cleanup runs before any plugin, so it is never
+    // forwarded to a running Grouper and never starts the app.
+    let args: Vec<String> = std::env::args_os()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    if let cli::LaunchCommand::Cleanup { delete_data } = cli::parse_args(&args) {
+        cleanup::run_and_exit(delete_data);
+    }
     logging::install_panic_hook();
     // Before the single-instance check: a second launch from a taskbar
     // click passes its foreground right on to the running instance.
