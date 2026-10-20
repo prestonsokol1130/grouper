@@ -86,19 +86,31 @@ describe("Launchpad paging", () => {
     expect(current()).toBe(1);
   });
 
-  it("turns on a drag past a quarter of the page, and swallows its click", async () => {
+  it("turns on a background drag past a quarter of the page, and swallows its click", async () => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000);
     await renderShown();
     const area = pages() as Element;
-    const tile = screen.getByRole("button", { name: "App app00" });
-    fireEvent.pointerDown(tile, { pointerId: 1, button: 0, isPrimary: true, clientX: 600 });
-    fireEvent.pointerMove(tile, { pointerId: 1, isPrimary: true, clientX: 500, clientY: 0 });
+    const background = area.querySelector(".launchpad-page") as Element;
+    fireEvent.pointerDown(background, { pointerId: 1, button: 0, isPrimary: true, clientX: 600 });
+    fireEvent.pointerMove(background, { pointerId: 1, isPrimary: true, clientX: 500, clientY: 0 });
     expect(track()?.classList.contains("is-sliding")).toBe(false);
     expect(track()?.style.transform).toBe("translate3d(calc(0% + -100px), 0, 0)");
     fireEvent.pointerUp(area, { pointerId: 1, isPrimary: true, clientX: 300 });
-    fireEvent.click(tile);
+    fireEvent.click(background);
     expect(current()).toBe(1);
-    expect(invokeMock.mock.calls.some(([c]) => c === "launch_app")).toBe(false);
+    expect(invokeMock.mock.calls.some(([c]) => c === "hide_launchpad")).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it("leaves a drag that starts on a tile to the tile", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000);
+    await renderShown();
+    const tile = screen.getByRole("button", { name: "App app00" });
+    fireEvent.pointerDown(tile, { pointerId: 1, button: 0, isPrimary: true, clientX: 600 });
+    fireEvent.pointerMove(tile, { pointerId: 1, isPrimary: true, clientX: 500, clientY: 0 });
+    expect(track()?.style.transform).toBe("translate3d(calc(0% + 0px), 0, 0)");
+    fireEvent.pointerUp(tile, { pointerId: 1, isPrimary: true, clientX: 300 });
+    expect(current()).toBe(0);
     vi.restoreAllMocks();
   });
 

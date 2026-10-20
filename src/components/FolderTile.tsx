@@ -1,5 +1,5 @@
 import { useFolderIconApps, useGroup } from "../store/hooks";
-import { activationKeys, type PreviewState } from "./activation";
+import { activationKeys, type PreviewState, type TileButtonProps } from "./activation";
 import { AppIcon } from "./AppIcon";
 import { miniLayout, shapeStyle, type FolderShape } from "./folderLayout";
 
@@ -13,6 +13,8 @@ type Props = {
   showLabel?: boolean;
   /** Style guide only: shows a state without a pointer or keyboard. */
   preview?: PreviewState;
+  /** Extra button props from a drag-and-drop wrapper. */
+  button?: TileButtonProps;
 };
 
 /** Space around the tile art inside the button, as in AppTile. */
@@ -30,6 +32,7 @@ export function FolderTile({
   shape = "square",
   showLabel = true,
   preview,
+  button,
 }: Props) {
   const group = useGroup(groupId);
   const name = group?.name ?? "";
@@ -37,6 +40,7 @@ export function FolderTile({
 
   return (
     <button
+      {...button}
       type="button"
       className="tile focus-ring flex flex-col items-center gap-1 rounded-control"
       style={{ width: size + 2 * INSET, padding: `${INSET}px 0` }}

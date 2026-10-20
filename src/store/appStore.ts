@@ -184,6 +184,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       set,
       (state) => withLaunchpadLayout(state, layout),
       () => api.setLaunchpadLayout(layout),
-      "Couldn't save the Launchpad layout.",
+      "Couldn't save the new order.",
     ),
 }));

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import type { LaunchpadItem } from "../../bindings";
+import type { TileButtonProps } from "../../components/activation";
 import { AppTile } from "../../components/AppTile";
 import { FolderTile } from "../../components/FolderTile";
 import { reflowPages } from "../../lib/grid";
@@ -9,13 +10,14 @@ import { useAppStore } from "../../store/appStore";
 import { motionName, motionVars, useOpenCloseStyle } from "../flyout/flyoutMotion";
 import { launchpadDensity, searchIndex, visiblePages } from "./launchpadGrid";
 import { PageDots } from "./PageDots";
-import { PagedGrid } from "./PagedGrid";
+import { ReorderGrid } from "./ReorderGrid";
 import { focusResult, ResultsGrid } from "./ResultsGrid";
 import { SearchBar } from "./SearchBar";
 import { useLaunchpadClose } from "./useLaunchpadClose";
 import { useLaunchpadKeys } from "./useLaunchpadKeys";
 import { useLaunchpadShow } from "./useLaunchpadShow";
 import { usePager } from "./usePager";
+import { useDragState } from "./useReorder";
 import { useViewportGrid } from "./useViewportGrid";
 
 /** Shown while there are no apps at all (the first scan may still be running). */
@@ -43,7 +45,12 @@ export function LaunchpadRoot() {
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLDivElement>(null);
 
-  const pages = useMemo(() => reflowPages(visiblePages(state), grid.perPage), [state, grid]);
+  const [drag, setDrag] = useDragState();
+  const pages = useMemo(() => {
+    const shown = reflowPages(visiblePages(state), grid.perPage);
+    // A drag may open a new page after the last one.
+    return drag === null ? shown : [...shown, []];
+  }, [state, grid, drag]);
   const searching = query.trim() !== "";
   const matches = useMemo(
     () => (searching ? rank(query, searchIndex(state)) : []),
@@ -57,7 +64,14 @@ export function LaunchpadRoot() {
     reduced,
     onHidden: () => setQuery(""),
   });
-  useLaunchpadKeys({ query, setQuery, inputRef: input, close, turn: pager.turn });
+  useLaunchpadKeys({
+    query,
+    setQuery,
+    inputRef: input,
+    close,
+    turn: pager.turn,
+    paused: drag !== null,
+  });
 
   const open = useCallback(
     (item: LaunchpadItem) => {
@@ -68,16 +82,21 @@ export function LaunchpadRoot() {
   );
 
   const renderTile = useCallback(
-    (item: LaunchpadItem) =>
-      item.kind === "app" ? (
+    (item: LaunchpadItem, button?: TileButtonProps, lifted = false) => {
+      const preview = lifted ? "hover" : undefined;
+      const size = launchpadDensity().iconPx;
+      return item.kind === "app" ? (
         <AppTile
           appId={item.appId}
-          size={launchpadDensity().iconPx}
+          size={size}
           onActivate={() => open(item)}
+          button={button}
+          preview={preview}
         />
       ) : (
-        <FolderTile groupId={item.groupId} size={launchpadDensity().iconPx} />
-      ),
+        <FolderTile groupId={item.groupId} size={size} button={button} preview={preview} />
+      );
+    },
     [open],
   );
 
@@ -122,8 +141,10 @@ export function LaunchpadRoot() {
           {EMPTY_MESSAGE}
         </p>
       ) : (
-        <PagedGrid
+        <ReorderGrid
           pages={pages}
+          drag={drag}
+          setDrag={setDrag}
           pager={pager}
           grid={grid}
           reduced={reduced}

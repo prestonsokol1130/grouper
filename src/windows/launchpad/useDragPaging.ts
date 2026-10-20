@@ -33,7 +33,8 @@ function velocity(samples: readonly Sample[]): number {
 }
 
 /**
- * Pointer drag and swipe paging. A press becomes a drag once it moves
+ * Pointer drag and swipe paging, for presses off the tiles (a press on a
+ * tile picks the tile up, see SortableTile). A press becomes a drag once it moves
  * DRAG_START_PX sideways (more than up or down); the track then follows
  * the pointer (with resistance past the first and last page) and the
  * release turns the page when dragged far enough or flicked. The click
@@ -51,7 +52,10 @@ export function useDragPaging({ page, count, follow, release }: Options) {
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
     swallowClick.current = false;
+    drag.current = null;
     if (event.button !== 0 || !event.isPrimary) return;
+    // A press on a tile of the page on screen moves the tile instead.
+    if (event.target instanceof Element && event.target.closest("[data-sortable]")) return;
     const sample = { x: event.clientX, t: event.timeStamp };
     drag.current = {
       id: event.pointerId,

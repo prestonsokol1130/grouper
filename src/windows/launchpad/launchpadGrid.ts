@@ -12,6 +12,15 @@ export function launchpadDensity(): GridDensity {
   return DEFAULT_DENSITY;
 }
 
+/**
+ * Items a stored page holds: the grid setting, whatever the screen. A
+ * move that overfills a stored page pushes the rest onto the next one.
+ */
+export function storedPerPage(): number {
+  const density = launchpadDensity();
+  return density.columns * density.rows;
+}
+
 /** A stable React key for an item. */
 export function itemKey(item: LaunchpadItem): string {
   return item.kind === "app" ? `app:${item.appId}` : `folder:${item.groupId}`;
@@ -32,20 +41,26 @@ function perState<T>(derive: (state: AppState) => T): (state: AppState | null) =
 }
 
 /**
- * The stored pages, skipping apps the user has hidden and ids the state
- * does not know. Pages may be longer than a screen's grid; see
- * `reflowPages`.
+ * Says whether a stored item shows: not an app the user has hidden, and
+ * not an id the state does not know.
  */
-export const visiblePages = perState((state): LaunchpadItem[][] => {
+export const visibleItem = perState((state): ((item: LaunchpadItem) => boolean) => {
   const apps = appsById(state);
   const groups = groupsById(state);
-  return (state.launchpad?.pages ?? []).map((page) =>
-    page.filter((item) => {
-      if (item.kind === "folder") return groups.has(item.groupId);
-      const app = apps.get(item.appId);
-      return app !== undefined && app.hidden !== true;
-    }),
-  );
+  return (item) => {
+    if (item.kind === "folder") return groups.has(item.groupId);
+    const app = apps.get(item.appId);
+    return app !== undefined && app.hidden !== true;
+  };
+});
+
+/**
+ * The stored pages with only their visible items. Pages may be longer
+ * than a screen's grid; see `reflowPages`.
+ */
+export const visiblePages = perState((state): LaunchpadItem[][] => {
+  const visible = visibleItem(state);
+  return (state.launchpad?.pages ?? []).map((page) => page.filter(visible));
 });
 
 /**

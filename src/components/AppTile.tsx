@@ -1,5 +1,5 @@
 import { useApp } from "../store/hooks";
-import { activationKeys, type PreviewState } from "./activation";
+import { activationKeys, type PreviewState, type TileButtonProps } from "./activation";
 import { AppIcon } from "./AppIcon";
 
 type Props = {
@@ -11,6 +11,8 @@ type Props = {
   disabled?: boolean;
   /** Style guide only: shows a state without a pointer or keyboard. */
   preview?: PreviewState;
+  /** Extra button props from a drag-and-drop wrapper. */
+  button?: TileButtonProps;
 };
 
 /** Space around the icon inside the tile, in px (Fluent 4px step). */
@@ -29,6 +31,7 @@ export function AppTile({
   showLabel = true,
   disabled = false,
   preview,
+  button,
 }: Props) {
   const app = useApp(appId);
   const name = app?.name ?? "";
@@ -40,6 +43,7 @@ export function AppTile({
 
   return (
     <button
+      {...button}
       type="button"
       className="tile focus-ring flex flex-col items-center gap-1 rounded-control"
       style={{ width: size + 2 * INSET, padding: `${INSET}px 0` }}

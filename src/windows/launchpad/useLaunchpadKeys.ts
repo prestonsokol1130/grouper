@@ -7,6 +7,8 @@ type Options = {
   close: () => void;
   /** Turns the page by `step` (no search active only). */
   turn: (step: number) => void;
+  /** True while a tile is dragged: the drag owns the keys. */
+  paused?: boolean;
 };
 
 /** Keys that page while no search is active. */
@@ -29,17 +31,25 @@ function typesText(event: KeyboardEvent): boolean {
  * - Typing anywhere outside the search box (and Backspace) goes into it.
  * - Left/Right and PageUp/PageDown turn pages, but only with no search:
  *   during a search the arrows move between results.
- * Keys a tile already handled (Enter, Space) are left alone.
+ * Keys a tile already handled (Enter, Space) are left alone, and so is
+ * every key while a tile is dragged.
  */
-export function useLaunchpadKeys({ query, setQuery, inputRef, close, turn }: Options): void {
-  const latest = useRef({ query, setQuery, close, turn });
+export function useLaunchpadKeys({
+  query,
+  setQuery,
+  inputRef,
+  close,
+  turn,
+  paused = false,
+}: Options): void {
+  const latest = useRef({ query, setQuery, close, turn, paused });
   useEffect(() => {
-    latest.current = { query, setQuery, close, turn };
+    latest.current = { query, setQuery, close, turn, paused };
   });
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing) return;
+      if (event.defaultPrevented || event.isComposing || latest.current.paused) return;
       const { query: current, setQuery: set, close: hide, turn: page } = latest.current;
       const input = inputRef.current;
       const inSearch = input !== null && event.target === input;

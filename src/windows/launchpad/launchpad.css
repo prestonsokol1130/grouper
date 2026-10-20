@@ -49,3 +49,28 @@
 .page-dot[aria-current="page"] .page-dot-mark {
   background-color: var(--accent);
 }
+
+/* Drag to reorder. The dragged tile's cell keeps its place in the grid
+   but shows only the drop slot: an icon-sized rounded square in the
+   Fluent subtle fill with the card stroke, rounded like a folder tile.
+   The tile itself rides in the drag overlay, lifted with the hover lift. */
+[data-dragging] > .tile {
+  opacity: 0;
+}
+
+.drop-slot {
+  top: 8px;
+  left: 50%;
+  translate: -50% 0;
+  border-radius: 18%;
+  background-color: var(--fill-subtle-hover);
+  box-shadow: inset 0 0 0 1px var(--stroke-card);
+}
+
+.launchpad-lifted {
+  cursor: grabbing;
+}
+
+.launchpad-lifted img {
+  -webkit-user-drag: none;
+}

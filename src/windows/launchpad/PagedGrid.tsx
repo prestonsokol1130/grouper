@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,7 +23,8 @@ type Props = {
   reduced: boolean;
   /** Changes on every show: the track jumps to its page without sliding. */
   showSeq: number;
-  renderTile: (item: LaunchpadItem) => ReactNode;
+  /** One grid cell; `current` is true on the page on screen. */
+  renderCell: (item: LaunchpadItem, current: boolean) => ReactNode;
 };
 
 /**
@@ -30,10 +32,12 @@ type Props = {
  * with `transform` only (DESIGN.md section 10: 250ms ease-out, and with
  * reduced motion no slide, the new page fades in over 120ms). A slide is
  * a CSS transition, so a new turn mid-slide carries on from where the
- * track is. The wheel, a drag or a flick turn pages; only the current
- * page, its neighbours and the page being left are rendered.
+ * track is. The wheel, or a drag or flick that starts off the tiles, turn
+ * pages (a drag on a tile moves the tile, see SortableTile); only the
+ * current page, its neighbours and the page being left are rendered. The
+ * track's `data-page` is the page it is heading for (see trackMeasure).
  */
-export function PagedGrid({ pages, pager, grid, reduced, showSeq, renderTile }: Props) {
+export function PagedGrid({ pages, pager, grid, reduced, showSeq, renderCell }: Props) {
   const track = useRef<HTMLDivElement>(null);
   const [wheel] = useState(() => new WheelPager());
   const placedSeq = useRef(showSeq);
@@ -44,6 +48,7 @@ export function PagedGrid({ pages, pager, grid, reduced, showSeq, renderTile }: 
     const element = track.current;
     if (element === null) return;
     element.classList.toggle("is-sliding", animate && !reduced);
+    element.dataset.page = String(page);
     element.style.transform = `translate3d(calc(${-page * 100}% + ${offset}px), 0, 0)`;
   };
 
@@ -106,9 +111,7 @@ export function PagedGrid({ pages, pager, grid, reduced, showSeq, renderTile }: 
               {near && (
                 <TileGrid grid={grid} label="Apps">
                   {items.map((item) => (
-                    <div key={itemKey(item)} className="flex items-center justify-center">
-                      {renderTile(item)}
-                    </div>
+                    <Fragment key={itemKey(item)}>{renderCell(item, index === page)}</Fragment>
                   ))}
                 </TileGrid>
               )}
