@@ -7,6 +7,7 @@
 
 pub mod accent;
 pub mod com;
+pub mod cursor;
 pub mod env;
 pub mod file_dialog;
 pub mod flyout_window;

@@ -85,6 +85,10 @@ export const commands = {
 } | null>("get_flyout"),
 	/**  Launches app `app_id`, then hides the flyout; on failure it stays open. */
 	launchFromFlyout: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_from_flyout", { appId })),
+	/**  Hides the Launchpad; `Err` when Windows could not hide it. */
+	hideLaunchpad: () => typedError<null, string>(__TAURI_INVOKE("hide_launchpad")),
+	/**  Registers shortcut `hotkey` in place of the old one; saved only if it works. */
+	setHotkey: (hotkey: string) => typedError<Settings, string>(__TAURI_INVOKE("set_hotkey", { hotkey })),
 	/**
 	 *  The Windows accent colour, or `null` when it could not be read (the
 	 *  frontend then uses DESIGN.md's fallback blue). Changes arrive as
@@ -187,6 +191,11 @@ export type Group = {
 	shortcutPath?: string | null,
 };
 
+export type HotCorners = {
+	topLeft?: boolean,
+	topRight?: boolean,
+};
+
 /**  What a group launch did. */
 export type LaunchSummary = {
 	/**  How many apps were started (u32: the bindings refuse 64-bit ints). */
@@ -212,6 +221,7 @@ export type Material = "mica" | "acrylic" | "solid";
 /**  User settings. */
 export type Settings = {
 	hotkey?: string,
+	hotCorners?: HotCorners,
 	autostart?: boolean,
 	/**  `"system"`, `"light"` or `"dark"`. */
 	theme?: string,
@@ -220,7 +230,7 @@ export type Settings = {
 
 /**  A partial settings update: only the fields that are set are changed. */
 export type SettingsPatch = {
-	hotkey?: string | null,
+	hotCorners?: HotCorners | null,
 	autostart?: boolean | null,
 	theme?: string | null,
 	firstRunDone?: boolean | null,

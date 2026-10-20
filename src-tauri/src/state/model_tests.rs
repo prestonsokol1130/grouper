@@ -72,7 +72,8 @@ fn empty_object_gives_defaults() {
     let state: AppState = serde_json::from_str("{}").unwrap();
     assert_eq!(state, AppState::default());
     assert_eq!(state.schema_version, CURRENT_SCHEMA);
-    assert_eq!(state.settings.hotkey, "Ctrl+Alt+Space");
+    assert_eq!(state.settings.hotkey, "Alt+`");
+    assert!(state.settings.hot_corners.top_left && state.settings.hot_corners.top_right);
     assert_eq!(state.settings.theme, "system");
     assert!(!state.settings.autostart && !state.settings.first_run_done);
     let partial: AppEntry = serde_json::from_str(r#"{"id":"x"}"#).unwrap();
@@ -196,4 +197,29 @@ fn settings_patch_changes_only_given_fields() {
     assert_eq!(settings.hotkey, "Alt+Space");
     assert!(settings.autostart);
     assert!(!settings.first_run_done);
+}
+
+#[test]
+fn only_the_legacy_default_shortcut_is_upgraded() {
+    let mut settings = Settings {
+        hotkey: "Ctrl+Alt+Space".into(),
+        ..Settings::default()
+    };
+    assert!(settings.upgrade_legacy_hotkey());
+    assert_eq!(settings.hotkey, "Alt+`");
+    assert!(!settings.upgrade_legacy_hotkey());
+    settings.hotkey = "Shift+Alt+L".into();
+    assert!(!settings.upgrade_legacy_hotkey());
+    assert_eq!(settings.hotkey, "Shift+Alt+L");
+}
+
+#[test]
+fn hot_corners_default_on_and_keep_a_saved_choice() {
+    let json = r#"{"hotCorners":{"topRight":false}}"#;
+    let settings: Settings = serde_json::from_str(json).unwrap();
+    assert!(settings.hot_corners.top_left && !settings.hot_corners.top_right);
+    let mut settings = Settings::default();
+    let json = r#"{"hotCorners":{"topLeft":false,"topRight":true}}"#;
+    settings.apply(serde_json::from_str(json).unwrap());
+    assert!(!settings.hot_corners.top_left && settings.hot_corners.top_right);
 }

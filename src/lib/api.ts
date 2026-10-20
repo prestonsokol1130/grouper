@@ -63,6 +63,8 @@ export const api = {
   hideFlyout: () => typed(() => commands.hideFlyout()),
   getFlyout: () => plain(() => commands.getFlyout()),
   launchFromFlyout: (appId: string) => typed(() => commands.launchFromFlyout(appId)),
+  hideLaunchpad: () => typed(() => commands.hideLaunchpad()),
+  setHotkey: (hotkey: string) => typed(() => commands.setHotkey(hotkey)),
   getAccentColor: () => plain(() => commands.getAccentColor()),
   getWindowMaterial: () => plain(() => commands.getWindowMaterial()),
 };

@@ -168,6 +168,7 @@ pub fn reorder_groups(
 }
 
 /// Changes only the settings present in `patch`; the rest are kept.
+// The shortcut is changed with `set_hotkey`, which registers it first.
 #[tauri::command]
 #[specta::specta]
 pub fn update_settings(
@@ -175,10 +176,12 @@ pub fn update_settings(
     store: State<'_, Arc<Store>>,
     patch: SettingsPatch,
 ) -> Result<Settings, String> {
-    mutate(&app, &store, |state| {
+    let settings = mutate(&app, &store, |state| {
         state.settings.apply(patch);
         Ok(state.settings.clone())
-    })
+    })?;
+    crate::hot_corners::update(&app, settings.hot_corners);
+    Ok(settings)
 }
 
 /// Replaces the Launchpad layout (dangling ids are dropped).

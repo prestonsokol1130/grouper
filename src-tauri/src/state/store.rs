@@ -80,6 +80,7 @@ impl Store {
         }
         let version = state.schema_version;
         let mut state = migrate(state);
+        dirty |= state.settings.upgrade_legacy_hotkey();
         let dropped = state.validate();
         if dropped > 0 {
             log::warn!("dropped {dropped} dangling id(s) from app state");

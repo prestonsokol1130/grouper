@@ -6,6 +6,8 @@ pub mod apps;
 pub mod cli;
 pub mod commands;
 pub mod flyout;
+pub mod hot_corners;
+pub mod hotkey;
 pub mod icons;
 pub mod launchpad;
 pub mod logging;
@@ -47,6 +49,7 @@ fn start() -> Result<(), String> {
             router::route(app, cli::parse_args(&argv));
         }))
         .plugin(logging::plugin())
+        .plugin(hotkey::plugin())
         .invoke_handler(commands.invoke_handler())
         .on_window_event(windows::handle_window_event)
         .setup(|app| {
@@ -76,6 +79,10 @@ fn start() -> Result<(), String> {
             }
             tray::create(handle)?;
             flyout::window::init(handle);
+            launchpad::window::init(handle);
+            let settings = store.snapshot().settings;
+            hotkey::register_at_startup(handle, &settings.hotkey);
+            hot_corners::start(handle, settings.hot_corners);
             appearance::material::init(handle, appearance::material::BackgroundSetting::default());
             appearance::accent::init(handle);
             // args_os: std::env::args panics on non-Unicode arguments.
@@ -95,6 +102,7 @@ fn start() -> Result<(), String> {
             code: None, api, ..
         } => api.prevent_exit(),
         RunEvent::Exit => {
+            hot_corners::stop(app);
             commands::icon_cmds::stop_icon_worker(app);
             if let Some(worker) = app.try_state::<commands::shortcut_worker::ShortcutWorker>() {
                 worker.stop();

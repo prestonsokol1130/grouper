@@ -16,6 +16,10 @@ pub fn show_window<R: Runtime>(app: &AppHandle<R>, label: &str) -> Result<(), St
                 .set_focus()
                 .map_err(|e| format!("focus {label:?}: {e}"))
         });
+    // A shortcut that failed at startup is shown by the first window opened.
+    if result.is_ok() && label == "manager" {
+        crate::hotkey::notify_pending(app, label);
+    }
     if let Err(error) = &result {
         log::warn!("show_window failed: {error}");
     }

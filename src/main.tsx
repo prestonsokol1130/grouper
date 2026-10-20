@@ -2,13 +2,14 @@ import { lazy, StrictMode, Suspense } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "./components/Toaster";
+import { followHotkeyFailures } from "./lib/hotkeyToast";
 import { iconUrl, initIconUrls } from "./lib/iconUrl";
 import { applyMaterial, applyTheme, followAccent } from "./lib/theme";
 import { installErrorForwarding } from "./logging";
 import { useAppStore } from "./store/appStore";
 import "./styles.css";
 import { FlyoutRoot } from "./windows/flyout/FlyoutRoot";
-import { LaunchpadRoot } from "./windows/LaunchpadRoot";
+import { LaunchpadRoot } from "./windows/launchpad/LaunchpadRoot";
 import { ManagerRoot } from "./windows/manager/ManagerRoot";
 
 /** Dev only (`?window=styleguide`); the import is dropped from builds. */
@@ -50,6 +51,8 @@ if (isTauri()) followAccent();
 // The style guide brings its own sample data.
 if (isTauri() && label !== "styleguide") {
   useAppStore.getState().init();
+  // Either window can tell the user the Launchpad shortcut is taken.
+  if (label === "manager" || label === "launchpad") followHotkeyFailures();
   // Preload the fallback icon so it is warm for the first UI. The Image is
   // never attached to the DOM, so nothing is shown.
   initIconUrls()

@@ -75,11 +75,38 @@ pub struct LaunchpadLayout {
     pub pages: Vec<Vec<LaunchpadItem>>,
 }
 
+// Which screen corners open the Launchpad (DESIGN.md section 12); both on
+// by default. (Plain comments: doc comments would grow the bindings.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct HotCorners {
+    pub top_left: bool,
+    pub top_right: bool,
+}
+
+impl Default for HotCorners {
+    fn default() -> Self {
+        Self {
+            top_left: true,
+            top_right: true,
+        }
+    }
+}
+
+/// The Launchpad shortcut before DESIGN.md picked Alt + `; nobody could
+/// choose it (there was no setting), so a stored one is upgraded.
+pub const LEGACY_HOTKEY: &str = "Ctrl+Alt+Space";
+
+/// The default Launchpad shortcut (DESIGN.md section 12).
+pub const DEFAULT_HOTKEY: &str = "Alt+`";
+
 /// User settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    // Changed only through `set_hotkey`, which registers it first.
     pub hotkey: String,
+    pub hot_corners: HotCorners,
     pub autostart: bool,
     /// `"system"`, `"light"` or `"dark"`.
     pub theme: String,
@@ -89,7 +116,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            hotkey: "Ctrl+Alt+Space".into(),
+            hotkey: DEFAULT_HOTKEY.into(),
+            hot_corners: HotCorners::default(),
             autostart: false,
             theme: "system".into(),
             first_run_done: false,
@@ -101,17 +129,27 @@ impl Default for Settings {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SettingsPatch {
-    pub hotkey: Option<String>,
+    pub hot_corners: Option<HotCorners>,
     pub autostart: Option<bool>,
     pub theme: Option<String>,
     pub first_run_done: Option<bool>,
 }
 
 impl Settings {
+    /// Replaces the legacy default shortcut with [`DEFAULT_HOTKEY`].
+    /// Returns true when it did.
+    pub fn upgrade_legacy_hotkey(&mut self) -> bool {
+        let legacy = self.hotkey == LEGACY_HOTKEY;
+        if legacy {
+            self.hotkey = DEFAULT_HOTKEY.into();
+        }
+        legacy
+    }
+
     /// Applies the fields set in `patch`, keeping every other setting.
     pub fn apply(&mut self, patch: SettingsPatch) {
-        if let Some(hotkey) = patch.hotkey {
-            self.hotkey = hotkey;
+        if let Some(hot_corners) = patch.hot_corners {
+            self.hot_corners = hot_corners;
         }
         if let Some(autostart) = patch.autostart {
             self.autostart = autostart;

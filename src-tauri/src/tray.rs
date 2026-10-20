@@ -4,6 +4,7 @@ use tauri::menu::{MenuBuilder, MenuEvent, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Runtime};
 
+use crate::launchpad::{self, Opener};
 use crate::windows::show_window;
 
 const OPEN_MANAGER: &str = "open-manager";
@@ -51,9 +52,7 @@ fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
         OPEN_MANAGER => {
             let _ = show_window(app, "manager");
         }
-        OPEN_LAUNCHPAD => {
-            let _ = show_window(app, "launchpad");
-        }
+        OPEN_LAUNCHPAD => launchpad::window::toggle(app, Opener::Shortcut),
         QUIT => {
             log::info!("quit requested from tray");
             app.exit(0);

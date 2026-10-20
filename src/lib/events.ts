@@ -1,10 +1,17 @@
 import { listen } from "@tauri-apps/api/event";
-import type { AccentColors, AppState, FlyoutShow } from "../bindings";
+import type { AccentColors, AppState, FlyoutOrigin, FlyoutShow } from "../bindings";
+
+/** The `launchpad:show` payload: where the open animation starts. */
+export type LaunchpadShow = { origin: FlyoutOrigin };
+
+/** The `hotkey:failed` payload: the shortcut and the raw error (for the log). */
+export type HotkeyFailed = { hotkey: string; error: string };
 
 /**
  * Backend events and their payloads. The names match the Rust constants
  * `STATE_CHANGED_EVENT`, `ICONS_UPDATED_EVENT`, `ACCENT_CHANGED_EVENT`
- * `FLYOUT_SHOW_EVENT` and `FLYOUT_HIDE_EVENT`.
+ * `FLYOUT_SHOW_EVENT`, `FLYOUT_HIDE_EVENT`, `LAUNCHPAD_SHOW_EVENT`,
+ * `LAUNCHPAD_HIDE_EVENT` and `HOTKEY_FAILED_EVENT`.
  */
 type Events = {
   "state:changed": AppState;
@@ -12,6 +19,9 @@ type Events = {
   "accent:changed": AccentColors | null;
   "flyout:show": FlyoutShow;
   "flyout:hide": null;
+  "launchpad:show": LaunchpadShow;
+  "launchpad:hide": null;
+  "hotkey:failed": HotkeyFailed;
 };
 
 /**

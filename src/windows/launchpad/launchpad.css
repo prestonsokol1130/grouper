@@ -1,0 +1,9 @@
+/*
+ * The fullscreen Launchpad (DESIGN.md section 8). The open/close motion
+ * comes from flyout.css (the panel also has the flyout-panel class); this
+ * file only adds the layout. Bigger screens get more space between the
+ * tiles, not more tiles: the 7 x 5 grid stretches to the window.
+ */
+.launchpad-panel {
+  padding-inline: max(48px, 8vw);
+}

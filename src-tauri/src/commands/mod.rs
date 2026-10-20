@@ -5,6 +5,7 @@ pub mod appearance_cmds;
 pub mod flyout_cmds;
 pub mod icon_cmds;
 pub mod launch_cmds;
+pub mod launchpad_cmds;
 pub mod scan_cmds;
 pub mod shortcut_cmds;
 mod shortcut_jobs;
@@ -40,6 +41,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             flyout_cmds::hide_flyout,
             flyout_cmds::get_flyout,
             flyout_cmds::launch_from_flyout,
+            launchpad_cmds::hide_launchpad,
+            launchpad_cmds::set_hotkey,
             appearance_cmds::get_accent_color,
             appearance_cmds::get_window_material,
         ])

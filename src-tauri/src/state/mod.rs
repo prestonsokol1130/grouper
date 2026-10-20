@@ -20,7 +20,7 @@ mod store_icon_tests;
 mod store_tests;
 
 pub use model::{
-    AppEntry, AppSource, AppState, Group, LaunchpadItem, LaunchpadLayout, Settings, SettingsPatch,
-    CURRENT_SCHEMA,
+    AppEntry, AppSource, AppState, Group, HotCorners, LaunchpadItem, LaunchpadLayout, Settings,
+    SettingsPatch, CURRENT_SCHEMA,
 };
 pub use store::Store;
