@@ -168,6 +168,8 @@ fn show<R: Runtime>(
         monitor.scale,
     )?;
     let placed = started.elapsed().as_micros();
+    // Most of the show time is here: tao rewrites the window styles,
+    // refreshes the frame and activates the window.
     window.show().map_err(|e| format!("show: {e}"))?;
     let visible = started.elapsed().as_micros();
     // A flyout that cannot take focus would never blur, so never hide.
