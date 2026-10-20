@@ -111,10 +111,12 @@ export function FlyoutRoot() {
     tiles[next]?.focus();
   };
 
+  // The outer edge (DESIGN.md section 3) is an inset 1px ring so it takes
+  // no space from the 12px padding the Rust size formula counts on.
   return (
     <div
       ref={panel}
-      className="flyout-panel flex h-screen flex-col overflow-x-hidden overflow-y-auto p-3 text-primary"
+      className="flyout-panel flex h-screen flex-col overflow-x-hidden overflow-y-auto rounded-card p-3 text-primary ring-1 ring-stroke-surface ring-inset"
       data-motion={motionName(style, reduced)}
       data-edge={show?.origin.edge ?? "bottom"}
       style={motionVars(style, reduced, show?.origin)}

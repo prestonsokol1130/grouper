@@ -33,6 +33,8 @@ walkdir = "2"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
   "Win32_Foundation",
+  # DwmSetWindowAttribute: rounded flyout corners on Windows 11.
+  "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",
   # PKEY_AppUserModel_ID, written into group shortcuts.
   "Win32_Storage_EnhancedStorage",

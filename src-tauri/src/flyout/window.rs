@@ -15,7 +15,7 @@ use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_HIDE_EVENT, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
 use crate::taskbar::placement::{place, taskbar_edge};
-use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
+use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
 use crate::win32::monitor::current_monitor_info;
 
 /// Sets up the flyout at startup: its managed state, its tool-window
@@ -29,6 +29,11 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
     match raw_hwnd(&window).and_then(apply_flyout_styles) {
         Ok(()) => {}
         Err(error) => log::error!("could not style the flyout window: {error}"),
+    }
+    // Windows 10 has no rounded corners; the page's own border still shows.
+    match raw_hwnd(&window).and_then(round_corners) {
+        Ok(()) => log::info!("flyout corners rounded"),
+        Err(error) => log::info!("flyout corners not rounded: {error}"),
     }
     let handle = app.clone();
     window.on_window_event(move |event| {
