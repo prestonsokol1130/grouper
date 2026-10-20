@@ -1,0 +1,40 @@
+/*
+ * An open Launchpad folder (S5-06). The panel is a Fluent card like the
+ * flyout: 8px corners, the surface stroke as an inset ring, the raised
+ * shadow, and an acrylic-like layer over the Launchpad (the page blurs
+ * what is behind it 30px and tints it with the Solid colour at the
+ * flyout's tint opacity, DESIGN.md section 4). Its open/close keyframes
+ * are the flyout's (flyout.css; the panel also has .flyout-panel).
+ */
+.folder-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* While an app is dragged out, the Launchpad under it takes the drop. */
+.folder-scrim[data-out] {
+  pointer-events: none;
+}
+
+.folder-panel {
+  max-height: 100%;
+  border-radius: var(--radius-window);
+  background-color: color-mix(
+    in srgb,
+    var(--solid-bg) calc(var(--acrylic-tint-flyout) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(30px);
+  box-shadow:
+    inset 0 0 0 1px var(--stroke-surface),
+    var(--shadow-raised);
+}
+
+/* The folder's pages have no side padding: the panel has its own. */
+.folder-panel .launchpad-page {
+  padding-inline: 0;
+}

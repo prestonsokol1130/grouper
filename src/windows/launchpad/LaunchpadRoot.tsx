@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import type { LaunchpadItem } from "../../bindings";
 import type { TileButtonProps } from "../../components/activation";
 import { AppTile } from "../../components/AppTile";
@@ -8,6 +8,8 @@ import { usePrefersReducedMotion } from "../../lib/motion";
 import { rank } from "../../lib/search";
 import { useAppStore } from "../../store/appStore";
 import { motionName, motionVars, useOpenCloseStyle } from "../flyout/flyoutMotion";
+import { FolderOverlay } from "./folder/FolderOverlay";
+import { useOpenFolder } from "./folder/useOpenFolder";
 import { launchpadDensity, searchIndex, visiblePages } from "./launchpadGrid";
 import { PageDots } from "./PageDots";
 import { ReorderGrid } from "./ReorderGrid";
@@ -30,8 +32,10 @@ const EMPTY_MESSAGE = "No apps yet";
  * shows the layout's pages in a grid sized to the screen, turned by the
  * wheel, arrow and page keys, a drag or the page dots. Typing searches:
  * the pages give way to a flat list of results. Clicking an app launches
- * it and closes the Launchpad; clicking anywhere that is not a control,
- * or Escape with an empty search, closes it. The window itself is shown
+ * it and closes the Launchpad; clicking a folder opens it over the grid
+ * (FolderOverlay). Clicking anywhere that is not a control, or Escape
+ * with an empty search, closes it; with a folder open both close the
+ * folder first. The window itself is shown
  * and hidden by Rust; only the content animates.
  */
 export function LaunchpadRoot() {
@@ -57,28 +61,37 @@ export function LaunchpadRoot() {
     [searching, query, state],
   );
   const pager = usePager(pages.length, seq);
+  const folders = useOpenFolder();
+  const { folder, reset: resetFolder } = folders;
   const { close, launch } = useLaunchpadClose({
     panel,
     seq,
     style,
     reduced,
-    onHidden: () => setQuery(""),
+    onHidden: () => {
+      setQuery("");
+      resetFolder();
+    },
   });
+  // Every show starts on the grid, with no folder open.
+  useEffect(() => resetFolder(), [seq, resetFolder]);
   useLaunchpadKeys({
     query,
     setQuery,
     inputRef: input,
     close,
     turn: pager.turn,
-    paused: drag !== null,
+    // A drag owns the keys; an open folder handles Escape and its own keys.
+    paused: drag !== null || folder !== null,
   });
 
+  const openFolder = folders.open;
   const open = useCallback(
     (item: LaunchpadItem) => {
-      // Folders open in a later ticket (S5-03); for now only apps launch.
       if (item.kind === "app") void launch(item.appId);
+      else openFolder(item.groupId);
     },
-    [launch],
+    [launch, openFolder],
   );
 
   const renderTile = useCallback(
@@ -94,7 +107,13 @@ export function LaunchpadRoot() {
           preview={preview}
         />
       ) : (
-        <FolderTile groupId={item.groupId} size={size} button={button} preview={preview} />
+        <FolderTile
+          groupId={item.groupId}
+          size={size}
+          onOpen={() => open(item)}
+          button={button}
+          preview={preview}
+        />
       );
     },
     [open],
@@ -117,45 +136,63 @@ export function LaunchpadRoot() {
       onClick={onBackgroundClick}
       data-testid="launchpad"
     >
-      <div className="mt-6 mb-6 flex h-9 shrink-0 justify-center">
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          showSeq={seq}
-          inputRef={input}
-          onSubmit={() => firstMatch && open(firstMatch)}
-          onFocusResults={() => focusResult(results.current, 0)}
-        />
+      <div className="launchpad-main flex min-h-0 flex-1 flex-col" inert={folder !== null}>
+        <div className="mt-6 mb-6 flex h-9 shrink-0 justify-center">
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            showSeq={seq}
+            inputRef={input}
+            onSubmit={() => firstMatch && open(firstMatch)}
+            onFocusResults={() => focusResult(results.current, 0)}
+          />
+        </div>
+        {searching ? (
+          <ResultsGrid
+            query={query}
+            results={matches}
+            grid={grid}
+            resultsRef={results}
+            onLeaveTop={() => input.current?.focus()}
+            renderTile={renderTile}
+          />
+        ) : pages.length === 0 ? (
+          <p className="flex flex-1 items-center justify-center type-title-large text-secondary">
+            {EMPTY_MESSAGE}
+          </p>
+        ) : (
+          <ReorderGrid
+            pages={pages}
+            drag={drag}
+            setDrag={setDrag}
+            pager={pager}
+            grid={grid}
+            reduced={reduced}
+            showSeq={seq}
+            renderTile={renderTile}
+          />
+        )}
+        {searching ? (
+          <div aria-hidden="true" className="h-12 shrink-0" />
+        ) : (
+          <PageDots count={pages.length} page={pager.page} onSelect={pager.jump} />
+        )}
       </div>
-      {searching ? (
-        <ResultsGrid
-          query={query}
-          results={matches}
-          grid={grid}
-          resultsRef={results}
-          onLeaveTop={() => input.current?.focus()}
-          renderTile={renderTile}
-        />
-      ) : pages.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center type-title-large text-secondary">
-          {EMPTY_MESSAGE}
-        </p>
-      ) : (
-        <ReorderGrid
-          pages={pages}
-          drag={drag}
-          setDrag={setDrag}
-          pager={pager}
-          grid={grid}
+      {folder !== null && (
+        <FolderOverlay
+          key={folder.groupId}
+          groupId={folder.groupId}
+          origin={folder.origin}
+          mainGrid={grid}
+          mainPager={pager}
+          iconPx={launchpadDensity().iconPx}
+          style={style}
           reduced={reduced}
-          showSeq={seq}
-          renderTile={renderTile}
+          launch={(appId) => void launch(appId)}
+          hide={close}
+          onDragOut={() => setQuery("")}
+          onClosed={folders.closed}
         />
-      )}
-      {searching ? (
-        <div aria-hidden="true" className="h-12 shrink-0" />
-      ) : (
-        <PageDots count={pages.length} page={pager.page} onSelect={pager.jump} />
       )}
     </div>
   );

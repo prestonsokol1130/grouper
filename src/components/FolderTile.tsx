@@ -47,6 +47,7 @@ export function FolderTile({
       title={name}
       aria-label={name}
       data-preview={preview}
+      data-folder={groupId}
       onClick={open}
       {...activationKeys(open)}
     >

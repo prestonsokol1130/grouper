@@ -41,10 +41,12 @@ export async function createShortcut(id: string): Promise<boolean> {
   return false;
 }
 
-/** Opens Explorer with group `id`'s shortcut selected. */
-export async function revealShortcut(id: string): Promise<void> {
+/** Opens Explorer with group `id`'s shortcut selected. Returns whether it worked. */
+export async function revealShortcut(id: string): Promise<boolean> {
   const result = await api.revealGroupShortcut(id);
-  if (!result.ok) fail(`reveal shortcut ${id}`, result.error, "Couldn't show the shortcut.");
+  if (result.ok) return true;
+  fail(`reveal shortcut ${id}`, result.error, "Couldn't show the shortcut.");
+  return false;
 }
 
 /** Opens app `appId` from the Manager; a failure says so in a toast. */

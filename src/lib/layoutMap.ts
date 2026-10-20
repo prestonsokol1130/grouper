@@ -121,3 +121,33 @@ export function previewPages<T>(
   const slot = clampSlot(drop.index, target.length, perPage);
   return insertWithOverflow(without, item, { page: drop.page, index: slot }, perPage);
 }
+
+/**
+ * The stored slot an item that is not in the layout (an app dragged out
+ * of a folder) lands in when dropped on screen slot `drop`: just before
+ * the item it lands in front of, or just after the page's last item; on
+ * a full page, at most before its last item (that one overflows). One
+ * past the last screen page starts a new stored page. Null for a screen
+ * page that does not exist.
+ */
+export function screenToStoredSlot<T>(
+  stored: Pages<T>,
+  visible: (item: T) => boolean,
+  perPage: number,
+  drop: Position,
+): Position | null {
+  const counts = stored.map((items) => items.filter(visible).length);
+  const screens = shownPages(counts, perPage);
+  const screen = screens[drop.page];
+  if (screen === undefined) {
+    return drop.page === screens.length ? { page: stored.length, index: 0 } : null;
+  }
+  const size = Math.max(1, Math.floor(perPage));
+  const page = stored[screen.page] ?? [];
+  const shown = page.filter(visible).slice(screen.start, screen.start + size);
+  const slot = clampSlot(drop.index, shown.length, size);
+  const before = shown[slot];
+  if (before !== undefined) return { page: screen.page, index: page.indexOf(before) };
+  const after = shown[slot - 1];
+  return { page: screen.page, index: after === undefined ? 0 : page.indexOf(after) + 1 };
+}

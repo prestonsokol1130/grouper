@@ -8,6 +8,14 @@ type Props = {
   onSave: (name: string) => void;
   /** Called when editing ends, saved or not. */
   onDone: () => void;
+  /** The style of the title it edits: Title (Manager page) or Subtitle (folder). */
+  variant?: "title" | "subtitle";
+};
+
+/** The box per variant: the title's type style, its line height plus 8px tall. */
+const BOX: Record<"title" | "subtitle", string> = {
+  title: "h-11 max-w-[480px] type-title",
+  subtitle: "h-9 type-subtitle",
 };
 
 /**
@@ -15,7 +23,7 @@ type Props = {
  * cancels, and an empty name is refused with a message (the box stays
  * open). Leaving the box saves a valid name and drops an empty one.
  */
-export function RenameField({ initial, onSave, onDone }: Props) {
+export function RenameField({ initial, onSave, onDone, variant = "title" }: Props) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -62,7 +70,7 @@ export function RenameField({ initial, onSave, onDone }: Props) {
         aria-label="Group name"
         aria-invalid={error !== null}
         aria-describedby={error !== null ? errorId : undefined}
-        className="text-box h-11 w-full max-w-[480px] rounded-control px-2 type-title text-primary"
+        className={`text-box w-full rounded-control px-2 text-primary ${BOX[variant]}`}
         onChange={(event) => {
           setValue(event.target.value);
           if (error !== null && checkGroupName(event.target.value).ok) setError(null);

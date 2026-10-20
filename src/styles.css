@@ -3,6 +3,7 @@
 @import "./styles/components.css";
 @import "./windows/flyout/flyout.css";
 @import "./windows/launchpad/launchpad.css";
+@import "./windows/launchpad/folder/folder.css";
 @import "./windows/manager/manager.css";
 
 /*
