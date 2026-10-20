@@ -73,6 +73,9 @@ jobs:
       - name: Spelling (typos)
         run: typos
 
+      - name: Frontend unit tests (Vitest)
+        run: pnpm test
+
       - name: Build frontend
         run: pnpm build
 

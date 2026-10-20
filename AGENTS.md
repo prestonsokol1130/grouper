@@ -70,9 +70,10 @@ A change is done only after the same commands CI runs on `windows-latest`:
 5. `pnpm lint`
 6. `pnpm knip` (unused files, exports and dependencies)
 7. `typos` (spelling; config in `_typos.toml`)
-8. `pnpm build`
-9. `cargo fmt --check` (in `src-tauri/`)
-10. `cargo clippy --all-targets -- -D warnings` (in `src-tauri/`)
-11. `cargo test` (in `src-tauri/`)
-12. `cargo machete` (in `src-tauri/`; unused Rust dependencies)
-13. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
+8. `pnpm test` (Vitest unit and component tests)
+9. `pnpm build`
+10. `cargo fmt --check` (in `src-tauri/`)
+11. `cargo clippy --all-targets -- -D warnings` (in `src-tauri/`)
+12. `cargo test` (in `src-tauri/`)
+13. `cargo machete` (in `src-tauri/`; unused Rust dependencies)
+14. Windows smoke steps for the touched surface (flyout, Launchpad, tray) are documented in the review summary
