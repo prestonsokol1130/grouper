@@ -38,6 +38,17 @@ pub fn launch_target(entry: &AppEntry, exists: impl Fn(&Path) -> bool) -> Option
     None
 }
 
+/// Whether the `.lnk` or target at `path` is there: a file on disk, or for
+/// a `shell:AppsFolder\{id}` target (a Store app), an installed app. The
+/// Shell opens such a target as it would from Start.
+pub fn target_exists(path: &Path) -> bool {
+    let text = path.to_string_lossy();
+    match crate::state::ids::apps_folder_id(&text) {
+        Some(id) => super::apps_folder::apps_folder_item_exists(id),
+        None => path.exists(),
+    }
+}
+
 /// The error for an app with neither its `.lnk` nor its target on disk.
 pub fn not_found(name: &str) -> String {
     format!("App not found: {name}")
@@ -49,7 +60,7 @@ pub fn not_found(name: &str) -> String {
 /// `.lnk` nor the target exists, and `Err` when the Shell fails. On
 /// non-Windows platforms the Shell step returns `Err("unsupported platform")`.
 pub fn launch(entry: &AppEntry) -> Result<(), String> {
-    let target = launch_target(entry, Path::exists).ok_or_else(|| not_found(&entry.name))?;
+    let target = launch_target(entry, target_exists).ok_or_else(|| not_found(&entry.name))?;
     let name = entry.name.clone();
     on_launch_thread(target).map_err(|error| format!("Could not start {name}: {error}"))
 }
@@ -200,5 +211,25 @@ mod tests {
             ..AppEntry::default()
         };
         assert_eq!(launch(&missing), Err("App not found: Gone".into()));
+    }
+
+    #[test]
+    fn a_store_app_opens_its_apps_folder_item() {
+        let target = r"shell:AppsFolder\NoSuch.App_0000000000000!App";
+        let store = AppEntry {
+            name: "Gone Store App".into(),
+            target: target.into(),
+            ..AppEntry::default()
+        };
+        let picked = launch_target(&store, |_| true);
+        let expected = LaunchTarget::Program {
+            file: target.into(),
+            args: String::new(),
+            working_dir: String::new(),
+        };
+        assert_eq!(picked, Some(expected));
+        // Not installed: not found, without ever calling the Shell to start it.
+        assert!(!target_exists(Path::new(target)));
+        assert_eq!(launch(&store), Err("App not found: Gone Store App".into()));
     }
 }

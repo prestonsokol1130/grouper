@@ -37,6 +37,14 @@ pub struct AppEntry {
     pub hidden: bool,
 }
 
+impl AppEntry {
+    /// The Applications-folder item this app is (a Store app, launched
+    /// through `shell:AppsFolder`), when its target is one.
+    pub fn apps_folder_id(&self) -> Option<&str> {
+        super::ids::apps_folder_id(&self.target)
+    }
+}
+
 /// A group of apps: both a taskbar folder and a Launchpad folder.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]

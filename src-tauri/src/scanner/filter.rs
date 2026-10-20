@@ -41,6 +41,10 @@ pub enum Rejection {
     Extension(&'static str),
     /// The target is not an existing file (missing, or a folder).
     NotAFile,
+    /// The target is a web page (`http:` or `https:`).
+    WebLink,
+    /// One of Grouper's own group shortcuts.
+    OwnShortcut,
 }
 
 impl fmt::Display for Rejection {
@@ -51,6 +55,8 @@ impl fmt::Display for Rejection {
             Self::TargetWord(word) => write!(f, "target file name contains {word:?}"),
             Self::Extension(ext) => write!(f, "target is a {ext} file"),
             Self::NotAFile => write!(f, "target is not a file"),
+            Self::WebLink => write!(f, "target is a web page"),
+            Self::OwnShortcut => write!(f, "a Grouper group shortcut"),
         }
     }
 }
@@ -81,6 +87,18 @@ pub fn check(
         return Err(Rejection::NotAFile);
     }
     Ok(())
+}
+
+/// Checks only the display name, for an app with no file target (a Store
+/// app, a `steam:` game, a Shell folder).
+pub fn check_name(name: &str) -> Result<(), Rejection> {
+    find_word(name).map_or(Ok(()), |word| Err(Rejection::NameWord(word)))
+}
+
+/// True for an `http:` or `https:` address (any letter case).
+pub fn is_web_link(target: &str) -> bool {
+    let lower = target.trim().to_ascii_lowercase();
+    lower.starts_with("http:") || lower.starts_with("https:")
 }
 
 /// True when `target` is an existing file on disk (not a folder), the

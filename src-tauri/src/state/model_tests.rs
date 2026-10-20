@@ -223,3 +223,19 @@ fn hot_corners_default_on_and_keep_a_saved_choice() {
     settings.apply(serde_json::from_str(json).unwrap());
     assert!(!settings.hot_corners.top_left && settings.hot_corners.top_right);
 }
+
+#[test]
+fn store_apps_load_from_old_and_new_files() {
+    let old =
+        r#"{"schemaVersion":1,"apps":[{"id":"a","target":"C:\\n.exe","lnkPath":"C:\\n.lnk"}]}"#;
+    let state: AppState = serde_json::from_str(old).unwrap();
+    assert_eq!(state.apps[0].apps_folder_id(), None);
+    // A Store app is a plain entry whose target is its shell:AppsFolder item.
+    let store = AppEntry {
+        target: r"shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude".into(),
+        ..app("s")
+    };
+    let back: AppEntry = serde_json::from_str(&serde_json::to_string(&store).unwrap()).unwrap();
+    assert_eq!(back, store);
+    assert_eq!(back.apps_folder_id(), Some("Claude_pzs8sxrjxfjjc!Claude"));
+}

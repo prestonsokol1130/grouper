@@ -23,6 +23,24 @@ pub fn app_id(target: &str, args: &str) -> String {
         .collect()
 }
 
+/// Prefix of the target of an app that has no file of its own (a Store
+/// app): the Shell opens `shell:AppsFolder\{AppUserModelID}`.
+pub const APPS_FOLDER_PREFIX: &str = r"shell:AppsFolder\";
+
+/// The target stored for Applications-folder item `parsing_name`; its app
+/// id is [`app_id`]`(target, "")`, so it is stable for one AppUserModelID.
+pub fn apps_folder_target(parsing_name: &str) -> String {
+    format!("{APPS_FOLDER_PREFIX}{parsing_name}")
+}
+
+/// The Applications-folder parsing name in `target`, when it is one
+/// (any letter case for the prefix).
+pub fn apps_folder_id(target: &str) -> Option<&str> {
+    let head = target.get(..APPS_FOLDER_PREFIX.len())?;
+    let rest = target.get(APPS_FOLDER_PREFIX.len()..)?;
+    (head.eq_ignore_ascii_case(APPS_FOLDER_PREFIX) && !rest.is_empty()).then_some(rest)
+}
+
 /// A new random group id made of `[A-Za-z0-9_-]` that is not in `taken`.
 pub fn new_group_id(taken: &[&str]) -> Result<String, String> {
     // 64^10 ids: a clash is very unlikely, but retry a few times anyway.
@@ -52,6 +70,29 @@ mod tests {
         assert_eq!(a, app_id(r"c:\windows\NOTEPAD.EXE", ""));
         assert_eq!(a, app_id(r"C:\Windows\notepad.exe", ""));
         assert_ne!(a, app_id(r"C:\Windows\notepad.exe", "file.txt"));
+    }
+
+    #[test]
+    fn apps_folder_ids_are_stable_and_round_trip() {
+        let target = apps_folder_target("Claude_pzs8sxrjxfjjc!Claude");
+        assert_eq!(target, r"shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude");
+        assert_eq!(apps_folder_id(&target), Some("Claude_pzs8sxrjxfjjc!Claude"));
+        assert_eq!(apps_folder_id(r"SHELL:appsfolder\X!App"), Some("X!App"));
+        assert_eq!(apps_folder_id(r"shell:AppsFolder\"), None);
+        assert_eq!(
+            apps_folder_id(
+                r"C:\Windows
+otepad.exe"
+            ),
+            None
+        );
+        // The same app always gets the same id, whatever the case.
+        let id = app_id(&target, "");
+        assert_eq!(id, app_id(&target.to_uppercase(), ""));
+        assert_ne!(
+            id,
+            app_id(&apps_folder_target("OpenAI.Codex_2p2nqsd0c76g0!App"), "")
+        );
     }
 
     #[test]

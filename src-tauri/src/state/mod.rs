@@ -30,6 +30,7 @@ mod store_icon_tests;
 mod store_tests;
 
 pub use folders::LaunchpadSlot;
+pub use ids::apps_folder_target;
 pub use model::{
     AppEntry, AppSource, AppState, Group, HotCorners, LaunchpadItem, LaunchpadLayout, Settings,
     SettingsPatch, CURRENT_SCHEMA,

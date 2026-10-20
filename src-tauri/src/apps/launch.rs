@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::state::{AppState, Store};
-use crate::win32::launch::{launch_target, not_found};
+use crate::win32::launch::{launch_target, not_found, target_exists};
 
 /// Starts one app; normally [`crate::win32::launch::launch`]. Tests pass a
 /// fake one.
@@ -27,7 +27,8 @@ pub struct LaunchSummary {
 
 /// Launches app `app_id` with `launcher`.
 ///
-/// When neither the app's `.lnk` nor its target exists, the app is marked
+/// When neither the app's `.lnk` nor its target exists (for a Store app:
+/// it is no longer installed), the app is marked
 /// `missing` (the new state is passed to `publish`) and
 /// `Err("App not found: <name>")` is returned without calling `launcher`.
 /// When one exists but the app is marked missing, the mark is cleared and
@@ -44,7 +45,7 @@ pub fn launch_app_with(
         .app_by_id(app_id)
         .cloned()
         .ok_or_else(|| format!("Unknown app: {app_id}"))?;
-    let found = launch_target(&entry, std::path::Path::exists).is_some();
+    let found = launch_target(&entry, target_exists).is_some();
     // Publish only when the flag actually changes.
     if entry.missing != !found {
         set_missing(store, app_id, !found, publish);

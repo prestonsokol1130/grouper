@@ -1,10 +1,12 @@
-//! Installed-app discovery: finds the apps in the Start Menu.
+//! Installed-app discovery: finds every app Start lists under "All apps".
 //!
 //! [`scan`] walks both Start Menu "Programs" folders ([`roots`], [`walk`]),
 //! reads each shortcut, drops the ones that are not apps ([`filter`]),
-//! collapses duplicates ([`dedupe`]), and [`merge::merge_scan`] folds the
-//! result into the saved state.
+//! collapses duplicates ([`dedupe`]), then adds the Applications-folder
+//! apps no shortcut covers, such as Store apps ([`apps_folder`]).
+//! [`merge::merge_scan`] folds the result into the saved state.
 
+pub mod apps_folder;
 pub mod dedupe;
 pub mod filter;
 pub mod merge;
@@ -12,13 +14,20 @@ pub mod roots;
 pub mod walk;
 
 #[cfg(test)]
+mod apps_folder_tests;
+#[cfg(test)]
 mod filter_tests;
+#[cfg(all(test, windows))]
+mod live_tests;
 
 use std::path::Path;
 
 use crate::state::AppEntry;
+use crate::win32::apps_folder::list_apps_folder;
 use crate::win32::com::ComGuard;
+use crate::win32::lnk_aumid::read_lnk_aumid;
 use crate::win32::lnk_read::resolve_lnk;
+use apps_folder::Known;
 use dedupe::Candidate;
 
 /// Name of the thread [`scan`] runs on.
@@ -27,11 +36,12 @@ const SCAN_THREAD: &str = "app-scan";
 /// The result of one [`scan`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ScanOutcome {
-    /// One entry per app found, with `lnk_path` set.
+    /// One entry per app found: `lnk_path` is set for a shortcut, and the
+    /// target is `shell:AppsFolder\{id}` for an Applications-folder app.
     pub apps: Vec<AppEntry>,
-    /// True only when both Start Menu folders were found and read in full
-    /// and every shortcut in them could be read. A partial scan must never
-    /// mark saved apps as missing.
+    /// True only when both Start Menu folders were found and read in full,
+    /// every shortcut in them could be read, and so could the Applications
+    /// folder. A partial scan must never mark saved apps as missing.
     pub complete: bool,
     /// Shortcuts that exist but could not be read. Saved apps that came from
     /// one of these are not marked missing.
@@ -61,6 +71,7 @@ fn scan_on_this_thread() -> Result<ScanOutcome, String> {
     let mut walks_complete = true;
     let (mut shortcuts, mut rejected) = (0_usize, 0_usize);
     let mut candidates = Vec::new();
+    let mut known = Vec::new();
     let mut unreadable = Vec::new();
     for root in roots {
         let walked = walk::find_shortcuts(&root.path);
@@ -68,7 +79,14 @@ fn scan_on_this_thread() -> Result<ScanOutcome, String> {
         for lnk in walked.shortcuts {
             shortcuts += 1;
             match read_candidate(&lnk, root.per_user) {
-                Ok(Some(candidate)) => candidates.push(candidate),
+                Ok(Some((candidate, aumid))) => {
+                    known.push(Known {
+                        name: candidate.name.clone(),
+                        target: candidate.target.clone(),
+                        aumid,
+                    });
+                    candidates.push(candidate);
+                }
                 Ok(None) => rejected += 1,
                 Err(error) => {
                     log::warn!("skipping shortcut {}: {error}", lnk.display());
@@ -77,13 +95,32 @@ fn scan_on_this_thread() -> Result<ScanOutcome, String> {
             }
         }
     }
-    let complete = is_complete(roots_found, walks_complete, unreadable.len());
-    let apps = dedupe::dedupe(candidates);
+    let mut apps = dedupe::dedupe(candidates);
     log::info!(
         "app scan: {} apps from {shortcuts} shortcuts ({rejected} rejected, {} unreadable)",
         apps.len(),
         unreadable.len()
     );
+    let folder_read = match list_apps_folder() {
+        Ok(items) => {
+            let total = items.len();
+            let found = apps_folder::folder_apps(&known, items, filter::is_file);
+            log::info!(
+                "app scan: {} more apps from {total} Applications folder items \
+                 ({} already found, {} rejected)",
+                found.apps.len(),
+                found.duplicates,
+                found.rejected
+            );
+            apps.extend(found.apps);
+            true
+        }
+        Err(error) => {
+            log::warn!("could not read the Applications folder: {error}");
+            false
+        }
+    };
+    let complete = folder_read && is_complete(roots_found, walks_complete, unreadable.len());
     if !complete {
         log::warn!("app scan was incomplete; no saved app will be marked missing");
     }
@@ -100,9 +137,12 @@ fn is_complete(roots_found: usize, walks_complete: bool, unreadable: usize) -> b
     roots_found == roots::ROOT_COUNT && walks_complete && unreadable == 0
 }
 
-/// Reads one shortcut. `Ok(None)` means it was read but is not an app (the
-/// reason is logged at debug level).
-fn read_candidate(lnk: &Path, per_user: bool) -> Result<Option<Candidate>, String> {
+/// Reads one shortcut and its AppUserModelID. `Ok(None)` means it was read
+/// but is not an app (the reason is logged at debug level).
+fn read_candidate(
+    lnk: &Path,
+    per_user: bool,
+) -> Result<Option<(Candidate, Option<String>)>, String> {
     let name = lnk
         .file_stem()
         .map(|stem| stem.to_string_lossy().into_owned())
@@ -112,14 +152,17 @@ fn read_candidate(lnk: &Path, per_user: bool) -> Result<Option<Candidate>, Strin
         log::debug!("not an app: {} ({reason})", lnk.display());
         return Ok(None);
     }
-    Ok(Some(Candidate {
+    // Only used to match Applications-folder items, so a failure is no loss.
+    let aumid = read_lnk_aumid(lnk).ok().flatten();
+    let candidate = Candidate {
         name,
         target: link.target,
         args: link.args,
         working_dir: link.working_dir,
         lnk_path: lnk.to_string_lossy().into_owned(),
         per_user,
-    }))
+    };
+    Ok(Some((candidate, aumid)))
 }
 
 #[cfg(test)]
@@ -147,7 +190,10 @@ mod tests {
         assert!(!outcome.apps.is_empty());
         for app in &outcome.apps {
             assert!(!app.target.is_empty(), "{app:?}");
-            assert!(app.lnk_path.is_some(), "{app:?}");
+            assert!(
+                app.lnk_path.is_some() || app.apps_folder_id().is_some(),
+                "{app:?}"
+            );
             assert_eq!(app.id.len(), 16, "{app:?}");
         }
     }
