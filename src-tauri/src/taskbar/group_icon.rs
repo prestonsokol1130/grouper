@@ -96,8 +96,10 @@ fn load_icon(icons_dir: &Path, app_id: &str) -> RgbaImage {
 }
 
 /// Deletes every cached `.ico` of group `group_id`: `{group_id}.ico` and
-/// any legacy `{group_id}-v{N}.ico` in `{cache_dir}/groups`. Only regular
-/// files are removed; failures are logged, never returned.
+/// any legacy `{group_id}-v{N}.ico` in `{cache_dir}/groups`. Called only
+/// when the group is deleted: until then an old taskbar pin may still
+/// show a legacy file, so nothing else removes them. Only regular files
+/// are removed; failures are logged, never returned.
 pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
     if remove_legacy_icons(cache_dir, group_id) {
         let path = group_icon_path(&cache_dir.join(GROUPS_DIR), group_id);
@@ -113,7 +115,7 @@ pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
 /// by version before the icon path became stable). Only regular files are
 /// removed; failures are logged. False for an unsafe group id or a missing
 /// folder, where nothing is touched.
-pub fn remove_legacy_icons(cache_dir: &Path, group_id: &str) -> bool {
+fn remove_legacy_icons(cache_dir: &Path, group_id: &str) -> bool {
     if let Err(error) = check_id(group_id) {
         log::warn!("not removing icons: {error}");
         return false;

@@ -10,7 +10,6 @@ use super::shortcut_worker::{Job, ShortcutUpdated, SHORTCUT_UPDATED_EVENT};
 use super::state_cmds::emit_state_changed;
 use crate::state::paths::cache_dir;
 use crate::state::Store;
-use crate::taskbar::group_icon::remove_legacy_icons;
 use crate::taskbar::shortcut::{shortcut_dir, shortcut_dir_path};
 use crate::taskbar::shortcut_sync::{
     icon_file, remove_group_files, repair_group_shortcut, update_group_shortcut, Change, Repair,
@@ -138,8 +137,9 @@ fn repair_all(app: &AppHandle) -> Result<(), String> {
 }
 
 /// Repairs group `group_id`'s shortcut from the latest state, skipping a
-/// group that is gone or no longer has a shortcut, then removes its legacy
-/// versioned `.ico` files.
+/// group that is gone or no longer has a shortcut. Legacy versioned
+/// `.ico` files are kept: an old taskbar pin may still show one. They go
+/// only when the group is deleted.
 fn repair_one(app: &AppHandle, ctx: &Ctx, dir: &Path, group_id: &str) -> Result<(), String> {
     let state = ctx.store.snapshot();
     if !state.group_by_id(group_id).is_some_and(|g| g.has_shortcut) {
@@ -152,8 +152,6 @@ fn repair_one(app: &AppHandle, ctx: &Ctx, dir: &Path, group_id: &str) -> Result<
             finish(app, ctx, group_id, &lnk)?;
         }
     }
-    // The shortcut now shows {group_id}.ico, so older files are unused.
-    remove_legacy_icons(&ctx.cache_dir, group_id);
     Ok(())
 }
 

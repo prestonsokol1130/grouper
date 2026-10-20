@@ -6,9 +6,7 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 
-use super::group_icon::{
-    build_group_icon, group_icon_path, remove_group_icons, remove_legacy_icons,
-};
+use super::group_icon::{build_group_icon, group_icon_path, remove_group_icons};
 use super::ico::ICO_SIZES;
 use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
 use crate::state::{AppEntry, AppState, Group};
@@ -152,24 +150,13 @@ fn groups_folder() -> (tempfile::TempDir, std::path::PathBuf, [&'static str; 5])
 }
 
 #[test]
-fn legacy_versions_are_removed_and_the_current_icon_kept() {
-    let (dir, groups, others) = groups_folder();
-    assert!(remove_legacy_icons(dir.path(), "grp"));
-    let mut expected: Vec<String> = others.iter().map(|&n| n.to_owned()).collect();
-    expected.push("grp.ico".to_owned());
-    expected.sort();
-    assert_eq!(names(&groups), expected);
-    // An unsafe id or a missing folder is a logged no-op.
-    assert!(!remove_legacy_icons(dir.path(), "../grp"));
-    assert!(!remove_legacy_icons(&dir.path().join("nowhere"), "grp"));
-}
-
-#[test]
 fn every_icon_of_a_deleted_group_is_removed() {
     let (dir, groups, others) = groups_folder();
-    remove_group_icons(dir.path(), "grp");
+    // An unsafe id or a missing folder is a logged no-op.
     remove_group_icons(dir.path(), "../grp");
     remove_group_icons(&dir.path().join("nowhere"), "grp");
+    assert_eq!(names(&groups).len(), others.len() + 4);
+    remove_group_icons(dir.path(), "grp");
     let mut expected: Vec<String> = others.iter().map(|&n| n.to_owned()).collect();
     expected.sort();
     assert_eq!(names(&groups), expected);

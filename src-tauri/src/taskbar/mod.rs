@@ -26,6 +26,8 @@ mod group_icon_tests;
 #[cfg(test)]
 mod icon_inputs_tests;
 #[cfg(all(test, windows))]
+mod shortcut_sync_pin_tests;
+#[cfg(all(test, windows))]
 mod shortcut_sync_tests;
 #[cfg(test)]
 mod shortcut_tests;

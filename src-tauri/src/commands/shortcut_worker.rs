@@ -42,7 +42,7 @@ pub enum Job {
     /// The group was deleted; remove its shortcut and `.ico` files.
     Remove { group_id: String },
     /// Rebuild every tracked shortcut whose `.lnk` or `.ico` is missing or
-    /// that shows another icon file, then drop legacy versioned `.ico`s.
+    /// that shows another icon file. Legacy versioned `.ico`s are kept.
     Repair,
 }
 
