@@ -39,6 +39,10 @@ All under the app data directory (`{app_data_dir}`):
 | `{app_data_dir}/cache/icons/{app_id}.png`               | Cached app icons                                                                                                                 |
 | `{app_data_dir}/cache/groups/{group_id}-v{version}.ico` | Cached group composite icons; `version` is the group's `icon_version`, and the version in the name makes Windows reload the icon |
 
+## Group shortcuts and taskbar pinning
+
+Each group's shortcut is written to the current user's Start Menu, `{FOLDERID_Programs}\Grouper\<group name>.lnk` (the app scanner skips that folder). Windows does not allow programmatic taskbar pinning, so Grouper never pins anything itself: the user right-clicks the shortcut (or its Start Menu entry) and picks **Pin to taskbar**.
+
 ## Logs
 
 The daemon logs through `tauri-plugin-log` to `grouper.log` in the resolved `app_log_dir`, which on Windows is `%LOCALAPPDATA%\com.grouper.app\logs\grouper.log`. The file rotates at 2 MB and keeps 3 old files. Release builds log at Info, debug builds at Debug (and also to stdout and the devtools console). Panics, failed background threads (`util::spawn::spawn_logged`) and each window's console errors all land in this file. The exact folder is written as the first lines of every run's log ("logging to ...").
