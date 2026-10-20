@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "../../components/Button";
 import { FolderArt } from "../../components/FolderTile";
 import { useGroup } from "../../store/hooks";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { createShortcut, revealShortcut } from "./groupActions";
 import { PinSteps } from "./PinSteps";
 

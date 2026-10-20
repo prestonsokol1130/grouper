@@ -7,7 +7,7 @@ import { AppGrid } from "./AppGrid";
 import { AppPicker } from "./AppPicker";
 import { withShownOrder } from "./appSearch";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { deleteGroup, openApp } from "./groupActions";
 import { RenameField } from "./RenameField";
 import { TaskbarSection } from "./TaskbarSection";

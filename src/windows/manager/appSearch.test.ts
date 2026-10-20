@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppEntry } from "../../bindings";
-import {
-  applySelection,
-  initials,
-  matchesQuery,
-  pickerApps,
-  toggleId,
-  withShownOrder,
-} from "./appSearch";
+import { initials } from "../../lib/search";
+import { applySelection, matchesQuery, pickerApps, toggleId, withShownOrder } from "./appSearch";
 import { moveItem } from "./useDragReorder";
 import { nearestSlot } from "./useGridReorder";
 import { visibleRange } from "./useWindowedRows";

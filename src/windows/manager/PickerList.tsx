@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from "react";
 import type { AppEntry } from "../../bindings";
 import { AppIcon } from "../../components/AppIcon";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { useWindowedRows } from "./useWindowedRows";
 
 /** Fluent list item height (px); fixed, so long lists can be windowed. */

@@ -61,8 +61,9 @@ describe("LaunchpadRoot", () => {
   it("shows page 1 as a 7 x 5 grid of app and folder tiles, without hidden apps", async () => {
     await renderShown();
     const grid = screen.getByRole("group", { name: "Apps" });
-    expect(grid.style.gridTemplateColumns).toBe("repeat(7, minmax(0, 1fr))");
-    expect(grid.style.gridTemplateRows).toBe("repeat(5, minmax(0, 1fr))");
+    // jsdom's window is 1024 x 768, which fits the default grid.
+    expect(grid.style.gridTemplateColumns).toBe("repeat(7, 88px)");
+    expect(grid.style.gridTemplateRows).toBe("repeat(5, 108px)");
     const names = [...grid.querySelectorAll(".tile")].map((t) => t.getAttribute("aria-label"));
     expect(names).toEqual(["Alpha", "Work", "Beta"]);
     expect(grid.querySelector('[data-testid="folder-art"]')).not.toBeNull();

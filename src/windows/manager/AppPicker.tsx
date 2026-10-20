@@ -3,7 +3,7 @@ import { Button } from "../../components/Button";
 import { useAppStore } from "../../store/appStore";
 import { groupsById, visibleApps } from "../../store/selectors";
 import { applySelection, pickerApps, toggleId } from "./appSearch";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { pickOtherPrograms, rescanStartMenu } from "./groupActions";
 import { PickerList } from "./PickerList";
 

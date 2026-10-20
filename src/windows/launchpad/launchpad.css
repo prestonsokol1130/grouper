@@ -1,9 +1,51 @@
 /*
  * The fullscreen Launchpad (DESIGN.md section 8). The open/close motion
  * comes from flyout.css (the panel also has the flyout-panel class); this
- * file only adds the layout. Bigger screens get more space between the
- * tiles, not more tiles: the 7 x 5 grid stretches to the window.
+ * file adds the layout, the page slide and the search and page dots.
+ * Bigger screens get more space between the tiles, not more tiles: the
+ * gaps come from lib/grid.ts, and the side padding here must match its
+ * sidePadding().
  */
-.launchpad-panel {
+.launchpad-page,
+.launchpad-results {
   padding-inline: max(48px, 8vw);
+}
+
+/* Drags page the grid, so nothing inside starts a native drag or a text
+   selection, and touch swipes reach the page instead of scrolling. */
+.launchpad-pages {
+  touch-action: none;
+  user-select: none;
+}
+
+.launchpad-pages img {
+  -webkit-user-drag: none;
+}
+
+/* The page slide (section 10): transform only, so it stays on the GPU.
+   A transition starts from wherever the track is, so it is interruptible. */
+.launchpad-track {
+  will-change: transform;
+}
+
+.launchpad-track.is-sliding {
+  transition: transform var(--page-duration) var(--page-easing);
+}
+
+.launchpad-search input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Page dots: the current page in the accent, the rest a quiet stroke. */
+.page-dot-mark {
+  background-color: var(--text-disabled);
+  transition: background-color 150ms ease-out;
+}
+
+.page-dot:hover .page-dot-mark {
+  background-color: var(--text-secondary);
+}
+
+.page-dot[aria-current="page"] .page-dot-mark {
+  background-color: var(--accent);
 }

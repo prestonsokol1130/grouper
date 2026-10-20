@@ -1,5 +1,5 @@
 import { Button } from "../../components/Button";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 
 /** Shown in the content pane when there are no groups (DESIGN.md section 13 voice). */
 export function NoGroups({ onNewGroup }: { onNewGroup: () => void }) {

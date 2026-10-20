@@ -2,7 +2,7 @@ import { useRef, type KeyboardEvent } from "react";
 import { Button } from "../../components/Button";
 import { FolderArt } from "../../components/FolderTile";
 import { useGroup } from "../../store/hooks";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { moveItem, useDragReorder } from "./useDragReorder";
 
 /** Folder preview size in a sidebar row (px). */

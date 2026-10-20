@@ -2,7 +2,7 @@ import { useRef, type KeyboardEvent } from "react";
 import type { AppEntry } from "../../bindings";
 import { AppTile } from "../../components/AppTile";
 import { IconButton } from "../../components/Button";
-import { FluentIcon } from "./FluentIcon";
+import { FluentIcon } from "../../components/FluentIcon";
 import { moveItem } from "./useDragReorder";
 import { useGridReorder } from "./useGridReorder";
 
