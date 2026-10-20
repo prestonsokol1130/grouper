@@ -26,3 +26,54 @@ export async function deleteGroup(id: string): Promise<boolean> {
   showToast({ kind: "error", title: "Couldn't delete the group.", message: "Please try again." });
   return false;
 }
+
+/** Logs `error` and shows a "what happened, what next" toast. */
+function fail(what: string, error: string, title: string, message = "Please try again."): void {
+  console.error(`manager: ${what}: ${error}`);
+  showToast({ kind: "error", title, message });
+}
+
+/** Makes group `id`'s taskbar shortcut. Returns whether it worked. */
+export async function createShortcut(id: string): Promise<boolean> {
+  const result = await api.createGroupShortcut(id);
+  if (result.ok) return true;
+  fail(`create shortcut ${id}`, result.error, "Couldn't create the shortcut.");
+  return false;
+}
+
+/** Opens Explorer with group `id`'s shortcut selected. */
+export async function revealShortcut(id: string): Promise<void> {
+  const result = await api.revealGroupShortcut(id);
+  if (!result.ok) fail(`reveal shortcut ${id}`, result.error, "Couldn't show the shortcut.");
+}
+
+/** Opens app `appId` from the Manager; a failure says so in a toast. */
+export async function openApp(appId: string, name: string): Promise<void> {
+  const result = await api.launchApp(appId);
+  if (result.ok) return;
+  const title = name ? `Couldn't open ${name}.` : "Couldn't open the app.";
+  fail(`launch ${appId}`, result.error, title, "It may have been moved or uninstalled.");
+}
+
+/** Scans the Start Menu again. Returns whether it worked. */
+export async function rescanStartMenu(): Promise<boolean> {
+  const result = await api.rescanApps();
+  if (result.ok) {
+    const found = result.value === 1 ? "1 app" : `${result.value} apps`;
+    showToast({ kind: "success", title: `Start Menu scanned. Found ${found}.` });
+    return true;
+  }
+  fail("rescan", result.error, "Couldn't scan the Start Menu.");
+  return false;
+}
+
+/**
+ * Lets the user pick programs that aren't in the Start Menu. Returns the
+ * ids of the apps added (empty when the dialog was cancelled or failed).
+ */
+export async function pickOtherPrograms(): Promise<string[]> {
+  const result = await api.pickAndAddApps();
+  if (result.ok) return result.value.flatMap((app) => (app.id === undefined ? [] : [app.id]));
+  fail("pick programs", result.error, "Couldn't add that program.");
+  return [];
+}

@@ -81,3 +81,98 @@
 .dialog-smoke {
   background-color: rgba(0, 0, 0, 0.3);
 }
+
+/* App grid cells. The Remove button shows on hover and keyboard focus;
+   while a tile is dragged, the others slide out of its way and the
+   dragged one keeps the hover lift (DESIGN.md section 10). */
+.app-remove {
+  opacity: 0;
+  box-shadow: inset 0 0 0 1px var(--stroke-card);
+  transition: opacity var(--transition-duration-hover) var(--ease-hover);
+}
+
+.app-cell:hover .app-remove,
+.app-cell:focus-within .app-remove {
+  opacity: 1;
+}
+
+[data-reordering="true"] .app-cell {
+  transition: translate var(--transition-duration-hover) var(--ease-hover);
+}
+
+[data-reordering="true"] .app-remove {
+  opacity: 0;
+}
+
+.app-cell[data-dragging="true"] {
+  z-index: 1;
+  cursor: grabbing;
+  transition: none;
+}
+
+.app-cell[data-dragging="true"] .tile-art {
+  translate: 0 var(--lift-hover);
+  scale: var(--scale-hover);
+  filter: drop-shadow(var(--drop-shadow-raised));
+}
+
+/* Fluent CheckBox: a 20px box with 4px corners, a strong stroke when
+   clear, the accent with a check mark when ticked. The real checkbox is
+   visually hidden next to it. */
+.check-box {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  background-color: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--text-secondary);
+  color: transparent;
+}
+
+.check-box .fluent-icon {
+  font-size: 12px;
+}
+
+.picker-check:checked + .check-box {
+  background-color: var(--accent);
+  box-shadow: none;
+  color: var(--text-on-accent);
+}
+
+.picker-row:has(.picker-check:focus-visible) {
+  box-shadow:
+    0 0 0 2px var(--focus-outer),
+    inset 0 0 0 1px var(--focus-inner);
+}
+
+.picker-row [data-missing="true"] {
+  opacity: 0.5;
+}
+
+/* The search box clears with Escape; the browser's own clear button
+   isn't themed, so it is hidden. */
+.text-box::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Fluent ProgressRing (indeterminate), 16px in the accent. */
+.progress-ring {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  animation: progress-spin 1s linear infinite;
+}
+
+@keyframes progress-spin {
+  to {
+    rotate: 1turn;
+  }
+}

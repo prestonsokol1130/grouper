@@ -43,7 +43,8 @@ describe("Manager layout", () => {
     render(<ManagerRoot />);
     expect(rows().map((row) => row.textContent)).toEqual(["Work", "Games", "Media"]);
     expect(rows()[0]?.getAttribute("aria-current")).toBe("page");
-    expect(screen.getAllByTestId("folder-art")).toHaveLength(3);
+    const nav = screen.getByRole("navigation", { name: "Groups" });
+    expect(within(nav).getAllByTestId("folder-art")).toHaveLength(3);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Work");
     expect(screen.getByRole("list", { name: "Apps in Work" }).children).toHaveLength(2);
   });

@@ -2,6 +2,11 @@
 const GLYPHS = {
   add: "",
   settings: "",
+  remove: "",
+  refresh: "",
+  check: "",
+  search: "",
+  folderOpen: "",
 } as const;
 
 /** A decorative 16px Windows system icon. */
