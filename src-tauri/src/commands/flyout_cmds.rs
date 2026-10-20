@@ -15,15 +15,14 @@ pub fn hide_flyout(app: AppHandle) {
     window::hide(&app);
 }
 
-/// What the flyout shows now: the last `flyout:show` payload, or `null`
-/// before any. Lets a flyout page that loaded late catch up.
+/// The last `flyout:show` payload (`null` before any), for a late page.
 #[tauri::command]
 #[specta::specta]
 pub fn get_flyout(state: State<'_, FlyoutState>) -> Option<FlyoutShow> {
     state.last()
 }
 
-/// Hides the flyout, then launches app `app_id` like `launch_app`.
+/// Launches app `app_id`, then hides the flyout; on failure it stays open.
 #[tauri::command]
 #[specta::specta]
 pub async fn launch_from_flyout(
@@ -31,8 +30,7 @@ pub async fn launch_from_flyout(
     store: State<'_, Arc<Store>>,
     app_id: String,
 ) -> Result<(), String> {
-    // Hidden first so the launched app's window comes up over a clear
-    // screen and the flyout does not linger.
+    launch_app(app.clone(), store, app_id).await?;
     window::hide(&app);
-    launch_app(app, store, app_id).await
+    Ok(())
 }

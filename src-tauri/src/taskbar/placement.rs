@@ -10,6 +10,9 @@
 //! non-finite or negative sizes, margins and scales are treated as zero
 //! (or a scale of 1), so no input can panic or overflow.
 
+use serde::Serialize;
+use specta::Type;
+
 /// A rectangle in physical pixels; `right` and `bottom` are exclusive, as
 /// in Win32's `RECT`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,7 +34,8 @@ impl Rect {
 }
 
 /// The monitor edge the taskbar is docked to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub enum Edge {
     Bottom,
     Top,

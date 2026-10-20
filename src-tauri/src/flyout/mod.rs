@@ -2,10 +2,11 @@
 //! `Grouper.exe --flyout <group_id>` shows above a pinned group's taskbar
 //! button.
 //!
-//! [`layout`] sizes it and [`toggle`] decides whether a request shows or
+//! [`layout`] sizes it, [`origin`] finds where it animates from and [`toggle`] decides whether a request shows or
 //! hides it; both are pure. [`window`] does the Tauri and Win32 work.
 
 pub mod layout;
+pub mod origin;
 pub mod toggle;
 pub mod window;
 
@@ -15,6 +16,7 @@ use serde::Serialize;
 use specta::Type;
 
 use layout::FlyoutSize;
+use origin::FlyoutOrigin;
 use toggle::Toggle;
 
 /// The flyout window's label in `tauri.conf.json`.
@@ -30,8 +32,10 @@ pub struct FlyoutShow {
     pub group_id: String,
     /// The group's app ids, in order.
     pub apps: Vec<String>,
-    /// The window size in logical pixels.
+    // The window size in logical pixels, and where the open animation
+    // starts. (Plain comments: the bindings repeat this struct inline.)
     pub size: FlyoutSize,
+    pub origin: FlyoutOrigin,
 }
 
 /// Flyout bookkeeping, held in Tauri's managed state.

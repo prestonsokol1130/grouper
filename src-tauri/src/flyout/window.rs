@@ -9,11 +9,12 @@ use tauri::{
     WebviewWindow, WindowEvent,
 };
 
-use super::layout::{flyout_size, to_physical, LAYOUT};
+use super::layout::{fit_height, flyout_size, to_physical, LAYOUT};
+use super::origin::origin;
 use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
-use crate::taskbar::placement::place;
+use crate::taskbar::placement::{place, taskbar_edge};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
 use crate::win32::monitor::current_monitor_info;
 
@@ -113,13 +114,17 @@ fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
 fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> Result<(), String> {
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
+    let work_height = monitor.work.bottom.saturating_sub(monitor.work.top);
     let size = flyout_size(group.app_ids.len(), &LAYOUT);
+    let size = fit_height(size, work_height, monitor.scale, &LAYOUT);
     let logical = (f64::from(size.width), f64::from(size.height));
     let (x, y) = place(cursor, logical, &monitor, f64::from(LAYOUT.margin));
+    let edge = taskbar_edge(&monitor);
     let payload = FlyoutShow {
         group_id: group.id.clone(),
         apps: group.app_ids.clone(),
         size,
+        origin: origin(edge, cursor, (x, y), size, monitor.scale),
     };
     state.set_last(payload.clone());
     // Before showing, so the warm React tree swaps to this group's data.
