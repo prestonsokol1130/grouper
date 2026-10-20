@@ -90,12 +90,13 @@ fn start() -> Result<(), String> {
             appearance::accent::init(handle);
             // Before the icon worker starts: nothing else writes the cache.
             commands::icon_cmds::collect_cache_garbage(handle, &store.snapshot());
+            let redrawn = commands::icon_cmds::upgrade_icon_cache(handle);
             // Icons are cached in the background; a failure only leaves
             // them uncached.
             match commands::icon_cmds::start_icon_worker(handle) {
                 Ok(worker) => {
                     app.manage(worker);
-                    commands::icon_cmds::queue_icons(handle, store.snapshot().apps);
+                    commands::icon_cmds::queue_startup_icons(handle, &store, redrawn);
                 }
                 Err(error) => log::error!("could not start the icon worker: {error}"),
             }

@@ -76,8 +76,8 @@ pub fn ensure_icon(app: &AppEntry, cache_dir: &Path) -> Result<PathBuf, String> 
 ///   is used and nothing is extracted.
 /// - Otherwise the icon is extracted from `lnk_path` if set (falling back
 ///   to the target if that fails, for example a deleted shortcut), else from
-///   the target, and written atomically (a uniquely named temp file, then a
-///   rename). If extraction fails the failure is logged, any stale PNG is
+///   the target, normalised ([`trim_margin`]) and written atomically (a
+///   uniquely named temp file, then a rename). If extraction fails the failure is logged, any stale PNG is
 ///   left in place, and the fallback is returned.
 ///
 /// Returns `Err` if the app id is not a safe file name or a PNG cannot be
@@ -119,7 +119,7 @@ pub fn ensure_icon_with(
     };
     match extracted {
         Ok(image) => {
-            write_png(cache_dir, &cached, &image)?;
+            write_png(cache_dir, &cached, &trim_margin(image, ICON_SIZE))?;
             Ok(Ensured::Written(cached))
         }
         Err(error) => {

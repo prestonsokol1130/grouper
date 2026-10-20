@@ -63,7 +63,8 @@ pub(super) fn set_mtime(path: &Path, at: SystemTime) {
 pub(super) fn pixel(path: &Path) -> [u8; 4] {
     let image = image::open(path).unwrap().into_rgba8();
     assert_eq!(image.dimensions(), (ICON_SIZE, ICON_SIZE));
-    image.get_pixel(0, 0).0
+    // The centre: written icons are normalised to a padded square.
+    image.get_pixel(ICON_SIZE / 2, ICON_SIZE / 2).0
 }
 
 pub(super) const RED: [u8; 4] = [255, 0, 0, 255];
@@ -88,6 +89,9 @@ fn a_fresh_cache_file_is_reused() {
         Ok(Ensured::Written(png.clone()))
     );
     assert_eq!(pixel(&png), RED);
+    // Normalised: the full-bleed fake gets the 5% padding.
+    let written = image::open(&png).unwrap().into_rgba8();
+    assert_eq!(written.get_pixel(2, 2)[3], 0);
 
     let second = Fake::new(Some(BLUE));
     assert_eq!(

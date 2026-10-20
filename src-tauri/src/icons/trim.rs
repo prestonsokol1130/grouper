@@ -1,29 +1,46 @@
-//! Trims the wide empty margin of Store-app icons, so they sit at the same
-//! size as desktop-app icons in tiles and in a group's 2x2 icon.
+//! Normalises every cached app icon so they all look the same size in
+//! tiles, the flyout and a group's 2x2 icon (Preston's feedback,
+//! 2026-10-20: Cursor and Builder.io looked smaller than the rest).
+//!
+//! Two things made icons look small: a wide transparent margin (Store
+//! icons), and the frame the Shell draws when an `.exe` has no 256 px icon
+//! (a faint 38/77-alpha box around a 144 px icon in the middle). Both are
+//! removed: the frame is dropped ([`frame_width`]), the content box is
+//! found by alpha ([`content_box`], ignoring faint shadows), and the
+//! content is scaled, keeping its aspect ratio, to fill [`FILL_PERCENT`] of
+//! the canvas, centred: a 5% padding on each side for every icon.
+//!
+//! Opaque icons drawn on their own plate (Cursor's dark rounded square,
+//! Zed's) are left as they are: the plate is part of the artwork and fills
+//! the canvas like any full-bleed icon, so they already match. Removing a
+//! "flat plate" would make them differ from icons of the same style.
 
 use image::{imageops, RgbaImage};
 
 use super::pixels::fit_square;
 
-/// A pixel with at least this alpha counts as part of the icon.
-const SOLID_ALPHA: u8 = 16;
+/// A pixel with at least this alpha counts as part of the icon; fainter
+/// ones (soft shadows, glows) do not.
+const SOLID_ALPHA: u8 = 32;
 
-/// How much of the side the icon's content fills after trimming. Desktop
-/// icons at 256 px fill about this much.
-pub const FILL_PERCENT: u32 = 88;
+/// How much of the side the icon's content fills: 90%, so a 5% padding.
+pub const FILL_PERCENT: u32 = 90;
 
-/// `image` as a `size` x `size` icon whose content (its pixels with alpha
-/// of at least [`SOLID_ALPHA`]) fills [`FILL_PERCENT`] of the longer side,
-/// centred. An image whose content already fills that much, or that has
-/// none, is only fitted to `size`.
-pub fn trim_margin(image: RgbaImage, size: u32) -> RgbaImage {
-    let Some((_, _, width, height)) = content_box(&image) else {
-        return fit_square(image, size);
-    };
-    let longest = u64::from(width.max(height));
-    let (image_w, image_h) = image.dimensions();
-    let side = u64::from(image_w.max(image_h));
-    if longest * 100 >= side * u64::from(FILL_PERCENT) {
+/// The Shell's frame is no more opaque than this...
+const FRAME_MAX_ALPHA: u8 = 96;
+/// ...and no wider than this share of the side (8 px at 256).
+const FRAME_MAX_SHARE: u32 = 32;
+/// Inside the frame a ring this faint or fainter is the clear gap.
+const CLEAR_ALPHA: u8 = 8;
+
+/// `image` as a `size` x `size` icon whose content fills [`FILL_PERCENT`]
+/// of the side, centred (see the file comment). An image with no content
+/// is only fitted to `size`.
+pub fn trim_margin(mut image: RgbaImage, size: u32) -> RgbaImage {
+    if let Some(width) = frame_width(&image) {
+        clear_border(&mut image, width);
+    }
+    if content_box(&image).is_none() {
         return fit_square(image, size);
     }
     let content = crop_to_content(image);
@@ -61,48 +78,48 @@ pub(crate) fn content_box(image: &RgbaImage) -> Option<(u32, u32, u32, u32)> {
     found.map(|(x0, y0, x1, y1)| (x0, y0, x1 - x0 + 1, y1 - y0 + 1))
 }
 
-#[cfg(test)]
-mod tests {
-    use image::Rgba;
-
-    use super::*;
-
-    /// A `side` x `side` image with an opaque square of `inner` px centred.
-    fn padded(side: u32, inner: u32) -> RgbaImage {
-        let start = (side - inner) / 2;
-        RgbaImage::from_fn(side, side, |x, y| {
-            let inside = (start..start + inner).contains(&x) && (start..start + inner).contains(&y);
-            if inside {
-                Rgba([200, 10, 10, 255])
-            } else {
-                Rgba([0, 0, 0, 0])
-            }
-        })
+/// The highest alpha on the one-pixel ring `inset` px in from the edge.
+fn ring_alpha(image: &RgbaImage, inset: u32) -> u8 {
+    let (width, height) = image.dimensions();
+    if inset.saturating_mul(2) >= width.min(height) {
+        return 0;
     }
+    let (right, bottom) = (width - 1 - inset, height - 1 - inset);
+    let alpha = |x, y| image.get_pixel(x, y)[3];
+    let across = (inset..=right).map(|x| alpha(x, inset).max(alpha(x, bottom)));
+    let down = (inset..=bottom).map(|y| alpha(inset, y).max(alpha(right, y)));
+    across.chain(down).max().unwrap_or(0)
+}
 
-    #[test]
-    fn a_small_icon_is_scaled_up_to_the_fill() {
-        let out = trim_margin(padded(256, 128), 256);
-        assert_eq!(out.dimensions(), (256, 256));
-        let (_, _, width, height) = content_box(&out).unwrap();
-        let want = 256 * FILL_PERCENT / 100;
-        assert!(
-            width.abs_diff(want) <= 2 && height.abs_diff(want) <= 2,
-            "{width}x{height}"
-        );
+/// The width of a faint frame around the image (the Shell's box around a
+/// small icon): outer rings no more opaque than `FRAME_MAX_ALPHA`, then a
+/// clear ring. `None` when the edge is clear or solid (no frame).
+pub(crate) fn frame_width(image: &RgbaImage) -> Option<u32> {
+    let side = image.width().min(image.height());
+    let widest = (side / FRAME_MAX_SHARE).max(1);
+    for inset in 0..=widest {
+        let alpha = ring_alpha(image, inset);
+        if alpha <= CLEAR_ALPHA {
+            return (inset > 0).then_some(inset);
+        }
+        if alpha > FRAME_MAX_ALPHA {
+            return None;
+        }
     }
+    None
+}
 
-    #[test]
-    fn a_full_icon_is_left_alone() {
-        let full = padded(256, 240);
-        assert_eq!(trim_margin(full.clone(), 256), full);
-    }
-
-    #[test]
-    fn an_empty_icon_stays_empty() {
-        let empty = RgbaImage::new(64, 64);
-        let out = trim_margin(empty, 256);
-        assert_eq!(out.dimensions(), (256, 256));
-        assert!(content_box(&out).is_none());
+/// Makes the outer `width` px of `image` fully transparent.
+fn clear_border(image: &mut RgbaImage, width: u32) {
+    let (w, h) = image.dimensions();
+    for (x, y, px) in image.enumerate_pixels_mut() {
+        let inside = x >= width && y >= width && x + width < w && y + width < h;
+        if !inside {
+            px.0 = [0, 0, 0, 0];
+        }
     }
 }
+
+#[cfg(test)]
+#[path = "trim_tests.rs"]
+mod tests;

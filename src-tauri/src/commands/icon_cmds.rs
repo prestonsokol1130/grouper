@@ -8,10 +8,11 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::shortcut_worker::{queue, Job};
+use super::state_cmds::mutate;
 use crate::icons::cache::{self, Ensured};
 use crate::icons::extract::extract_icon;
-use crate::icons::gc;
 use crate::icons::worker::{IconWorker, THREADS};
+use crate::icons::{format, gc};
 use crate::state::paths::{ensure_dirs, group_cache_dir, icon_cache_dir};
 use crate::state::{AppEntry, AppState, Store};
 use crate::util::spawn::spawn_logged;
@@ -66,6 +67,42 @@ pub fn start_icon_worker(app: &AppHandle) -> Result<Arc<IconWorker>, String> {
         }),
     )?;
     Ok(Arc::new(worker))
+}
+
+/// Brings the icon cache up to the current format ([`format::upgrade`]):
+/// app PNGs from an older build are deleted so the pool redraws them.
+/// Returns true when it did. Run at startup, before the icon worker.
+pub fn upgrade_icon_cache(app: &AppHandle) -> bool {
+    match icon_dir(app) {
+        Ok(dir) => format::upgrade(&dir).is_some(),
+        Err(error) => {
+            log::warn!("no icon cache upgrade: {error}");
+            false
+        }
+    }
+}
+
+/// Queues every app's icon, as [`queue_icons`]. After an icon cache
+/// upgrade (`redrawn`), once they are all drawn again, every group's icon
+/// version is bumped so each taskbar `.ico` is rebuilt from the new PNGs.
+pub fn queue_startup_icons(app: &AppHandle, store: &Arc<Store>, redrawn: bool) {
+    let apps = store.snapshot().apps;
+    if !redrawn {
+        queue_icons(app, apps);
+        return;
+    }
+    let (handle, store) = (app.clone(), Arc::clone(store));
+    queue_icons_then(app, apps, move || {
+        let bumped = mutate(&handle, &store, |state| {
+            for group in &mut state.groups {
+                group.icon_version = group.icon_version.wrapping_add(1);
+            }
+            Ok(())
+        });
+        if let Err(error) = bumped {
+            log::warn!("could not rebuild the group icons: {error}");
+        }
+    });
 }
 
 /// Queues `apps` for the icon pool and returns at once. Apps whose PNG is
