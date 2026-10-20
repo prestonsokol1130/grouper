@@ -84,6 +84,21 @@ export const commands = {
 	 *  shortcut selected. `Err` when the shortcut has not been created yet.
 	 */
 	revealGroupShortcut: (groupId: string) => typedError<null, string>(__TAURI_INVOKE("reveal_group_shortcut", { groupId })),
+	/**  Hides the flyout (Escape in the flyout window). */
+	hideFlyout: () => __TAURI_INVOKE<void>("hide_flyout"),
+	/**
+	 *  What the flyout shows now: the last `flyout:show` payload, or `null`
+	 *  before any. Lets a flyout page that loaded late catch up.
+	 */
+	getFlyout: () => __TAURI_INVOKE<{
+	groupId: string,
+	/**  The group's app ids, in order. */
+	apps: string[],
+	/**  The window size in logical pixels. */
+	size: FlyoutSize,
+} | null>("get_flyout"),
+	/**  Hides the flyout, then launches app `app_id` like `launch_app`. */
+	launchFromFlyout: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_from_flyout", { appId })),
 };
 
 /* Types */
@@ -118,6 +133,21 @@ export type AppState = {
 	groups?: Group[],
 	launchpad?: LaunchpadLayout,
 	settings?: Settings,
+};
+
+/**  What the flyout shows: the [`FLYOUT_SHOW_EVENT`] payload. */
+export type FlyoutShow = {
+	groupId: string,
+	/**  The group's app ids, in order. */
+	apps: string[],
+	/**  The window size in logical pixels. */
+	size: FlyoutSize,
+};
+
+/**  A flyout size in logical (CSS) pixels. */
+export type FlyoutSize = {
+	width: number,
+	height: number,
 };
 
 /**  A group of apps: both a taskbar folder and a Launchpad folder. */
