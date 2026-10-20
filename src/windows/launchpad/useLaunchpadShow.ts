@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { onEvent, type LaunchpadShow } from "../../lib/events";
+import { logInfo } from "../../logging";
 import { showToast, useToastStore } from "../../store/toastStore";
 import { setLaunchpadVisible, takePending } from "./pendingToast";
 
 /** The last show and a counter that changes on every show. */
 export type ShownLaunchpad = { show: LaunchpadShow | null; seq: number };
+
+/**
+ * Logs the time from receiving `launchpad:show` to the next animation
+ * frame (the first paint after the commit) as `launchpad_paint_ms`, next
+ * to Rust's `launchpad_show_us` in grouper.log.
+ */
+function measurePaint(receivedAt: number): void {
+  requestAnimationFrame(() => {
+    const ms = (performance.now() - receivedAt).toFixed(1);
+    logInfo("launchpad", `launchpad_paint_ms=${ms}`);
+  });
+}
 
 /**
  * Follows `launchpad:show`. Each show is committed synchronously, so the
@@ -19,6 +32,7 @@ export function useLaunchpadShow(): ShownLaunchpad {
   useEffect(
     () =>
       onEvent("launchpad:show", (payload) => {
+        const at = performance.now();
         flushSync(() => {
           setLaunchpadVisible(true);
           useToastStore.setState({ toasts: [] });
@@ -27,6 +41,7 @@ export function useLaunchpadShow(): ShownLaunchpad {
           if (kept !== null) showToast(kept);
           setShown((previous) => ({ show: payload, seq: previous.seq + 1 }));
         });
+        measurePaint(at);
       }),
     [],
   );
