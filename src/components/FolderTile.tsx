@@ -1,4 +1,5 @@
 import { useFolderIconApps, useGroup } from "../store/hooks";
+import { useSetting } from "../store/settings";
 import { activationKeys, type PreviewState, type TileButtonProps } from "./activation";
 import { AppIcon } from "./AppIcon";
 import { miniLayout, shapeStyle, type FolderShape } from "./folderLayout";
@@ -8,7 +9,7 @@ type Props = {
   onOpen?: (groupId: string) => void;
   /** Tile side in px; matches the app icon size around it. */
   size?: number;
-  /** The "Folder shape" setting; Windows square by default. */
+  /** Overrides the "Folder shape" setting (style guide). */
   shape?: FolderShape;
   showLabel?: boolean;
   /** Style guide only: shows a state without a pointer or keyboard. */
@@ -29,7 +30,7 @@ export function FolderTile({
   groupId,
   onOpen,
   size = 72,
-  shape = "square",
+  shape,
   showLabel = true,
   preview,
   button,
@@ -74,18 +75,19 @@ export function FolderTile({
 export function FolderArt({
   groupId,
   size,
-  shape = "square",
+  shape,
 }: {
   groupId: string;
   size: number;
   shape?: FolderShape;
 }) {
   const apps = useFolderIconApps(groupId);
+  const setting = useSetting("folderShape");
   return (
     <span
       aria-hidden="true"
       className="relative block shrink-0 bg-folder"
-      style={{ width: size, height: size, ...shapeStyle(shape) }}
+      style={{ width: size, height: size, ...shapeStyle(shape ?? setting) }}
       data-testid="folder-art"
     >
       {miniLayout(apps.length).map((cell, index) => {

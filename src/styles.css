@@ -5,6 +5,7 @@
 @import "./windows/launchpad/launchpad.css";
 @import "./windows/launchpad/folder/folder.css";
 @import "./windows/manager/manager.css";
+@import "./windows/manager/settings/settings.css";
 
 /*
  * Tailwind names for the DESIGN.md tokens. `inline` makes each utility use
@@ -24,6 +25,7 @@
   --color-layer: var(--layer-bg);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-caution: var(--caution);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-pressed: var(--accent-pressed);

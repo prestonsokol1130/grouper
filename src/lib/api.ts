@@ -1,8 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   commands,
   type LaunchpadItem,
   type LaunchpadLayout,
   type LaunchpadSlot,
+  type Place,
   type SettingsPatch,
 } from "../bindings";
 
@@ -75,6 +77,10 @@ export const api = {
   launchFromFlyout: (appId: string) => typed(() => commands.launchFromFlyout(appId)),
   hideLaunchpad: () => typed(() => commands.hideLaunchpad()),
   setHotkey: (hotkey: string) => typed(() => commands.setHotkey(hotkey)),
+  setAutostart: (enabled: boolean) => typed(() => commands.setAutostart(enabled)),
+  openPlace: (place: Place) => typed(() => commands.openPlace(place)),
   getAccentColor: () => plain(() => commands.getAccentColor()),
   getWindowMaterial: () => plain(() => commands.getWindowMaterial()),
+  /** Tauri's own `getVersion` (core:app:allow-version), through the mockable invoke. */
+  appVersion: () => plain(() => invoke<string>("plugin:app|version")),
 };

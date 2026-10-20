@@ -3,7 +3,10 @@ import { useAppStore } from "../../store/appStore";
 import { createGroup } from "./groupActions";
 import { GroupDetail } from "./GroupDetail";
 import { GroupList, type Page } from "./GroupList";
-import { NoGroups, SettingsPlaceholder } from "./ManagerPages";
+import { NoGroups } from "./ManagerPages";
+import { Onboarding } from "./onboarding/Onboarding";
+import { SettingsPage } from "./settings/SettingsPage";
+import { useSetting } from "../../store/settings";
 
 /**
  * The page to show: Settings when chosen, else the chosen group while it
@@ -28,6 +31,7 @@ export function ManagerRoot() {
   const loaded = useAppStore((store) => store.state !== null);
   const reorderGroups = useAppStore((store) => store.reorderGroups);
   const ids = useMemo(() => (groups ?? []).map((group) => group.id ?? ""), [groups]);
+  const firstRunDone = useSetting("firstRunDone");
   const [chosen, setChosen] = useState<Page | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const page = resolvePage(chosen, ids);
@@ -52,6 +56,9 @@ export function ManagerRoot() {
     setRenaming(id);
   };
 
+  // Until the welcome is finished or skipped it replaces the Manager.
+  if (loaded && !firstRunDone) return <Onboarding />;
+
   return (
     <div className="flex h-screen text-primary">
       <GroupList
@@ -68,7 +75,7 @@ export function ManagerRoot() {
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto rounded-tl-window border-t border-l border-stroke-card bg-layer px-9 py-7">
         {loaded && page === null && <NoGroups onNewGroup={newGroup} />}
-        {page?.kind === "settings" && <SettingsPlaceholder />}
+        {page?.kind === "settings" && <SettingsPage />}
         {page?.kind === "group" && (
           <GroupDetail
             key={page.id}

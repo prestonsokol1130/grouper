@@ -6,9 +6,6 @@
 /** DESIGN.md section 8: three apps across. */
 const FLYOUT_MAX_COLUMNS = 3;
 
-/** DESIGN.md section 7: the Medium flyout icon. */
-export const FLYOUT_ICON_PX = 48;
-
 /** Columns for `apps` apps: up to three; an empty group uses all three. */
 export function flyoutColumns(apps: number): number {
   if (apps <= 0) return FLYOUT_MAX_COLUMNS;

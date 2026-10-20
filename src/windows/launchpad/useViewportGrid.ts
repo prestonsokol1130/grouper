@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react";
-import { computeGrid, type GridLayout } from "../../lib/grid";
-import { launchpadDensity } from "./launchpadGrid";
+import { computeGrid, type GridDensity, type GridLayout } from "../../lib/grid";
+import { useLaunchpadDensity } from "./launchpadGrid";
 
-function measure(): GridLayout {
-  return computeGrid({ width: window.innerWidth, height: window.innerHeight }, launchpadDensity());
+function measure(density: GridDensity): GridLayout {
+  return computeGrid({ width: window.innerWidth, height: window.innerHeight }, density);
 }
 
 /**
- * The grid for the window's current size. Rust moves the Launchpad to the
- * monitor under the cursor before each show, so this follows resizes.
+ * The grid for the window's current size and the "Launchpad grid" and
+ * "Icon size" settings. Rust moves the Launchpad to the monitor under the
+ * cursor before each show, so this follows resizes and setting changes.
  */
 export function useViewportGrid(): GridLayout {
-  const [grid, setGrid] = useState(measure);
+  const density = useLaunchpadDensity();
+  const [grid, setGrid] = useState(() => measure(density));
   useEffect(() => {
-    const onResize = () =>
+    const update = () =>
       setGrid((previous) => {
-        const next = measure();
+        const next = measure(density);
         return JSON.stringify(next) === JSON.stringify(previous) ? previous : next;
       });
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [density]);
   return grid;
 }

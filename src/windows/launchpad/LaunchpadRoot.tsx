@@ -10,7 +10,7 @@ import { useAppStore } from "../../store/appStore";
 import { motionName, motionVars, useOpenCloseStyle } from "../flyout/flyoutMotion";
 import { FolderOverlay } from "./folder/FolderOverlay";
 import { useOpenFolder } from "./folder/useOpenFolder";
-import { launchpadDensity, searchIndex, visiblePages } from "./launchpadGrid";
+import { searchIndex, useLaunchpadDensity, visiblePages } from "./launchpadGrid";
 import { PageDots } from "./PageDots";
 import { ReorderGrid } from "./ReorderGrid";
 import { focusResult, ResultsGrid } from "./ResultsGrid";
@@ -44,6 +44,7 @@ export function LaunchpadRoot() {
   const reduced = usePrefersReducedMotion();
   const state = useAppStore((store) => store.state);
   const grid = useViewportGrid();
+  const iconPx = useLaunchpadDensity().iconPx;
   const [query, setQuery] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -97,7 +98,7 @@ export function LaunchpadRoot() {
   const renderTile = useCallback(
     (item: LaunchpadItem, button?: TileButtonProps, lifted = false) => {
       const preview = lifted ? "hover" : undefined;
-      const size = launchpadDensity().iconPx;
+      const size = iconPx;
       return item.kind === "app" ? (
         <AppTile
           appId={item.appId}
@@ -116,7 +117,7 @@ export function LaunchpadRoot() {
         />
       );
     },
-    [open],
+    [open, iconPx],
   );
 
   // Anything that is not a control is background, the gaps in the grid too.
@@ -185,7 +186,7 @@ export function LaunchpadRoot() {
           origin={folder.origin}
           mainGrid={grid}
           mainPager={pager}
-          iconPx={launchpadDensity().iconPx}
+          iconPx={iconPx}
           style={style}
           reduced={reduced}
           launch={(appId) => void launch(appId)}

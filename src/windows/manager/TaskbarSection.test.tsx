@@ -7,6 +7,8 @@ import { invokeMock } from "../../test/tauriMock";
 import { ManagerRoot } from "./ManagerRoot";
 
 const STATE: AppState = {
+  // Past the first-run welcome, which otherwise replaces the Manager.
+  settings: { firstRunDone: true },
   apps: [
     { id: "a", name: "Alpha" },
     { id: "b", name: "Beta" },

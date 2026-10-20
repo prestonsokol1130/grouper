@@ -14,15 +14,3 @@ export function NoGroups({ onNewGroup }: { onNewGroup: () => void }) {
     </section>
   );
 }
-
-/** A stand-in until the Settings page arrives (S6-01). */
-export function SettingsPlaceholder() {
-  return (
-    <section aria-label="Settings" className="flex flex-col">
-      <h1 className="mb-2 py-1 type-title">Settings</h1>
-      <p className="type-body text-secondary">
-        Settings come later. For now, Grouper follows your Windows theme and accent color.
-      </p>
-    </section>
-  );
-}

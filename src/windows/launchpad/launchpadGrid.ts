@@ -1,15 +1,41 @@
 import type { AppState, LaunchpadItem } from "../../bindings";
-import { DEFAULT_DENSITY, type GridDensity } from "../../lib/grid";
+import type { GridDensity } from "../../lib/grid";
 import { indexItems, type Indexed } from "../../lib/search";
 import { appsById, groupApps, groupsById } from "../../store/selectors";
+import { currentSettings, ICON_PX, useSetting, type FullSettings } from "../../store/settings";
 
 /**
- * The Launchpad's grid setting and icon size. Settings has no "Launchpad
- * grid" or "Icon size" field yet, so these are the DESIGN.md defaults
- * (7 x 5, Medium 72px), the same as `GRID_COLUMNS` and `GRID_ROWS` in Rust.
+ * The Launchpad's grid setting and icon size now (7 x 5, Medium 72px by
+ * default, as in Rust). Outside React; components use
+ * {@link useLaunchpadDensity} so they follow a change.
  */
 export function launchpadDensity(): GridDensity {
-  return DEFAULT_DENSITY;
+  const settings = currentSettings();
+  return densityFor(settings.gridColumns, settings.gridRows, settings.iconSize);
+}
+
+/** {@link launchpadDensity} that re-renders when the settings change. */
+export function useLaunchpadDensity(): GridDensity {
+  const columns = useSetting("gridColumns");
+  const rows = useSetting("gridRows");
+  const iconSize = useSetting("iconSize");
+  return densityFor(columns, rows, iconSize);
+}
+
+const memo = new Map<string, GridDensity>();
+
+/**
+ * The "Launchpad grid" and "Icon size" settings as a grid density: one
+ * object per value, so it is stable across renders.
+ */
+function densityFor(columns: number, rows: number, iconSize: FullSettings["iconSize"]) {
+  const key = `${columns}x${rows}:${iconSize}`;
+  let density = memo.get(key);
+  if (density === undefined) {
+    density = { columns, rows, iconPx: ICON_PX[iconSize].launchpad };
+    memo.set(key, density);
+  }
+  return density;
 }
 
 /**

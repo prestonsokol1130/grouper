@@ -1,11 +1,7 @@
 import type { CSSProperties } from "react";
 import type { FlyoutOrigin } from "../../bindings";
-import {
-  DEFAULT_OPEN_CLOSE,
-  OPEN_CLOSE,
-  openCloseTiming,
-  type OpenCloseStyle,
-} from "../../lib/motion";
+import { OPEN_CLOSE, openCloseTiming, type OpenCloseStyle } from "../../lib/motion";
+import { useSetting } from "../../store/settings";
 
 /**
  * The flyout's open and close animations (DESIGN.md section 10). The
@@ -18,12 +14,9 @@ import {
 const PHASES = ["is-opening", "is-closing", "is-hidden"] as const;
 type Phase = (typeof PHASES)[number];
 
-/**
- * The open/close style. Settings has no "Animation style" field yet, so
- * this is the default (Genie); the setting replaces it when it lands.
- */
+/** The "Animation style" setting (Genie by default); follows a change. */
 export function useOpenCloseStyle(): OpenCloseStyle {
-  return DEFAULT_OPEN_CLOSE;
+  return useSetting("animation");
 }
 
 /** `data-motion` on the panel: the style, or `reduced` for the fade. */

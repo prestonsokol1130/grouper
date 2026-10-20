@@ -12,6 +12,8 @@ const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 let theme: Theme = "light";
 let accent: AccentColors = FALLBACK_ACCENT;
+/** The "Accent color" setting when it is a custom colour. */
+let custom: string | null = null;
 
 /** Parses `#RRGGBB` into channels, or `null` when it is not one. */
 export function parseHex(hex: string): [number, number, number] | null {
@@ -62,7 +64,7 @@ export function accentShades(hex: string): AccentShades | null {
 function paint(): void {
   const root = document.documentElement;
   root.dataset.theme = theme;
-  const shades = accentShades(accent[theme]) ?? accentShades(FALLBACK_ACCENT[theme]);
+  const shades = accentShades(custom ?? accent[theme]) ?? accentShades(FALLBACK_ACCENT[theme]);
   if (shades === null) return;
   root.style.setProperty("--accent", shades.accent);
   root.style.setProperty("--accent-hover", shades.hover);
@@ -73,6 +75,16 @@ function paint(): void {
 /** Uses `colors` as the accent, or the fallback for `null`. */
 export function setAccent(colors: AccentColors | null): void {
   accent = colors ?? FALLBACK_ACCENT;
+  paint();
+}
+
+/**
+ * Uses `hex` (`#RRGGBB`) as the accent in both themes instead of the
+ * Windows one, or goes back to the Windows accent for `null` or anything
+ * that is not a colour.
+ */
+export function setCustomAccent(hex: string | null): void {
+  custom = hex !== null && parseHex(hex) !== null ? hex : null;
   paint();
 }
 

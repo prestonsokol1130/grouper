@@ -21,6 +21,10 @@
   --layer-bg: #fbfbfb;
   --danger: #c42b1c;
   --success: #0f7b0f;
+  /* Fluent warning InfoBar (SystemFillColorCaution and its background);
+     DESIGN.md has no warning colour. */
+  --caution: #9d5d00;
+  --caution-bg: #fff4ce;
 
   /* Section 3: accent. These are the fallbacks; theme.ts overrides them
      with the live Windows accent and its derived shades. */
@@ -61,6 +65,8 @@
   --layer-bg: #2c2c2c;
   --danger: #ff99a4;
   --success: #6ccb5f;
+  --caution: #fce100;
+  --caution-bg: #433519;
   --accent: #4cc2ff;
   --accent-hover: rgba(76, 194, 255, 0.9);
   --accent-pressed: rgba(76, 194, 255, 0.8);
@@ -87,6 +93,8 @@
     --layer-bg: #2c2c2c;
     --danger: #ff99a4;
     --success: #6ccb5f;
+    --caution: #fce100;
+    --caution-bg: #433519;
     --accent: #4cc2ff;
     --accent-hover: rgba(76, 194, 255, 0.9);
     --accent-pressed: rgba(76, 194, 255, 0.8);

@@ -8,6 +8,8 @@ import { checkGroupName } from "./groupName";
 import { ManagerRoot } from "./ManagerRoot";
 
 const STATE: AppState = {
+  // Past the first-run welcome, which otherwise replaces the Manager.
+  settings: { firstRunDone: true },
   apps: [
     { id: "a", name: "Alpha" },
     { id: "b", name: "Beta" },
@@ -56,10 +58,11 @@ describe("Manager layout", () => {
     expect(screen.getByText("Click New group to make your first one.")).toBeTruthy();
   });
 
-  it("opens the Settings placeholder from the bottom of the sidebar", () => {
+  it("opens Settings from the bottom of the sidebar", () => {
     render(<ManagerRoot />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByText(/Settings come later/)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Settings" })).toBeTruthy();
+    expect(screen.getByText("Launchpad shortcut")).toBeTruthy();
   });
 });
 

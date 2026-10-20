@@ -20,7 +20,7 @@ import { displayToStored, findItem } from "../../lib/layoutMap";
 import { moveItem, type Position } from "../../lib/layoutOps";
 import { PAGE_SWIPE } from "../../lib/motion";
 import { useAppStore } from "../../store/appStore";
-import { itemKey, launchpadDensity, storedPerPage, visibleItem } from "./launchpadGrid";
+import { itemKey, storedPerPage, useLaunchpadDensity, visibleItem } from "./launchpadGrid";
 import { PagedGrid } from "./PagedGrid";
 import { SortableTile } from "./SortableTile";
 import { measureSettled } from "./trackMeasure";
@@ -117,7 +117,7 @@ export function ReorderGrid({
   const merge = useMergeDrag((dragged, target) => commitMerge(pages, dragged, target));
   const current = reorder.pages[pager.page];
   const ids = useMemo(() => (current ?? []).map(itemKey), [current]);
-  const iconPx = launchpadDensity().iconPx;
+  const iconPx = useLaunchpadDensity().iconPx;
   // The target stays set through the drop, so the overlay skips its animation.
   const mergeTarget = drag === null ? null : merge.target;
   const { onDragStart, onDragMove, onDragEnd, onDragCancel } = reorder.handlers;

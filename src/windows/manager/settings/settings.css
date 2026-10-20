@@ -1,0 +1,155 @@
+/*
+ * Settings page and first-run controls. DESIGN.md names no sizes for
+ * these, so they follow the WinUI defaults.
+ */
+
+/* Fluent ToggleSwitch: a 40 x 20 pill with a 12px knob (14px on hover);
+   on, the pill is the accent and the knob is the text-on-accent colour. */
+.toggle-switch {
+  appearance: none;
+  position: relative;
+  width: 40px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-duration-hover) var(--ease-hover);
+}
+
+.toggle-switch::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--text-secondary);
+  translate: 0 -50%;
+  transition:
+    left var(--transition-duration-hover) var(--ease-smooth),
+    width var(--transition-duration-press) var(--ease-hover),
+    height var(--transition-duration-press) var(--ease-hover);
+}
+
+.toggle-switch:hover::before {
+  width: 14px;
+  height: 14px;
+}
+
+.toggle-switch:checked {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.toggle-switch:checked::before {
+  left: 24px;
+  background: var(--text-on-accent);
+}
+
+.toggle-switch:checked:hover::before {
+  left: 22px;
+}
+
+.toggle-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Fluent keyboard-accelerator chips, like the ones in Windows Settings. */
+.key-chip {
+  display: inline-flex;
+  min-width: 32px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-family: var(--font-text);
+}
+
+/* The custom accent colour well: a 32px square with control corners. */
+.color-well {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  cursor: pointer;
+}
+
+.color-well::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-well::-webkit-color-swatch {
+  border: 1px solid var(--stroke-card);
+  border-radius: var(--radius-control);
+}
+
+/* Fluent InfoBar, warning severity. */
+.info-bar {
+  background: var(--caution-bg);
+}
+
+/* Fluent ProgressBar (indeterminate): a 3px track with an accent dash. */
+.progress-bar {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--stroke-card);
+}
+
+.progress-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: progress-slide 1.5s var(--ease-smooth) infinite;
+}
+
+.progress-bar[data-done="true"]::before {
+  width: 100%;
+  animation: none;
+}
+
+@keyframes progress-slide {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 250% 0;
+  }
+}
+
+/* First-run step dots: the current step uses the accent. */
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--text-disabled);
+}
+
+.step-dot[aria-current="step"] {
+  width: 16px;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle-switch,
+  .toggle-switch::before {
+    transition: none;
+  }
+
+  .progress-bar::before {
+    animation-duration: 3s;
+  }
+}

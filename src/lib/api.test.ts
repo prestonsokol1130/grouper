@@ -51,6 +51,7 @@ describe("api wrappers", () => {
       [
         "addAppFromPath",
         "applyLaunchpadMerge",
+        "appVersion",
         "createGroup",
         "createGroupShortcut",
         "deleteGroup",
@@ -64,6 +65,7 @@ describe("api wrappers", () => {
         "launchApp",
         "launchFromFlyout",
         "launchGroup",
+        "openPlace",
         "pickAndAddApps",
         "removeApp",
         "removeAppFromFolder",
@@ -71,6 +73,7 @@ describe("api wrappers", () => {
         "reorderGroups",
         "rescanApps",
         "revealGroupShortcut",
+        "setAutostart",
         "setGroupApps",
         "setHotkey",
         "setLaunchpadLayout",

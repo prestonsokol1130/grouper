@@ -7,7 +7,8 @@ import { useAppStore } from "../../store/appStore";
 import { useGroup } from "../../store/hooks";
 import { appsById } from "../../store/selectors";
 import { showToast } from "../../store/toastStore";
-import { FLYOUT_ICON_PX, flyoutColumns, nextIndex } from "./flyoutGrid";
+import { ICON_PX, useSetting } from "../../store/settings";
+import { flyoutColumns, nextIndex } from "./flyoutGrid";
 import {
   motionName,
   motionVars,
@@ -49,6 +50,7 @@ function tilesIn(panel: HTMLElement | null): HTMLElement[] {
 export function FlyoutRoot() {
   const { show, seq } = useFlyoutShow();
   const style = useOpenCloseStyle();
+  const iconPx = ICON_PX[useSetting("iconSize")].flyout;
   const reduced = usePrefersReducedMotion();
   const group = useGroup(show?.groupId ?? "");
   const panel = useRef<HTMLDivElement>(null);
@@ -144,7 +146,7 @@ export function FlyoutRoot() {
                 <AppTile
                   key={appId}
                   appId={appId}
-                  size={FLYOUT_ICON_PX}
+                  size={iconPx}
                   onActivate={(id) => void launch(id)}
                 />
               ))}

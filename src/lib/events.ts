@@ -11,7 +11,7 @@ export type HotkeyFailed = { hotkey: string; error: string };
  * Backend events and their payloads. The names match the Rust constants
  * `STATE_CHANGED_EVENT`, `ICONS_UPDATED_EVENT`, `ACCENT_CHANGED_EVENT`
  * `FLYOUT_SHOW_EVENT`, `FLYOUT_HIDE_EVENT`, `LAUNCHPAD_SHOW_EVENT`,
- * `LAUNCHPAD_HIDE_EVENT` and `HOTKEY_FAILED_EVENT`.
+ * `LAUNCHPAD_HIDE_EVENT`, `HOTKEY_FAILED_EVENT` and `MATERIAL_CHANGED_EVENT`.
  */
 type Events = {
   "state:changed": AppState;
@@ -22,6 +22,7 @@ type Events = {
   "launchpad:show": LaunchpadShow;
   "launchpad:hide": null;
   "hotkey:failed": HotkeyFailed;
+  "material:changed": null;
 };
 
 /**

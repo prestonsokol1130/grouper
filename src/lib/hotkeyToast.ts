@@ -1,3 +1,4 @@
+import { markHotkeyFailed } from "../store/hotkeyStatus";
 import { showToast, useToastStore } from "../store/toastStore";
 import { onEvent, type HotkeyFailed } from "./events";
 
@@ -5,7 +6,7 @@ import { onEvent, type HotkeyFailed } from "./events";
 export function displayHotkey(hotkey: string): string {
   return hotkey
     .split("+")
-    .map((part) => part.trim())
+    .map((part) => (part.trim() === "Super" ? "Win" : part.trim()))
     .join(" + ");
 }
 
@@ -26,6 +27,7 @@ function hotkeyFailedToast(failed: HotkeyFailed) {
 export function followHotkeyFailures(): () => void {
   return onEvent("hotkey:failed", (failed) => {
     console.warn(`hotkey: ${failed.error}`);
+    markHotkeyFailed(failed);
     const toast = hotkeyFailedToast(failed);
     const showing = useToastStore.getState().toasts.some((t) => t.title === toast.title);
     if (!showing) showToast(toast);
