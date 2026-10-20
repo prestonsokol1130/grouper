@@ -147,6 +147,21 @@ describe("Launchpad folder", () => {
     expect(calls("hide_launchpad")).toHaveLength(0);
   });
 
+  it("shows a Launch All failure on the next open when the Launchpad hid first", async () => {
+    replies.launch_group = { launched: 1, failed: ["Slack"] };
+    const panel = await openFolder();
+    act(() => fireEvent.click(panel.getByRole("button", { name: "Launch All" })));
+    // The launched app took focus: Rust hid the Launchpad before the reply.
+    act(() => emitMock("launchpad:hide", null));
+    await flush();
+    expect(screen.queryByText("Couldn't open Slack.")).toBeNull();
+    useToastStore.setState({ toasts: [{ id: 99, kind: "info", title: "Old toast" }] });
+    act(() => emitMock("launchpad:show", SHOW));
+    expect(screen.getByText("Couldn't open Slack.")).toBeTruthy();
+    // Other leftover toasts are still cleared on show.
+    expect(screen.queryByText("Old toast")).toBeNull();
+  });
+
   it("pins: creates the shortcut, shows the guide, then reveals it", async () => {
     const panel = await openFolder();
     act(() => fireEvent.click(panel.getByRole("button", { name: "Pin Group to Windows Taskbar" })));

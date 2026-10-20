@@ -1,5 +1,6 @@
 import { api } from "../../../lib/api";
 import { showToast, type ToastInput } from "../../../store/toastStore";
+import { showOrKeep } from "../pendingToast";
 
 /** "A", "A and B", "A, B and C" (DESIGN.md section 13 lists no comma before "and"). */
 export function listNames(names: readonly string[]): string {
@@ -37,6 +38,8 @@ export async function launchAll(groupId: string): Promise<boolean> {
   const { failed } = result.value;
   if (failed.length === 0) return true;
   console.error(`launchpad: launch group ${groupId}: failed ${failed.join(", ")}`);
-  showToast(launchFailedToast(failed));
+  // The apps that did start usually take focus and hide the Launchpad
+  // first; then the toast waits for its next open.
+  showOrKeep(launchFailedToast(failed));
   return false;
 }
