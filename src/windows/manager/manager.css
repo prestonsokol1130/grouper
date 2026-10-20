@@ -100,7 +100,7 @@
   transition: translate var(--transition-duration-hover) var(--ease-hover);
 }
 
-[data-reordering="true"] .app-remove {
+[data-reordering="true"] .app-cell .app-remove {
   opacity: 0;
 }
 
