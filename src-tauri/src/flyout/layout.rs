@@ -84,9 +84,10 @@ pub fn flyout_size(apps: usize, layout: &FlyoutLayout) -> FlyoutSize {
     }
 }
 
-/// `size` with its height capped so the flyout fits a work area
-/// `work_height` physical pixels tall at `scale`, `margin` logical pixels
-/// off each end; the frontend scrolls the rest. Never below one row.
+/// `size` with its height capped so the flyout fits an area `work_height`
+/// physical pixels tall (placement's usable height) at `scale`, `margin`
+/// logical pixels off each end; the frontend scrolls the rest. Never below
+/// one row.
 pub fn fit_height(
     size: FlyoutSize,
     work_height: i32,
@@ -194,6 +195,34 @@ mod tests {
         assert_eq!(fit_height(tall, 10, 1.0, &LAYOUT).height, 144);
         assert_eq!(fit_height(tall, -5, f64::NAN, &LAYOUT).height, 144);
         assert_eq!(fit_height(tall, i32::MAX, 1.0, &LAYOUT), tall);
+    }
+
+    #[test]
+    fn an_auto_hide_bottom_bar_shrinks_the_cap_and_a_side_bar_does_not() {
+        use crate::taskbar::placement::{usable_height, MonitorInfo, Rect};
+        let rect = |left, top, right, bottom| Rect {
+            left,
+            top,
+            right,
+            bottom,
+        };
+        let screen = rect(0, 0, 3840, 2160);
+        let auto_hide = |taskbar| MonitorInfo {
+            monitor: screen,
+            work: screen,
+            scale: 1.5,
+            taskbar: Some(taskbar),
+        };
+        let tall = flyout_size(100, &LAYOUT);
+        let bottom = auto_hide(rect(0, 2088, 3840, 2160));
+        assert_eq!(usable_height(&bottom), 2088);
+        // floor(2088 / 1.5) - 2 * 12.
+        let capped = fit_height(tall, usable_height(&bottom), 1.5, &LAYOUT);
+        assert_eq!(capped.height, 1392 - 24);
+        let side = auto_hide(rect(0, 0, 72, 2160));
+        assert_eq!(usable_height(&side), 2160);
+        let capped = fit_height(tall, usable_height(&side), 1.5, &LAYOUT);
+        assert_eq!(capped.height, 1440 - 24);
     }
 
     #[test]

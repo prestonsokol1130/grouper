@@ -62,6 +62,11 @@ impl FlyoutState {
         *self.last.lock().unwrap_or_else(|p| p.into_inner()) = Some(payload);
     }
 
+    /// The token of the visible show ([`Toggle::token`]), if any.
+    pub fn visible_token(&self) -> Option<u64> {
+        self.toggle().token()
+    }
+
     /// The payload of the most recent show, if any.
     pub fn last(&self) -> Option<FlyoutShow> {
         self.last.lock().unwrap_or_else(|p| p.into_inner()).clone()

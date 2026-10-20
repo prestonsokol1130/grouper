@@ -87,7 +87,11 @@ export function FlyoutRoot() {
       // A show that arrived during the animation wins.
       if (seqRef.current !== started) return;
       const result = await api.hideFlyout();
-      if (!result.ok) console.error(`flyout: hide: ${result.error}`);
+      if (result.ok) return;
+      console.error(`flyout: hide: ${result.error}`);
+      // Still showing: open it back up so Escape works again.
+      closing.current = false;
+      if (panel.current && seqRef.current === started) playOpen(panel.current);
     });
   }, [style, reduced]);
 

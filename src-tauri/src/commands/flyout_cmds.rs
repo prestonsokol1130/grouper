@@ -28,9 +28,43 @@ pub fn get_flyout(state: State<'_, FlyoutState>) -> Option<FlyoutShow> {
 pub async fn launch_from_flyout(
     app: AppHandle,
     store: State<'_, Arc<Store>>,
+    flyout: State<'_, FlyoutState>,
     app_id: String,
 ) -> Result<(), String> {
-    launch_app(app.clone(), store, app_id).await?;
-    window::hide(&app);
-    Ok(())
+    // visible_token locks and releases the toggle; nothing is held across
+    // the await.
+    let before = flyout.visible_token();
+    let launched = launch_app(app.clone(), store, app_id).await;
+    if hide_after_launch(&launched, before, flyout.visible_token()) {
+        window::hide(&app);
+    }
+    launched
+}
+
+/// Whether a finished launch hides the flyout: only when it succeeded and
+/// the show it was started from is still the visible one, so a late
+/// launch never closes a newer flyout or clears its blur memory.
+fn hide_after_launch(launched: &Result<(), String>, before: Option<u64>, now: Option<u64>) -> bool {
+    launched.is_ok() && before.is_some() && before == now
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hide_after_launch;
+
+    #[test]
+    fn hides_only_after_a_success_from_the_same_visible_show() {
+        let ok = Ok(());
+        assert!(hide_after_launch(&ok, Some(3), Some(3)));
+        // A newer show, a blur or hide, or no show at all: leave it.
+        assert!(!hide_after_launch(&ok, Some(3), Some(4)));
+        assert!(!hide_after_launch(&ok, Some(3), None));
+        assert!(!hide_after_launch(&ok, None, None));
+    }
+
+    #[test]
+    fn a_failed_launch_never_hides() {
+        let failed = Err("App not found: X".to_owned());
+        assert!(!hide_after_launch(&failed, Some(3), Some(3)));
+    }
 }

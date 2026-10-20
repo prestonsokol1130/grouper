@@ -14,7 +14,7 @@ use super::origin::origin;
 use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_HIDE_EVENT, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
-use crate::taskbar::placement::{place, taskbar_edge};
+use crate::taskbar::placement::{place, taskbar_edge, usable_height};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
 use crate::win32::monitor::current_monitor_info;
 
@@ -119,9 +119,8 @@ fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
 fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> Result<(), String> {
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
-    let work_height = monitor.work.bottom.saturating_sub(monitor.work.top);
     let size = flyout_size(group.app_ids.len(), &LAYOUT);
-    let size = fit_height(size, work_height, monitor.scale, &LAYOUT);
+    let size = fit_height(size, usable_height(&monitor), monitor.scale, &LAYOUT);
     let logical = (f64::from(size.width), f64::from(size.height));
     let (x, y) = place(cursor, logical, &monitor, f64::from(LAYOUT.margin));
     let edge = taskbar_edge(&monitor);
