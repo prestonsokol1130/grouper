@@ -112,7 +112,7 @@ export function FolderGrid({ pages, grid, pager, reduced, iconPx, launch }: Prop
 
   return (
     <div ref={area} onKeyDown={onKeyDown}>
-      <div className="flex" style={{ width: size.width, height: size.height }}>
+      <div className="mx-auto flex" style={{ width: size.width, height: size.height }}>
         <PagedGrid
           pages={pages}
           pager={pager}

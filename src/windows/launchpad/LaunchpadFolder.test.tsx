@@ -68,7 +68,7 @@ afterEach(() => {
 describe("Launchpad folder", () => {
   it("opens a folder tile as a dialog with its apps", async () => {
     const panel = await openFolder();
-    expect(dialog()?.getAttribute("aria-labelledby")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Tools" })).toBeTruthy();
     expect(panel.getByRole("button", { name: "App x" })).toBeTruthy();
     expect(panel.getByRole("button", { name: "App y" })).toBeTruthy();
     expect(

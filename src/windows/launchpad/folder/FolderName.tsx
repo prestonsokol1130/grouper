@@ -5,8 +5,6 @@ import { RenameField } from "../../manager/RenameField";
 type Props = {
   groupId: string;
   name: string;
-  /** The heading's id, which names the folder dialog. */
-  id: string;
 };
 
 /**
@@ -16,7 +14,7 @@ type Props = {
  * rename_group, Escape cancels, an empty name is refused. Focus goes back
  * to the name when editing ends.
  */
-export function FolderName({ groupId, name, id }: Props) {
+export function FolderName({ groupId, name }: Props) {
   const [editing, setEditing] = useState(false);
   const rename = useAppStore((store) => store.renameGroup);
   const button = useRef<HTMLButtonElement>(null);
@@ -32,7 +30,7 @@ export function FolderName({ groupId, name, id }: Props) {
 
   if (editing) {
     return (
-      <h2 id={id} className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1">
         <RenameField
           initial={name}
           variant="subtitle"
@@ -42,11 +40,11 @@ export function FolderName({ groupId, name, id }: Props) {
             setEditing(false);
           }}
         />
-      </h2>
+      </div>
     );
   }
   return (
-    <h2 id={id} className="flex min-w-0 flex-1">
+    <h2 className="flex min-w-0 flex-1">
       <button
         ref={button}
         type="button"

@@ -38,3 +38,8 @@
 .folder-panel .launchpad-page {
   padding-inline: 0;
 }
+
+/* On Solid the Launchpad is --solid-bg too, so the card uses the layer colour. */
+html[data-material="solid"] .folder-panel {
+  background: var(--layer-bg);
+}

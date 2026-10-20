@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { useEffect, useId, useMemo, useRef, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LaunchpadItem } from "../../../bindings";
 import { AppTile } from "../../../components/AppTile";
@@ -21,9 +21,9 @@ import type { Pager } from "../usePager";
 /** As on the Launchpad: a press must move this far (px) to lift a tile. */
 const PICK_UP_PX = 8;
 
-/** Fluent ContentDialog: 24px padding, at least 320px wide. */
+/** Fluent ContentDialog padding; wide enough for both actions on one row. */
 const PADDING = 24;
-const MIN_WIDTH = 320;
+const MIN_WIDTH = 400;
 
 type Props = {
   groupId: string;
@@ -57,7 +57,6 @@ export function FolderOverlay(props: Props) {
   const { groupId, mainGrid, mainPager, iconPx, style, reduced, launch, hide } = props;
   const group = useGroup(groupId);
   const state = useAppStore((store) => store.state);
-  const titleId = useId();
   const { panel, close } = useFolderMotion(props.origin, style, reduced, props.onClosed);
 
   const apps = useMemo(() => (state ? groupApps(state, groupId) : []), [state, groupId]);
@@ -119,7 +118,7 @@ export function FolderOverlay(props: Props) {
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-label={group?.name ?? ""}
         tabIndex={-1}
         className="flyout-panel folder-panel flex flex-col text-primary outline-none"
         style={{ width, padding: PADDING }}
@@ -127,7 +126,7 @@ export function FolderOverlay(props: Props) {
         data-testid="folder-overlay"
       >
         <div className="mb-4 flex shrink-0 items-center">
-          <FolderName groupId={groupId} name={group?.name ?? ""} id={titleId} />
+          <FolderName groupId={groupId} name={group?.name ?? ""} />
         </div>
         <DndContext sensors={sensors} autoScroll={false} {...drag.handlers}>
           <FolderGrid
