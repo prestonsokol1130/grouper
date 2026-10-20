@@ -12,6 +12,7 @@ use std::fs;
 use std::path::Path;
 
 use super::cache::check_id;
+use crate::state::ids::GROUP_ID_LEN;
 use crate::state::paths::{group_cache_dir, icon_cache_dir};
 use crate::state::AppState;
 
@@ -48,6 +49,11 @@ fn stale_png(name: &str, apps: &HashSet<&str>) -> bool {
     is_app_id && !apps.contains(stem)
 }
 
+/// True for an id as [`crate::state::ids::new_group_id`] makes it.
+fn is_group_id(text: &str) -> bool {
+    text.len() == GROUP_ID_LEN && check_id(text).is_ok()
+}
+
 /// True for `{group_id}.ico` or `{group_id}-v{N}.ico` whose group is not
 /// in `groups`. A name that could be either keeps the file when either
 /// reading names a group.
@@ -55,14 +61,13 @@ fn stale_ico(name: &str, groups: &HashSet<&str>) -> bool {
     let Some(stem) = name.strip_suffix(".ico") else {
         return false;
     };
-    if check_id(stem).is_err() {
-        return false;
-    }
+    let plain = is_group_id(stem).then_some(stem);
     let versioned = stem.rsplit_once("-v").and_then(|(id, digits)| {
         let digits_ok = !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit());
-        (digits_ok && check_id(id).is_ok()).then_some(id)
+        (digits_ok && is_group_id(id)).then_some(id)
     });
-    !groups.contains(stem) && versioned.is_none_or(|id| !groups.contains(id))
+    let ids: Vec<&str> = plain.into_iter().chain(versioned).collect();
+    !ids.is_empty() && ids.iter().all(|id| !groups.contains(id))
 }
 
 /// Deletes each regular file directly in `dir` whose UTF-8 name `stale`

@@ -62,6 +62,8 @@ fn removes_only_stale_files_that_match_grouper_names() {
         &format!("{GONE_GROUP}.ico"),
         &format!("{GONE_GROUP}-v12.ico"),
         "some file.ico",
+        "notes.ico",
+        "Gone_grp-2-v.ico",
         "readme.md",
     ] {
         touch(&groups, name);
@@ -85,6 +87,8 @@ fn removes_only_stale_files_that_match_grouper_names() {
     let mut kept_groups = vec![
         format!("{KEPT_GROUP}-v3.ico"),
         format!("{KEPT_GROUP}.ico"),
+        "Gone_grp-2-v.ico".into(),
+        "notes.ico".into(),
         "readme.md".into(),
         "some file.ico".into(),
     ];
@@ -102,9 +106,17 @@ fn a_group_id_that_looks_versioned_keeps_its_icon() {
         id: "abcdef-v12".into(),
         ..Group::default()
     });
+    state.groups.push(Group {
+        id: "Kept_grp-1-v4".into(),
+        ..Group::default()
+    });
     touch(&groups, "abcdef-v12.ico");
+    touch(&groups, "Kept_grp-1-v4.ico");
     assert_eq!(collect(data.path(), &state).icos, 0);
-    assert_eq!(names(&groups), vec!["abcdef-v12.ico".to_owned()]);
+    assert_eq!(
+        names(&groups),
+        vec!["Kept_grp-1-v4.ico".to_owned(), "abcdef-v12.ico".to_owned()]
+    );
 }
 
 #[test]

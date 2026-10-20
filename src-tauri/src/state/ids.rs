@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 const GROUP_ID_ALPHABET: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
 /// Length of a generated group id.
-const GROUP_ID_LEN: usize = 10;
+pub(crate) const GROUP_ID_LEN: usize = 10;
 
 /// Stable app id: the first 16 hex chars of
 /// `sha256(lowercase(target) + "|" + args)`. Case-insensitive on the target.
