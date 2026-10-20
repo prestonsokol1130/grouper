@@ -115,6 +115,22 @@ describe("FlyoutRoot", () => {
     expect(invoked("hide_flyout")).toHaveLength(1);
   });
 
+  it("opens back up when the hide fails, and Escape works again", async () => {
+    vi.useFakeTimers();
+    const view = await renderShown();
+    invokeMock.mockRejectedValueOnce("window gone");
+    fireEvent.keyDown(window, { key: "Escape" });
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(invoked("hide_flyout")).toHaveLength(1);
+    expect(panel(view)?.classList.contains("is-closing")).toBe(false);
+    expect(panel(view)?.classList.contains("is-opening")).toBe(true);
+    invokeMock.mockResolvedValue(null);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(panel(view)?.classList.contains("is-closing")).toBe(true);
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(invoked("hide_flyout")).toHaveLength(2);
+  });
+
   it("does not hide when a new show arrives during the close", async () => {
     vi.useFakeTimers();
     await renderShown();
