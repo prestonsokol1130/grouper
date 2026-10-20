@@ -203,17 +203,15 @@ export function GroupStep({ groupId, onGroup, onShortcut }: GroupProps) {
 /** Step 4: show the shortcut in Explorer and how to pin it. */
 export function PinStep({ groupId }: { groupId: string | null }) {
   return (
-    <div className="flex flex-col gap-2">
-      <h1 className="type-title">Pin it to your taskbar</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="type-title">One last step</h1>
       {groupId === null ? (
         <p className="type-body text-secondary">
           You can make a group any time: click New group in the Manager, then Create taskbar
           shortcut.
         </p>
       ) : (
-        <div className="-mt-6">
-          <TaskbarSection groupId={groupId} />
-        </div>
+        <TaskbarSection groupId={groupId} heading={false} />
       )}
     </div>
   );

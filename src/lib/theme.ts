@@ -1,5 +1,5 @@
 import type { AccentColors, Material } from "../bindings";
-import { api } from "./api";
+import { api, type Result } from "./api";
 import { onEvent } from "./events";
 
 /** Light or dark, as Windows reports it. */
@@ -112,10 +112,23 @@ export function followAccent(): () => void {
     pushed = true;
     setAccent(colors);
   });
-  void api.getAccentColor().then((result) => {
+  void withRetry(api.getAccentColor).then((result) => {
     if (result.ok && !pushed) setAccent(result.value);
   });
   return stop;
+}
+
+/**
+ * Runs `call` until it works, 15 times 200 ms apart at most: a page can
+ * load before Rust has set up the accent and material state at startup.
+ */
+async function withRetry<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
+  let result = await call();
+  for (let attempt = 1; !result.ok && attempt < 15; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    result = await call();
+  }
+  return result;
 }
 
 /**
@@ -123,7 +136,7 @@ export function followAccent(): () => void {
  * its own background (see styles.css). Outside Tauri it is solid.
  */
 export async function applyMaterial(): Promise<Material> {
-  const result = await api.getWindowMaterial();
+  const result = await withRetry(api.getWindowMaterial);
   const material: Material = result.ok ? result.value : "solid";
   document.documentElement.dataset.material = material;
   return material;

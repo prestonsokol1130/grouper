@@ -12,9 +12,16 @@ const PREVIEW_PX = 72;
 /**
  * The group's taskbar card: a live preview of its 2x2 folder icon, then
  * either "Create taskbar shortcut" or, once the shortcut exists, "Show in
- * Explorer" and the one manual step Windows needs to pin it.
+ * Explorer" and the one manual step Windows needs to pin it. Without
+ * `heading` its title is kept for screen readers only (the welcome).
  */
-export function TaskbarSection({ groupId }: { groupId: string }) {
+export function TaskbarSection({
+  groupId,
+  heading = true,
+}: {
+  groupId: string;
+  heading?: boolean;
+}) {
   const group = useGroup(groupId);
   const [creating, setCreating] = useState(false);
   const name = group?.name ?? "";
@@ -26,8 +33,8 @@ export function TaskbarSection({ groupId }: { groupId: string }) {
   };
 
   return (
-    <section aria-labelledby={`taskbar-${groupId}`} className="mt-8">
-      <h2 id={`taskbar-${groupId}`} className="mb-3 type-subtitle">
+    <section aria-labelledby={`taskbar-${groupId}`} className={heading ? "mt-8" : ""}>
+      <h2 id={`taskbar-${groupId}`} className={heading ? "mb-3 type-subtitle" : "sr-only"}>
         Taskbar
       </h2>
       <div className="flex items-start gap-4 rounded-window border border-stroke-card bg-card p-4">

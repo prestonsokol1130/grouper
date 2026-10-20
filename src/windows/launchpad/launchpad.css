@@ -54,7 +54,8 @@
    but shows only the drop slot: an icon-sized rounded square in the
    Fluent subtle fill with the card stroke, rounded like a folder tile.
    The tile itself rides in the drag overlay, lifted with the hover lift. */
-[data-dragging] > .tile {
+/* (Not the Manager's app cells, which carry data-dragging="false" too.) */
+[data-dragging="true"]:not(.app-cell) > .tile {
   opacity: 0;
 }
 

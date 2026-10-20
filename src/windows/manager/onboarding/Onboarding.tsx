@@ -74,7 +74,11 @@ export function Onboarding() {
           )}
           <div className="flex-1" />
           {back !== null && <Button onClick={() => setStep(back)}>Back</Button>}
-          <Button variant="primary" onClick={forward} disabled={finishing}>
+          <Button
+            variant={ready || step === "pin" ? "primary" : "secondary"}
+            onClick={forward}
+            disabled={finishing}
+          >
             {nextLabel(step, ready)}
           </Button>
         </footer>

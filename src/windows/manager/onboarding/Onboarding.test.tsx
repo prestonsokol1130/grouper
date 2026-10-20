@@ -68,7 +68,7 @@ describe("first run", () => {
     next();
     expect(screen.getByRole("heading", { name: "Make your first group" })).toBeTruthy();
     next();
-    expect(screen.getByRole("heading", { name: "Pin it to your taskbar" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "One last step" })).toBeTruthy();
     expect(calls("update_settings")).toEqual([]);
     await act(async () => next());
     expect(calls("update_settings")).toEqual([{ patch: { firstRunDone: true } }]);
