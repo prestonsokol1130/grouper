@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+pub use super::flyout_settings::{FlyoutGrid, FlyoutIconSize};
+
 // Which screen corners open the Launchpad (DESIGN.md section 12); both on
 // by default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -48,7 +50,7 @@ pub enum FolderShape {
     Squircle,
 }
 
-// "Icon size" (DESIGN.md section 7).
+// "Launchpad icon size" (DESIGN.md section 7). The flyout has its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum IconSize {
@@ -65,15 +67,6 @@ impl IconSize {
             Self::Small => 56,
             Self::Medium => 72,
             Self::Large => 96,
-        }
-    }
-
-    /// The flyout icon side in px.
-    pub fn flyout_px(self) -> u32 {
-        match self {
-            Self::Small => 40,
-            Self::Medium => 48,
-            Self::Large => 64,
         }
     }
 }
@@ -122,6 +115,11 @@ pub struct Settings {
     pub grid_columns: u32,
     pub grid_rows: u32,
     pub animation: AnimationStyle,
+    pub flyout_layout: FlyoutGrid,
+    pub flyout_icon_size: FlyoutIconSize,
+    pub show_page_arrows: bool,
+    // Accessibility: the focus ring shows on open, not only after a key.
+    pub always_show_focus: bool,
 }
 
 impl Default for Settings {
@@ -139,6 +137,10 @@ impl Default for Settings {
             grid_columns: 7,
             grid_rows: 5,
             animation: AnimationStyle::default(),
+            flyout_layout: FlyoutGrid::default(),
+            flyout_icon_size: FlyoutIconSize::default(),
+            show_page_arrows: false,
+            always_show_focus: false,
         }
     }
 }
@@ -157,6 +159,10 @@ pub struct SettingsPatch {
     pub grid_columns: Option<u32>,
     pub grid_rows: Option<u32>,
     pub animation: Option<AnimationStyle>,
+    pub flyout_layout: Option<FlyoutGrid>,
+    pub flyout_icon_size: Option<FlyoutIconSize>,
+    pub show_page_arrows: Option<bool>,
+    pub always_show_focus: Option<bool>,
 }
 
 /// True for `"windows"` or a `#RRGGBB` colour.
@@ -203,6 +209,10 @@ impl Settings {
             patch.grid_rows.map(|r| r.clamp(low, high)),
         );
         set(&mut self.animation, patch.animation);
+        set(&mut self.flyout_layout, patch.flyout_layout);
+        set(&mut self.flyout_icon_size, patch.flyout_icon_size);
+        set(&mut self.show_page_arrows, patch.show_page_arrows);
+        set(&mut self.always_show_focus, patch.always_show_focus);
     }
 
     /// Items one stored Launchpad page holds: the grid setting, clamped.

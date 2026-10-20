@@ -25,6 +25,7 @@ pub mod material;
 pub mod monitor;
 pub mod reveal;
 pub mod shell_notify;
+pub mod taskbar_icons;
 pub mod unpin;
 pub mod version_info;
 pub mod wide;

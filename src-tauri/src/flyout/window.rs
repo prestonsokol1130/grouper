@@ -10,7 +10,8 @@ use tauri::{
 };
 
 use super::hide::hide_or_log;
-use super::layout::{fit_height, flyout_size, layout_for, to_physical};
+use super::icon_size::flyout_icon_px;
+use super::layout::{fit_rows, flyout_size, layout_for, to_physical};
 use super::origin::origin;
 use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
@@ -18,6 +19,7 @@ use crate::state::{Group, Store};
 use crate::taskbar::placement::{place, taskbar_edge, usable_height};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
 use crate::win32::monitor::current_monitor_info;
+use crate::win32::taskbar_icons::taskbar_icons;
 
 /// Manages the flyout's state. Call at startup before any window exists,
 /// so the page's first `get_flyout` always finds it.
@@ -116,12 +118,16 @@ fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
 fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> Result<(), String> {
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
-    let icon = app
+    let settings = app
         .try_state::<Arc<Store>>()
-        .map(|s| s.snapshot().settings.icon_size);
-    let layout = layout_for(icon.unwrap_or_default());
-    let size = flyout_size(group.app_ids.len(), &layout);
-    let size = fit_height(size, usable_height(&monitor), monitor.scale, &layout);
+        .map(|s| s.snapshot().settings)
+        .unwrap_or_default();
+    // Read on every show, so a taskbar or monitor change shows next time.
+    let icon_px = flyout_icon_px(settings.flyout_icon_size, taskbar_icons, monitor.scale);
+    let apps = group.app_ids.len();
+    let layout = layout_for(settings.flyout_layout, icon_px);
+    let layout = fit_rows(layout, apps, usable_height(&monitor), monitor.scale);
+    let size = flyout_size(apps, &layout);
     let logical = (f64::from(size.width), f64::from(size.height));
     let (x, y) = place(cursor, logical, &monitor, f64::from(layout.margin));
     let edge = taskbar_edge(&monitor);
@@ -130,6 +136,9 @@ fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> R
         apps: group.app_ids.clone(),
         size,
         origin: origin(edge, cursor, (x, y), size, monitor.scale),
+        columns: layout.columns,
+        rows: layout.rows,
+        icon_px,
     };
     state.set_last(payload.clone());
     // Before showing, so the warm React tree swaps to this group's data.

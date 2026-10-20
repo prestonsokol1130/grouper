@@ -11,10 +11,10 @@ pub const CURRENT_SCHEMA: u32 = 1;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum AppSource {
-    /// Found by scanning the Start Menu.
+    // Found by scanning the Start Menu.
     #[default]
     StartMenu,
-    /// Added by the user by hand.
+    // Added by the user by hand.
     Manual,
 }
 
@@ -22,18 +22,18 @@ pub enum AppSource {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppEntry {
-    /// Stable id from [`crate::state::ids::app_id`].
+    // Stable id from `crate::state::ids::app_id`.
     pub id: String,
     pub name: String,
     pub target: String,
     pub args: String,
     pub working_dir: String,
     pub source: AppSource,
-    /// The `.lnk` this entry came from, if any.
+    // The `.lnk` this entry came from, if any.
     pub lnk_path: Option<String>,
-    /// The target no longer exists on disk.
+    // The target no longer exists on disk.
     pub missing: bool,
-    /// Hidden by the user (Start Menu apps cannot be deleted).
+    // Hidden by the user (Start Menu apps cannot be deleted).
     pub hidden: bool,
 }
 

@@ -16,6 +16,9 @@ fn defaults_follow_design_md() {
     assert_eq!((settings.grid_columns, settings.grid_rows), (7, 5));
     assert_eq!(settings.animation, AnimationStyle::Genie);
     assert_eq!(settings.per_page(), 35);
+    assert_eq!(settings.flyout_layout, FlyoutGrid::G3x3);
+    assert_eq!(settings.flyout_icon_size, FlyoutIconSize::MatchTaskbar);
+    assert!(!settings.show_page_arrows && !settings.always_show_focus);
 }
 
 #[test]
@@ -29,6 +32,10 @@ fn an_old_settings_object_loads_with_new_defaults() {
     assert_eq!(settings.icon_size, IconSize::Medium);
     assert_eq!(settings.grid_columns, 7);
     assert_eq!(settings.accent, "windows");
+    // The flyout settings came later: an older file gets their defaults.
+    assert_eq!(settings.flyout_layout, FlyoutGrid::G3x3);
+    assert_eq!(settings.flyout_icon_size, FlyoutIconSize::MatchTaskbar);
+    assert!(!settings.show_page_arrows && !settings.always_show_focus);
 }
 
 #[test]
@@ -46,6 +53,15 @@ fn enum_values_use_the_frontend_names() {
     assert_eq!(json["iconSize"], "large");
     assert_eq!(json["animation"], "smooth");
     assert_eq!(json["gridColumns"], 7);
+    assert_eq!(json["flyoutLayout"], "3x3");
+    assert_eq!(json["flyoutIconSize"], "matchTaskbar");
+    assert_eq!(json["showPageArrows"], false);
+    assert_eq!(json["alwaysShowFocus"], false);
+    let names: Vec<_> = FlyoutGrid::ALL
+        .iter()
+        .map(|grid| serde_json::to_value(grid).unwrap())
+        .collect();
+    assert_eq!(names, ["3x3", "4x4", "5x5", "4x2", "3x2", "2x2"]);
 }
 
 #[test]
@@ -58,6 +74,12 @@ fn patches_change_only_their_fields_and_clamp_the_grid() {
     assert_eq!(settings.icon_size, IconSize::Small);
     assert_eq!(settings.hotkey, "Alt+`");
     assert_eq!(settings.per_page(), 30);
+    let patch: SettingsPatch =
+        serde_json::from_str(r#"{"flyoutLayout": "5x5", "showPageArrows": true}"#).unwrap();
+    settings.apply(patch);
+    assert_eq!(settings.flyout_layout, FlyoutGrid::G5x5);
+    assert!(settings.show_page_arrows && !settings.always_show_focus);
+    assert_eq!(settings.flyout_icon_size, FlyoutIconSize::MatchTaskbar);
 }
 
 #[test]
@@ -79,11 +101,21 @@ fn only_windows_or_hex_accents_are_taken() {
 
 #[test]
 fn icon_sizes_match_design_md() {
-    let sizes: Vec<(u32, u32)> = [IconSize::Small, IconSize::Medium, IconSize::Large]
+    let sizes: Vec<u32> = [IconSize::Small, IconSize::Medium, IconSize::Large]
         .iter()
-        .map(|size| (size.launchpad_px(), size.flyout_px()))
+        .map(|size| size.launchpad_px())
         .collect();
-    assert_eq!(sizes, [(56, 40), (72, 48), (96, 64)]);
+    assert_eq!(sizes, [56, 72, 96]);
+    let flyout: Vec<Option<u32>> = [
+        FlyoutIconSize::MatchTaskbar,
+        FlyoutIconSize::Small,
+        FlyoutIconSize::Medium,
+        FlyoutIconSize::Large,
+    ]
+    .iter()
+    .map(|size| size.fixed_px())
+    .collect();
+    assert_eq!(flyout, [None, Some(40), Some(48), Some(64)]);
 }
 
 #[test]
@@ -101,6 +133,10 @@ fn settings_round_trip_through_the_store() {
                 grid_columns: Some(8),
                 grid_rows: Some(6),
                 animation: Some(AnimationStyle::Scale),
+                flyout_layout: Some(FlyoutGrid::G4x2),
+                flyout_icon_size: Some(FlyoutIconSize::Large),
+                show_page_arrows: Some(true),
+                always_show_focus: Some(true),
                 ..SettingsPatch::default()
             });
             Ok(())
@@ -112,4 +148,7 @@ fn settings_round_trip_through_the_store() {
     assert_eq!(reloaded, saved);
     assert!(reloaded.first_run_done);
     assert_eq!(reloaded.per_page(), 48);
+    assert_eq!(reloaded.flyout_layout, FlyoutGrid::G4x2);
+    assert_eq!(reloaded.flyout_icon_size, FlyoutIconSize::Large);
+    assert!(reloaded.show_page_arrows && reloaded.always_show_focus);
 }

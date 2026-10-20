@@ -49,10 +49,12 @@ export const commands = {
 	/**  The last `flyout:show` payload (`null` before any), for a late page. */
 	getFlyout: () => __TAURI_INVOKE<{
 	groupId: string,
-	/**  The group's app ids, in order. */
 	apps: string[],
 	size: FlyoutSize,
 	origin: FlyoutOrigin,
+	columns: number,
+	rows: number,
+	iconPx: number,
 } | null>("get_flyout"),
 	/**  Launches app `app_id`, then hides the flyout; on failure it stays open. */
 	launchFromFlyout: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_from_flyout", { appId })),
@@ -88,27 +90,19 @@ export type AnimationStyle = "genie" | "scale" | "smooth";
 
 /**  One launchable app. */
 export type AppEntry = {
-	/**  Stable id from [`crate::state::ids::app_id`]. */
 	id?: string,
 	name?: string,
 	target?: string,
 	args?: string,
 	workingDir?: string,
 	source?: AppSource,
-	/**  The `.lnk` this entry came from, if any. */
 	lnkPath?: string | null,
-	/**  The target no longer exists on disk. */
 	missing?: boolean,
-	/**  Hidden by the user (Start Menu apps cannot be deleted). */
 	hidden?: boolean,
 };
 
 /**  Where an app entry came from. */
-export type AppSource = 
-/**  Found by scanning the Start Menu. */
-"startMenu" | 
-/**  Added by the user by hand. */
-"manual";
+export type AppSource = "startMenu" | "manual";
 
 /**  Everything Grouper persists in `app_state.json`. */
 export type AppState = {
@@ -124,6 +118,10 @@ export type BackgroundSetting = "mixed" | "mica" | "acrylic" | "solid";
 /**  The monitor edge the taskbar is docked to. */
 export type Edge = "bottom" | "top" | "left" | "right";
 
+export type FlyoutGrid = "3x3" | "4x4" | "5x5" | "4x2" | "3x2" | "2x2";
+
+export type FlyoutIconSize = "matchTaskbar" | "small" | "medium" | "large";
+
 /**  The animation origin, in logical pixels from the flyout's top-left. */
 export type FlyoutOrigin = {
 	edge: Edge,
@@ -134,10 +132,12 @@ export type FlyoutOrigin = {
 /**  What the flyout shows: the [`FLYOUT_SHOW_EVENT`] payload. */
 export type FlyoutShow = {
 	groupId: string,
-	/**  The group's app ids, in order. */
 	apps: string[],
 	size: FlyoutSize,
 	origin: FlyoutOrigin,
+	columns: number,
+	rows: number,
+	iconPx: number,
 };
 
 /**  A flyout size in logical (CSS) pixels. */
@@ -210,6 +210,10 @@ export type Settings = {
 	gridColumns?: number,
 	gridRows?: number,
 	animation?: AnimationStyle,
+	flyoutLayout?: FlyoutGrid,
+	flyoutIconSize?: FlyoutIconSize,
+	showPageArrows?: boolean,
+	alwaysShowFocus?: boolean,
 };
 
 /**  A partial settings update: only the fields that are set are changed. */
@@ -224,6 +228,10 @@ export type SettingsPatch = {
 	gridColumns?: number | null,
 	gridRows?: number | null,
 	animation?: AnimationStyle | null,
+	flyoutLayout?: FlyoutGrid | null,
+	flyoutIconSize?: FlyoutIconSize | null,
+	showPageArrows?: boolean | null,
+	alwaysShowFocus?: boolean | null,
 };
 
 /* Tauri Specta runtime */

@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::flyout::layout::{fit_height, flyout_size, LAYOUT};
+use crate::flyout::layout::{fit_rows, flyout_size, pages, LAYOUT};
 use crate::launchpad::layout::{default_layout, PER_PAGE};
 use crate::scanner::dedupe::{dedupe, Candidate};
 use crate::scanner::merge::merge_scan;
@@ -113,11 +113,11 @@ fn a_group_of_fifty_apps_fits_the_screen_and_its_icon_shows_four() {
     let group = state.set_group_apps("fifty", ids).unwrap();
     assert_eq!(group.app_ids.len(), 50);
     assert_eq!(group_icon_inputs(&state, "fifty").len(), 4);
-    // 50 apps in 3 columns would be 17 rows; the flyout is capped to a
-    // 1040 px work area at 100% and scrolls inside.
-    let size = fit_height(flyout_size(50, &LAYOUT), 1_040, 1.0, &LAYOUT);
+    // 50 apps are six 3 x 3 pages; the window stays one page big.
+    let layout = fit_rows(LAYOUT, 50, 1_040, 1.0);
+    assert_eq!(pages(50, &layout), 6);
+    let size = flyout_size(50, &layout);
     assert!(size.height <= 1_040 - 2 * LAYOUT.margin, "{size:?}");
-    assert!(flyout_size(50, &LAYOUT).height > size.height);
 }
 
 #[test]

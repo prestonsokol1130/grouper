@@ -21,6 +21,10 @@ export const DEFAULT_SETTINGS: FullSettings = {
   gridColumns: 7,
   gridRows: 5,
   animation: "genie",
+  flyoutLayout: "3x3",
+  flyoutIconSize: "matchTaskbar",
+  showPageArrows: false,
+  alwaysShowFocus: false,
 };
 
 /** "Launchpad grid" limits, as `GRID_COLUMNS` and `GRID_ROWS` in Rust. */
@@ -29,11 +33,11 @@ export const GRID_LIMITS = {
   rows: { min: 3, max: 8 },
 } as const;
 
-/** DESIGN.md section 7 icon sizes in px. */
+/** DESIGN.md section 7 icon sizes in px ("Launchpad icon size"). */
 export const ICON_PX = {
-  small: { launchpad: 56, flyout: 40 },
-  medium: { launchpad: 72, flyout: 48 },
-  large: { launchpad: 96, flyout: 64 },
+  small: { launchpad: 56 },
+  medium: { launchpad: 72 },
+  large: { launchpad: 96 },
 } as const;
 
 const cache = new WeakMap<AppState, FullSettings>();

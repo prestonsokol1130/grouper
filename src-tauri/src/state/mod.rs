@@ -2,6 +2,7 @@
 
 pub mod disk;
 pub mod disk_write;
+pub mod flyout_settings;
 pub mod folder_name;
 pub mod folders;
 pub mod ids;
