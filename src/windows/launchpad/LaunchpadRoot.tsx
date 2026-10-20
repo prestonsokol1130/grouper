@@ -95,6 +95,8 @@ export function LaunchpadRoot() {
     [launch, openFolder],
   );
 
+  // Stable, so a memoised tile whose item did not change skips re-rendering.
+  const launchApp = useCallback((appId: string) => void launch(appId), [launch]);
   const renderTile = useCallback(
     (item: LaunchpadItem, button?: TileButtonProps, lifted = false) => {
       const preview = lifted ? "hover" : undefined;
@@ -103,7 +105,7 @@ export function LaunchpadRoot() {
         <AppTile
           appId={item.appId}
           size={size}
-          onActivate={() => open(item)}
+          onActivate={launchApp}
           button={button}
           preview={preview}
         />
@@ -111,13 +113,13 @@ export function LaunchpadRoot() {
         <FolderTile
           groupId={item.groupId}
           size={size}
-          onOpen={() => open(item)}
+          onOpen={openFolder}
           button={button}
           preview={preview}
         />
       );
     },
-    [open, iconPx],
+    [launchApp, openFolder, iconPx],
   );
 
   // Anything that is not a control is background, the gaps in the grid too.

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useApp } from "../store/hooks";
 import { activationKeys, type PreviewState, type TileButtonProps } from "./activation";
 import { AppIcon } from "./AppIcon";
@@ -22,9 +23,10 @@ const INSET = 8;
  * An app icon with its name under it. A button: Enter or Space activates
  * it. Hovering lifts and grows the icon; pressing shrinks it (DESIGN.md
  * section 11). The name is one line, cut with "…", full name in the
- * tooltip. A missing app is dimmed and badged.
+ * tooltip. A missing app is dimmed and badged. Memoised: a grid that
+ * re-renders with the same props for a tile skips it.
  */
-export function AppTile({
+export const AppTile = memo(function AppTile({
   appId,
   onActivate,
   size = 72,
@@ -70,7 +72,7 @@ export function AppTile({
       )}
     </button>
   );
-}
+});
 
 /** The "can't be found" badge on a missing app's icon. */
 function MissingBadge() {
