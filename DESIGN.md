@@ -4,6 +4,8 @@ The visual source of truth for Grouper, a Windows 11 tray app that puts iOS-styl
 
 Agents never invent aesthetic choices outside this file. If something isn't covered, ask Preston.
 
+Sections 7, 8 (Flyout), 9, 10 and 11 were changed per Preston's feedback, 2026-10-20 (icon sizes, flyout pages and layouts, flyout icon size, a smoother open animation, and the focus ring on open).
+
 ---
 
 ## 1. Direction
@@ -91,14 +93,18 @@ Fluent type ramp:
 
 ## 7. Icons and labels
 
-- **App icons:** medium by default. **Setting:** "Icon size" Small / Medium / Large.
+- **Launchpad icons:** medium by default. **Setting:** "Launchpad icon size" Small / Medium / Large.
+- **Flyout icons:** match the taskbar by default. **Setting:** "Flyout icon size" Match taskbar / Small / Medium / Large. The two settings are separate.
 
-| Size             | Launchpad icon | Flyout icon |
-| ---------------- | -------------- | ----------- |
-| Small            | 56px           | 40px        |
-| Medium (default) | 72px           | 48px        |
-| Large            | 96px           | 64px        |
+| Size          | Launchpad icon | Flyout icon                        |
+| ------------- | -------------- | ---------------------------------- |
+| Match taskbar | n/a            | 2 x the taskbar's icon (see below) |
+| Small         | 56px           | 40px                               |
+| Medium        | 72px (default) | 48px                               |
+| Large         | 96px           | 64px                               |
 
+- **Match taskbar** (flyout default): the Windows 11 taskbar draws button icons 24 logical px square, 16 with small taskbar buttons (`TaskbarSi` 0, or Windows 10's `TaskbarSmallIcons` 1) and 32 with the large taskbar (`TaskbarSi` 2). The flyout shows them at 2 x that, kept between Small and Large: small taskbar 40px, default taskbar 48px, large taskbar 64px, snapped to whole pixels at the scaling of the monitor under the cursor. It is read again every time the flyout opens, so it follows a taskbar or monitor change. Small, Medium and Large are fixed and never adapt.
+- **Same visual size for every app icon:** cached icons are normalised. The faint frame Windows draws around an app with no 256px icon is removed, the transparent margin is trimmed (faint shadows, alpha under 32, don't count), and the content is scaled to fill 90% of the square, centred, keeping its aspect ratio (a 5% padding on every side). Icons drawn on their own opaque plate (Cursor, Zed) keep the plate: it is part of the artwork and already fills the square.
 - **Labels:** app name under every icon, Caption style, one line, cut off with "…" when too long, full name in a tooltip.
 
 ## 8. Layout
@@ -112,7 +118,9 @@ Fluent type ramp:
 
 ### Flyout
 
-- 3 apps across with names, grows downward in rows; no pointer arrow.
+- Apps with names in fixed pages, like an iPhone folder; no pointer arrow. **Setting:** "Flyout layout" 3 x 3 (default), 4 x 4, 5 x 5, 4 x 2, 3 x 2 or 2 x 2 (columns x rows on a page). More apps go on more pages; the flyout never grows downward or scrolls.
+- The window is one page big: columns x rows cells, plus the padding, the group name and, when there is more than one page, a 32px page-dots row. A cell is the icon plus 16px across and 36px down (tile inset, label gap and Caption line). On a screen too short for every row, rows are dropped (never below one) and the rest go on more pages.
+- **Pages:** dots centred under the grid, the current one in the accent; no dots for a single page. Pages turn with a horizontal swipe or drag, the mouse wheel (one notch, one page), the dots, and the keyboard: inside the grid the arrows move between tiles and Right from the last column (Left from the first) goes on to the next (previous) page, same row; Page Up/Down turn a page. **Setting:** "Show page arrows" (off by default) adds ‹ › buttons either side of the dots, here and in the Launchpad. The slide is the Launchpad's (section 10).
 - Sits 12px off the taskbar edge: above a bottom taskbar, below a top one, to the right of a left one and to the left of a right one. It is centered on the group's taskbar icon along the taskbar and kept inside the work area.
 - Padding 12px, gap 8px, group name in Subtitle at the top.
 
@@ -123,16 +131,20 @@ Fluent type ramp:
 
 ## 9. Settings (from the interview)
 
-| Setting            | Options                                 | Default                       |
-| ------------------ | --------------------------------------- | ----------------------------- |
-| Accent color       | Windows accent, custom color            | Windows accent                |
-| Window background  | Mixed (section 4), Mica, Acrylic, Solid | Mixed                         |
-| Folder shape       | Windows square, iPhone squircle         | Windows square                |
-| Icon size          | Small, Medium, Large                    | Medium                        |
-| Launchpad grid     | columns x rows                          | 7 x 5                         |
-| Animation style    | Genie, Scale, Windows smooth            | Genie                         |
-| Launchpad shortcut | any key combo                           | Alt + `                       |
-| Hot corners        | top-left, top-right (each on/off)       | _not decided_, see section 12 |
+| Setting                                    | Options                                  | Default                       |
+| ------------------------------------------ | ---------------------------------------- | ----------------------------- |
+| Accent color                               | Windows accent, custom color             | Windows accent                |
+| Window background                          | Mixed (section 4), Mica, Acrylic, Solid  | Mixed                         |
+| Folder shape                               | Windows square, iPhone squircle          | Windows square                |
+| Launchpad icon size                        | Small, Medium, Large                     | Medium                        |
+| Launchpad grid                             | columns x rows                           | 7 x 5                         |
+| Animation style                            | Genie, Scale, Windows smooth             | Genie                         |
+| Launchpad shortcut                         | any key combo                            | Alt + `                       |
+| Hot corners                                | top-left, top-right (each on/off)        | _not decided_, see section 12 |
+| Flyout layout                              | 3 x 3, 4 x 4, 5 x 5, 4 x 2, 3 x 2, 2 x 2 | 3 x 3                         |
+| Flyout icon size                           | Match taskbar, Small, Medium, Large      | Match taskbar                 |
+| Show page arrows                           | on/off                                   | off                           |
+| Always show keyboard focus (Accessibility) | on/off                                   | off                           |
 
 Light/dark is not a Grouper setting; it follows Windows.
 
@@ -140,23 +152,27 @@ Light/dark is not a Grouper setting; it follows Windows.
 
 **Setting:** "Animation style" with Genie (default), Scale or Windows smooth.
 
-| Style           | Open                                                                                    | Close                                          | Duration                       |
-| --------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------ |
-| Genie (default) | Window pours out of its origin point and un-pinches into shape (Mac minimize, reversed) | Squeezes and gets sucked into the origin point | 500ms (_proposed_)             |
-| Scale           | Grows from the origin point while fading in                                             | Shrinks back into it                           | 300ms                          |
-| Windows smooth  | Fades in and slides up 12px                                                             | Fades out and slides down                      | 200ms, `cubic-bezier(0,0,0,1)` |
+Windows 11 timing (Fluent 2): opening decelerates into place on `cubic-bezier(0.1, 0.9, 0.2, 1)`; closing is quicker and accelerates away on `cubic-bezier(0.7, 0, 1, 0.5)`.
+
+| Style           | Open                                                                                                                                                                       | Close                                                            | Open / close  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------- |
+| Genie (default) | Pours out of its origin point: tall and narrow first (it stretches away from the taskbar while its width catches up), then widens into shape, fading in over the first 40% | Shrinks back into the origin point, fading out over the last 40% | 300ms / 180ms |
+| Scale           | Grows from the origin point while fading in                                                                                                                                | Shrinks back into it                                             | 250ms / 160ms |
+| Windows smooth  | Fades in and slides up 12px                                                                                                                                                | Fades out and slides down                                        | 200ms / 150ms |
+
+Every open/close animates only `transform`, `scale`, `translate` and `opacity`, which the GPU composites without repainting, with `will-change` while it runs. Nothing animates `clip-path`, sizes or custom properties: the first Genie did (a pinched funnel), and repainting every frame made it drop frames at 300% on 4K.
 
 Origin points: the flyout's origin is its group's taskbar icon; the Launchpad's origin is the screen centre bottom when opened by hotkey, or the hot corner when opened by a corner; the Manager's origin is the tray icon.
 
 **Reduced motion:** when Windows "Animation effects" is off, every style becomes a 120ms fade.
 
-Other motion (_proposed_): page swipe in the Launchpad 250ms ease-out; folder open uses the same style as the flyout; drag lifts the dragged icon with the hover lift and shows a 1.15 scale on the drop target.
+Other motion (_proposed_): page swipe in the Launchpad, its folders and the flyout 250ms ease-out, transform only; folder open uses the same style as the flyout; drag lifts the dragged icon with the hover lift and shows a 1.15 scale on the drop target.
 
 ## 11. Interaction states
 
 - **Hover:** lift and grow. The icon rises 3px and scales to 1.08 with a soft shadow (`0 8px 16px rgba(0,0,0,0.25)`), 150ms ease-out.
 - **Pressed:** scales to 0.95, 80ms.
-- **Keyboard focus:** Windows focus ring, 2px outer `--text-primary` plus 1px inner contrasting ring, 3px offset, always visible on keyboard focus (not on mouse click).
+- **Keyboard focus:** Windows focus ring, 2px outer `--text-primary` plus 1px inner contrasting ring, 3px offset, visible on keyboard focus (not on mouse click). When the flyout or the Launchpad opens, keyboard focus moves into it (its first tile, or the search box) so the arrows and Enter work at once, but no ring shows until a key is pressed. **Setting:** "Always show keyboard focus" (Accessibility, off by default) shows the ring as soon as they open, and on every focused control.
 - **Selected (Manager sidebar):** `--fill-subtle-hover` background plus a 3px accent pill on the left edge, like Windows Settings.
 - Lists and menus use the Fluent subtle fill on hover instead of lift.
 

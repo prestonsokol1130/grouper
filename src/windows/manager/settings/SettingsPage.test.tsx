@@ -46,7 +46,11 @@ describe("settings page", () => {
       "Accent color",
       "Window background",
       "Folder shape",
-      "Icon size",
+      "Launchpad icon size",
+      "Flyout layout",
+      "Flyout icon size",
+      "Show page arrows",
+      "Always show keyboard focus",
       "Launchpad grid",
       "Animation style",
       "Start with Windows",
@@ -70,7 +74,7 @@ describe("settings page", () => {
     render(<SettingsPage />);
     const pick = (name: string, value: string) =>
       fireEvent.change(screen.getByRole("combobox", { name }), { target: { value } });
-    pick("Icon size", "large");
+    pick("Launchpad icon size", "large");
     pick("Rows", "6");
     pick("Animation style", "smooth");
     pick("Window background", "solid");
@@ -83,6 +87,27 @@ describe("settings page", () => {
       { patch: { background: "solid" } },
       { patch: { folderShape: "squircle" } },
       { patch: { accent: "#0067C0" } },
+    ]);
+  });
+
+  it("saves the flyout and accessibility settings, defaults first", () => {
+    render(<SettingsPage />);
+    const select = (name: string) => screen.getByRole("combobox", { name });
+    expect(select("Flyout layout")).toHaveProperty("value", "3x3");
+    expect(select("Flyout icon size")).toHaveProperty("value", "matchTaskbar");
+    const arrows = screen.getByRole("switch", { name: "Show page arrows" });
+    const focus = screen.getByRole("switch", { name: "Always show keyboard focus" });
+    expect(arrows).toHaveProperty("checked", false);
+    expect(focus).toHaveProperty("checked", false);
+    fireEvent.change(select("Flyout layout"), { target: { value: "4x2" } });
+    fireEvent.change(select("Flyout icon size"), { target: { value: "large" } });
+    fireEvent.click(arrows);
+    fireEvent.click(focus);
+    expect(calls("update_settings")).toEqual([
+      { patch: { flyoutLayout: "4x2" } },
+      { patch: { flyoutIconSize: "large" } },
+      { patch: { showPageArrows: true } },
+      { patch: { alwaysShowFocus: true } },
     ]);
   });
 

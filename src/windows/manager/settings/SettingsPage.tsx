@@ -2,6 +2,7 @@ import { displayHotkey } from "../../../lib/hotkeyToast";
 import { useHotkeyStatus } from "../../../store/hotkeyStatus";
 import { useSettings, type FullSettings } from "../../../store/settings";
 import { AppearanceSection } from "./AppearanceSection";
+import { AccessibilitySection, FlyoutSection } from "./FlyoutSection";
 import { AboutSection, StartupSection, TroubleshootingSection } from "./GeneralSections";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { saveSettings } from "./settingsActions";
@@ -79,6 +80,8 @@ export function SettingsPage() {
       <HotkeyBanner />
       <LaunchpadSection settings={settings} />
       <AppearanceSection settings={settings} />
+      <FlyoutSection settings={settings} />
+      <AccessibilitySection settings={settings} />
       <StartupSection settings={settings} />
       <TroubleshootingSection />
       <AboutSection />

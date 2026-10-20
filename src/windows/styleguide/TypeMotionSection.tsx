@@ -82,7 +82,7 @@ export function MotionSection() {
             key={key}
             name={key === DEFAULT_OPEN_CLOSE ? `${preset.label} (default)` : preset.label}
             timing={openCloseTiming(key as keyof typeof OPEN_CLOSE, reduced)}
-            note={`Open: ${preset.open}. Close: ${preset.close}.`}
+            note={`Open: ${preset.open}. Close (${preset.closing.durationMs}ms): ${preset.close}.`}
           />
         ))}
         <TimingDemo name="Reduced fade" timing={REDUCED_FADE} note="Animation effects off" />
@@ -95,8 +95,8 @@ export function MotionSection() {
         <TimingDemo name="Page swipe" timing={PAGE_SWIPE} note="Launchpad pages" />
       </div>
       <p className="type-caption mt-3 text-secondary">
-        Drop target scale while dragging: {DROP_TARGET.scale}. The Genie shape itself comes with the
-        window animation tickets; this page shows its timing.
+        Drop target scale while dragging: {DROP_TARGET.scale}. The Genie shape itself plays in the
+        flyout and the Launchpad; this page shows its timing.
       </p>
     </Section>
   );

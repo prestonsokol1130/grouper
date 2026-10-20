@@ -98,9 +98,12 @@ export function AppearanceSection({ settings }: { settings: FullSettings }) {
           onChange={(folderShape) => void saveSettings({ folderShape })}
         />
       </SettingCard>
-      <SettingCard title="Icon size" description="App icons in the Launchpad and the flyout.">
+      <SettingCard
+        title="Launchpad icon size"
+        description="App icons in the Launchpad. The flyout has its own size below."
+      >
         <Select
-          label="Icon size"
+          label="Launchpad icon size"
           value={settings.iconSize}
           options={SIZES}
           onChange={(iconSize) => void saveSettings({ iconSize })}
