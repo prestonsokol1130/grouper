@@ -35,6 +35,10 @@ export type AppStore = {
  * backend sent (get_state or state:changed) and `applied` counts those, so
  * a refetch can tell whether a newer push beat it.
  */
+/** How often, and how far apart, the first get_state is tried (about 3 s). */
+const GET_STATE_ATTEMPTS = 15;
+const GET_STATE_RETRY_MS = 200;
+
 const flight = {
   backend: null as AppState | null,
   applied: 0,
@@ -110,11 +114,19 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       pushed = true;
       get().applyState(state);
     });
-    void api.getState().then((result) => {
-      if (pushed) return;
+    let stopped = false;
+    // A window can load before the backend has registered its state at
+    // startup, so a failed first read is retried for a few seconds.
+    const read = async (attempt: number): Promise<void> => {
+      const result = await api.getState();
+      if (pushed || stopped) return;
       if (result.ok) {
         get().applyState(result.value);
         return;
+      }
+      if (attempt < GET_STATE_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, GET_STATE_RETRY_MS));
+        return read(attempt + 1);
       }
       console.error(`get_state: ${result.error}`);
       set({ loading: false, error: result.error });
@@ -123,8 +135,12 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         title: "Couldn't load your groups.",
         message: "Restart Grouper to try again.",
       });
-    });
-    return stopState;
+    };
+    void read(1);
+    return () => {
+      stopped = true;
+      stopState();
+    };
   },
 
   applyState: (state) => {

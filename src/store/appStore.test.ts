@@ -50,12 +50,25 @@ describe("init", () => {
     expect(store().state).toBe(pushed);
   });
 
-  it("records a failed first read and shows a toast", async () => {
-    invokeMock.mockRejectedValueOnce("disk on fire");
+  it("records a failed first read and shows a toast once retries run out", async () => {
+    vi.useFakeTimers();
+    invokeMock.mockRejectedValue("disk on fire");
     store().init();
-    await flush();
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
     expect(store()).toMatchObject({ state: null, loading: false, error: "disk on fire" });
+    expect(invokeMock).toHaveBeenCalledTimes(15);
     expect(useToastStore.getState().toasts).toHaveLength(1);
+  });
+
+  it("retries a first read that runs before the backend is ready", async () => {
+    vi.useFakeTimers();
+    invokeMock.mockRejectedValueOnce("state not managed").mockResolvedValueOnce(STATE);
+    store().init();
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+    expect(store().state).toEqual(STATE);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 });
 
