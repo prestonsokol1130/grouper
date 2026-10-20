@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+  # The release workflow runs this whole suite before it builds.
+  workflow_call:
 
 # Cancel a run when a newer commit lands on the same pull request or branch.
 concurrency:

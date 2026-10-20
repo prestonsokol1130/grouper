@@ -1,0 +1,87 @@
+name: Release
+
+# Pushing a tag such as v0.1.0 runs the full CI suite, builds the NSIS
+# installer and uploads it to a draft GitHub Release with generated notes.
+# Nothing is published until Preston opens the draft and presses Publish.
+# The installer is unsigned; docs/RELEASE.md says how to add signing.
+on:
+  push:
+    tags:
+      - "v*"
+
+# One release run per tag at a time; a second push of the same tag waits.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: installer
+    needs: checks
+    runs-on: windows-latest
+    # Only this job may write, and only to create the draft release.
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version."
+            exit 1
+          fi
+
+      - name: Build the installer
+        run: pnpm tauri build
+
+      - name: Upload to a draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          installers=(src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if [ "${#installers[@]}" -ne 1 ]; then
+            echo "::error::Expected one NSIS installer, found ${#installers[@]}."
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" "${installers[0]}" \
+            --draft \
+            --generate-notes \
+            --verify-tag \
+            --title "Grouper $GITHUB_REF_NAME"
