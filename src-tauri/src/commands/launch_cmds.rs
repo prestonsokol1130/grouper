@@ -9,9 +9,9 @@ use crate::apps::launch::{launch_app_with, launch_group_with, LaunchSummary, GRO
 use crate::state::Store;
 use crate::win32::launch::launch;
 
-/// Launches app `app_id` through its shortcut (or its target when the
-/// shortcut is gone). An app with neither on disk is marked missing and
-/// the error is `App not found: <name>`.
+/// Launches app `app_id` through its shortcut, or its target when that is gone.
+// An app with neither on disk is marked missing and the error is
+// `App not found: <name>`.
 #[tauri::command]
 #[specta::specta]
 pub async fn launch_app(
@@ -31,8 +31,8 @@ pub async fn launch_app(
     .map_err(|e| format!("app launch did not finish: {e}"))?
 }
 
-/// Launches every app of group `group_id` in order, 150 ms apart, and
-/// reports how many started and which (by name) could not.
+/// Launches every app of group `group_id` in order, 150 ms apart.
+// Reports how many started and which (by name) could not.
 #[tauri::command]
 #[specta::specta]
 pub async fn launch_group(

@@ -3,6 +3,7 @@
 pub mod app_cmds;
 pub mod appearance_cmds;
 pub mod flyout_cmds;
+pub mod folder_cmds;
 pub mod icon_cmds;
 pub mod launch_cmds;
 pub mod launchpad_cmds;
@@ -29,6 +30,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             state_cmds::reorder_groups,
             state_cmds::update_settings,
             state_cmds::set_launchpad_layout,
+            folder_cmds::apply_launchpad_merge,
+            folder_cmds::remove_app_from_folder,
             scan_cmds::rescan_apps,
             icon_cmds::get_cache_dir,
             launch_cmds::launch_app,

@@ -47,8 +47,8 @@ pub struct Group {
     pub app_ids: Vec<String>,
     /// Bumped whenever the group's composite icon must be rebuilt.
     pub icon_version: u32,
-    /// The user made a Start Menu shortcut for this group, so Grouper keeps
-    /// its shortcut and icon in sync (and recreates them if missing).
+    /// The user made a Start Menu shortcut, so Grouper keeps it in sync.
+    // Its shortcut and icon follow the group, and are recreated if missing.
     pub has_shortcut: bool,
     /// Where that shortcut was last written.
     pub shortcut_path: Option<String>,

@@ -50,6 +50,7 @@ describe("api wrappers", () => {
     expect(Object.keys(api).sort()).toEqual(
       [
         "addAppFromPath",
+        "applyLaunchpadMerge",
         "createGroup",
         "createGroupShortcut",
         "deleteGroup",
@@ -65,6 +66,7 @@ describe("api wrappers", () => {
         "launchGroup",
         "pickAndAddApps",
         "removeApp",
+        "removeAppFromFolder",
         "renameGroup",
         "reorderGroups",
         "rescanApps",

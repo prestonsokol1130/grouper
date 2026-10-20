@@ -21,11 +21,11 @@ fn store(app: &AppHandle) -> Result<Arc<Store>, String> {
         .ok_or_else(|| "the app state is not loaded".to_owned())
 }
 
-/// Builds group `group_id`'s icon, then creates (or rewrites) its Start
-/// Menu shortcut, `{FOLDERID_Programs}\Grouper\<group name>.lnk`, pointing
-/// at this executable with `--flyout <group_id>`. Marks the group
-/// `has_shortcut`, so later renames and icon changes keep the shortcut in
-/// step, and returns its path.
+/// Builds group `group_id`'s icon and Start Menu shortcut; returns its path.
+// The shortcut, `{FOLDERID_Programs}\Grouper\<group name>.lnk`, is
+// created or rewritten and points at this executable with
+// `--flyout <group_id>`. Marks the group `has_shortcut`, so later renames
+// and icon changes keep the shortcut in step.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_group_shortcut(app: AppHandle, group_id: String) -> Result<String, String> {
@@ -39,8 +39,8 @@ pub async fn create_group_shortcut(app: AppHandle, group_id: String) -> Result<S
         .map_err(|lnk| format!("shortcut path {lnk:?} is not valid Unicode"))
 }
 
-/// Opens Explorer on Grouper's Start Menu folder with group `group_id`'s
-/// shortcut selected. `Err` when the shortcut has not been created yet.
+/// Opens Explorer with group `group_id`'s Start Menu shortcut selected.
+// `Err` when the shortcut has not been created yet.
 #[tauri::command]
 #[specta::specta]
 pub async fn reveal_group_shortcut(app: AppHandle, group_id: String) -> Result<(), String> {

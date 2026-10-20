@@ -1,5 +1,4 @@
 import {
-  closestCenter,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -16,7 +15,7 @@ import { createPortal } from "react-dom";
 import type { LaunchpadItem } from "../../bindings";
 import type { TileButtonProps } from "../../components/activation";
 import type { GridLayout } from "../../lib/grid";
-import { displayToStored } from "../../lib/layoutMap";
+import { displayToStored, findItem } from "../../lib/layoutMap";
 import { moveItem, type Position } from "../../lib/layoutOps";
 import { PAGE_SWIPE } from "../../lib/motion";
 import { useAppStore } from "../../store/appStore";
@@ -25,6 +24,7 @@ import { PagedGrid } from "./PagedGrid";
 import { SortableTile } from "./SortableTile";
 import { measureSettled } from "./trackMeasure";
 import type { Pager } from "./usePager";
+import { useMergeDrag } from "./useMergeDrag";
 import { useReorder, type Drag } from "./useReorder";
 
 /** A press must move this far (px) before it picks a tile up; less is a click. */
@@ -64,12 +64,32 @@ function commitDrop(id: string, drop: Position, perPage: number): void {
   void store.setLaunchpadLayout({ ...state.launchpad, pages });
 }
 
+type Shown = readonly (readonly LaunchpadItem[])[];
+
+/** The item with key `id` among the pages on screen, if any. */
+function shownItem(pages: Shown, id: string): LaunchpadItem | null {
+  const at = findItem(pages, itemKey, id);
+  return at === null ? null : (pages[at.page]?.[at.index] ?? null);
+}
+
+/** Saves app tile `dragged` dropped onto tile `target` (optimistic; a failure rolls back). */
+function commitMerge(pages: Shown, dragged: string, target: string): void {
+  const app = shownItem(pages, dragged);
+  const onto = shownItem(pages, target);
+  if (app?.kind !== "app" || onto === null) return;
+  // The backend finds the target in the stored layout by its id.
+  void useAppStore.getState().applyLaunchpadMerge(app.appId, onto);
+}
+
 /**
  * The paged grid with drag-and-drop reordering. A press on a tile of the
  * page on screen that moves PICK_UP_PX picks it up; it follows the pointer,
  * lifted (DESIGN.md sections 10 and 11), while the other tiles slide aside
  * and its cell shows the drop slot. Resting at the left or right edge turns
- * the page (useEdgeFlip). The drop saves the new order at once.
+ * the page (useEdgeFlip). An app that rests over the centre of another
+ * tile switches to merge intent (useMergeDrag): that tile grows to the
+ * drop-target scale, and the drop makes a folder or adds the app to one.
+ * The drop saves at once.
  */
 export function ReorderGrid({
   pages,
@@ -93,13 +113,37 @@ export function ReorderGrid({
     [grid.perPage],
   );
   const reorder = useReorder({ shown: pages, perPage: grid.perPage, drag, setDrag, pager, commit });
+  const merge = useMergeDrag((dragged, target) => commitMerge(pages, dragged, target));
   const current = reorder.pages[pager.page];
   const ids = useMemo(() => (current ?? []).map(itemKey), [current]);
   const iconPx = launchpadDensity().iconPx;
+  // The target stays set through the drop, so the overlay skips its animation.
+  const mergeTarget = drag === null ? null : merge.target;
+  const { onDragStart, onDragMove, onDragEnd, onDragCancel } = reorder.handlers;
+  const handlers: typeof reorder.handlers = {
+    onDragStart: (event) => {
+      merge.start();
+      onDragStart(event);
+    },
+    onDragMove: (event) => {
+      merge.move();
+      onDragMove(event);
+    },
+    onDragEnd: (event) => (merge.drop(String(event.active.id)) ? onDragCancel() : onDragEnd(event)),
+    onDragCancel: () => {
+      merge.cancel();
+      onDragCancel();
+    },
+  };
 
   const renderCell = (item: LaunchpadItem, onScreen: boolean) =>
     onScreen ? (
-      <SortableTile id={itemKey(item)} iconPx={iconPx} reduced={reduced}>
+      <SortableTile
+        id={itemKey(item)}
+        iconPx={iconPx}
+        reduced={reduced}
+        merge={mergeTarget === itemKey(item) ? item.kind : undefined}
+      >
         {(button) => renderTile(item, button)}
       </SortableTile>
     ) : (
@@ -110,10 +154,10 @@ export function ReorderGrid({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={merge.collision}
       measuring={MEASURING}
       autoScroll={false}
-      {...reorder.handlers}
+      {...handlers}
     >
       <SortableContext items={ids}>
         <PagedGrid
@@ -127,7 +171,7 @@ export function ReorderGrid({
       </SortableContext>
       {createPortal(
         <DragOverlay
-          dropAnimation={reduced ? null : DROP}
+          dropAnimation={reduced || merge.target !== null ? null : DROP}
           className="launchpad-lifted text-primary"
         >
           {lifted === null ? null : (

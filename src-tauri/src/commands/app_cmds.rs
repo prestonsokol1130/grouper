@@ -26,10 +26,9 @@ fn add_and_publish(
     Ok(added)
 }
 
-/// Opens the native file dialog (Programs: `.exe`, `.lnk`, several at
-/// once) over the calling window and adds the picked programs. Returns
-/// their entries; an empty list, with nothing changed, when the dialog was
-/// cancelled.
+/// Opens the file dialog over the calling window and adds the picked programs.
+// Programs means `.exe` and `.lnk`, several at once. Returns their
+// entries; an empty list, with nothing changed, when it was cancelled.
 #[tauri::command]
 #[specta::specta]
 pub async fn pick_and_add_apps(
@@ -66,8 +65,8 @@ fn owner_handle(_window: &WebviewWindow) -> Option<isize> {
     None
 }
 
-/// Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry,
-/// or the existing entry when that app is already in the list.
+/// Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry.
+// When that app is already in the list, its existing entry is returned.
 #[tauri::command]
 #[specta::specta]
 pub async fn add_app_from_path(
@@ -86,8 +85,8 @@ pub async fn add_app_from_path(
     .map_err(|e| format!("adding an app did not finish: {e}"))?
 }
 
-/// Removes app `app_id`: a Manual app is deleted from the list, its groups
-/// and the Launchpad; a Start Menu app is hidden instead.
+/// Removes app `app_id`: a Manual app is deleted, a Start Menu app hidden.
+// A deleted app also leaves its groups and the Launchpad.
 #[tauri::command]
 #[specta::specta]
 pub fn remove_app(

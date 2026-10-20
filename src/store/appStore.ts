@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import type { AppState, LaunchpadLayout } from "../bindings";
+import type { AppState, LaunchpadItem, LaunchpadLayout, LaunchpadSlot } from "../bindings";
 import { api, type Result } from "../lib/api";
 import { onEvent } from "../lib/events";
+import { storedPerPage } from "../windows/launchpad/launchpadGrid";
+import { withAppOutOfFolder, withLaunchpadMerge } from "./folderReducers";
 import { withGroupApps, withGroupOrder, withGroupRenamed, withLaunchpadLayout } from "./reducers";
 import { showToast } from "./toastStore";
 
@@ -28,6 +30,10 @@ export type AppStore = {
   setGroupApps: (id: string, appIds: string[]) => Promise<boolean>;
   reorderGroups: (ids: string[]) => Promise<boolean>;
   setLaunchpadLayout: (layout: LaunchpadLayout) => Promise<boolean>;
+  /** Drops app `draggedAppId` onto `target`: a new folder, or into one. */
+  applyLaunchpadMerge: (draggedAppId: string, target: LaunchpadItem) => Promise<boolean>;
+  /** Takes app `appId` out of folder `groupId` to stored slot `to`. */
+  removeAppFromFolder: (groupId: string, appId: string, to: LaunchpadSlot) => Promise<boolean>;
 };
 
 /**
@@ -185,5 +191,23 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       (state) => withLaunchpadLayout(state, layout),
       () => api.setLaunchpadLayout(layout),
       "Couldn't save the new order.",
+    ),
+
+  applyLaunchpadMerge: (draggedAppId, target) =>
+    optimistic(
+      get,
+      set,
+      (state) => withLaunchpadMerge(state, draggedAppId, target),
+      () => api.applyLaunchpadMerge(draggedAppId, target),
+      target.kind === "app" ? "Couldn't make that folder." : "Couldn't add the app to that folder.",
+    ),
+
+  removeAppFromFolder: (groupId, appId, to) =>
+    optimistic(
+      get,
+      set,
+      (state) => withAppOutOfFolder(state, groupId, appId, to, storedPerPage()),
+      () => api.removeAppFromFolder(groupId, appId, to),
+      "Couldn't take the app out of that folder.",
     ),
 }));

@@ -48,8 +48,8 @@ fn apply_scan(app: &AppHandle, store: &Store, scan: ScanOutcome) -> Result<u32, 
     Ok(found)
 }
 
-/// Scans the Start Menu again, merges the result into the app list and
-/// returns how many apps were found.
+/// Scans the Start Menu again and returns how many apps were found.
+// The result is merged into the app list.
 #[tauri::command]
 #[specta::specta]
 pub async fn rescan_apps(app: AppHandle, store: State<'_, Arc<Store>>) -> Result<u32, String> {

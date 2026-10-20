@@ -22,56 +22,27 @@ export const commands = {
 	updateSettings: (patch: SettingsPatch) => typedError<Settings, string>(__TAURI_INVOKE("update_settings", { patch })),
 	/**  Replaces the Launchpad layout (dangling ids are dropped). */
 	setLaunchpadLayout: (layout: LaunchpadLayout) => typedError<LaunchpadLayout, string>(__TAURI_INVOKE("set_launchpad_layout", { layout })),
-	/**
-	 *  Scans the Start Menu again, merges the result into the app list and
-	 *  returns how many apps were found.
-	 */
+	/**  Drops app `dragged_app_id` onto an app (new folder) or a folder; returns its group id. */
+	applyLaunchpadMerge: (draggedAppId: string, target: LaunchpadItem) => typedError<string, string>(__TAURI_INVOKE("apply_launchpad_merge", { draggedAppId, target })),
+	/**  Moves app `app_id` out of folder `group_id` to stored slot `to`. */
+	removeAppFromFolder: (groupId: string, appId: string, to: LaunchpadSlot) => typedError<null, string>(__TAURI_INVOKE("remove_app_from_folder", { groupId, appId, to })),
+	/**  Scans the Start Menu again and returns how many apps were found. */
 	rescanApps: () => typedError<number, string>(__TAURI_INVOKE("rescan_apps")),
-	/**
-	 *  Returns the icon cache folder, `{app_data_dir}/cache/icons`. App icons
-	 *  are `{appId}.png` in it and the fallback icon is `_fallback.png`.
-	 */
+	/**  Returns the icon cache folder, `{app_data_dir}/cache/icons`. */
 	getCacheDir: () => typedError<string, string>(__TAURI_INVOKE("get_cache_dir")),
-	/**
-	 *  Launches app `app_id` through its shortcut (or its target when the
-	 *  shortcut is gone). An app with neither on disk is marked missing and
-	 *  the error is `App not found: <name>`.
-	 */
+	/**  Launches app `app_id` through its shortcut, or its target when that is gone. */
 	launchApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_app", { appId })),
-	/**
-	 *  Launches every app of group `group_id` in order, 150 ms apart, and
-	 *  reports how many started and which (by name) could not.
-	 */
+	/**  Launches every app of group `group_id` in order, 150 ms apart. */
 	launchGroup: (groupId: string) => typedError<LaunchSummary, string>(__TAURI_INVOKE("launch_group", { groupId })),
-	/**
-	 *  Opens the native file dialog (Programs: `.exe`, `.lnk`, several at
-	 *  once) over the calling window and adds the picked programs. Returns
-	 *  their entries; an empty list, with nothing changed, when the dialog was
-	 *  cancelled.
-	 */
+	/**  Opens the file dialog over the calling window and adds the picked programs. */
 	pickAndAddApps: () => typedError<AppEntry[], string>(__TAURI_INVOKE("pick_and_add_apps")),
-	/**
-	 *  Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry,
-	 *  or the existing entry when that app is already in the list.
-	 */
+	/**  Adds the program at `path` (an `.exe` or `.lnk`) and returns its entry. */
 	addAppFromPath: (path: string) => typedError<AppEntry, string>(__TAURI_INVOKE("add_app_from_path", { path })),
-	/**
-	 *  Removes app `app_id`: a Manual app is deleted from the list, its groups
-	 *  and the Launchpad; a Start Menu app is hidden instead.
-	 */
+	/**  Removes app `app_id`: a Manual app is deleted, a Start Menu app hidden. */
 	removeApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("remove_app", { appId })),
-	/**
-	 *  Builds group `group_id`'s icon, then creates (or rewrites) its Start
-	 *  Menu shortcut, `{FOLDERID_Programs}\Grouper\<group name>.lnk`, pointing
-	 *  at this executable with `--flyout <group_id>`. Marks the group
-	 *  `has_shortcut`, so later renames and icon changes keep the shortcut in
-	 *  step, and returns its path.
-	 */
+	/**  Builds group `group_id`'s icon and Start Menu shortcut; returns its path. */
 	createGroupShortcut: (groupId: string) => typedError<string, string>(__TAURI_INVOKE("create_group_shortcut", { groupId })),
-	/**
-	 *  Opens Explorer on Grouper's Start Menu folder with group `group_id`'s
-	 *  shortcut selected. `Err` when the shortcut has not been created yet.
-	 */
+	/**  Opens Explorer with group `group_id`'s Start Menu shortcut selected. */
 	revealGroupShortcut: (groupId: string) => typedError<null, string>(__TAURI_INVOKE("reveal_group_shortcut", { groupId })),
 	/**  Hides the flyout (Escape); `Err` when Windows could not hide it. */
 	hideFlyout: () => typedError<null, string>(__TAURI_INVOKE("hide_flyout")),
@@ -89,21 +60,14 @@ export const commands = {
 	hideLaunchpad: () => typedError<null, string>(__TAURI_INVOKE("hide_launchpad")),
 	/**  Registers shortcut `hotkey` in place of the old one; saved only if it works. */
 	setHotkey: (hotkey: string) => typedError<Settings, string>(__TAURI_INVOKE("set_hotkey", { hotkey })),
-	/**
-	 *  The Windows accent colour, or `null` when it could not be read (the
-	 *  frontend then uses DESIGN.md's fallback blue). Changes arrive as
-	 *  `accent:changed` events.
-	 */
+	/**  The Windows accent colour, or `null` when it could not be read. */
 	getAccentColor: () => __TAURI_INVOKE<{
 	/**  The accent on light backgrounds (`UIColorType::AccentDark1`). */
 	light: string,
 	/**  The accent on dark backgrounds (`UIColorType::AccentLight2`). */
 	dark: string,
 } | null>("get_accent_color"),
-	/**
-	 *  The material the calling window is drawn on. `solid` means the page
-	 *  must paint its own background.
-	 */
+	/**  The material the calling window is drawn on. */
 	getWindowMaterial: () => __TAURI_INVOKE<Material>("get_window_material"),
 };
 
@@ -182,10 +146,7 @@ export type Group = {
 	appIds?: string[],
 	/**  Bumped whenever the group's composite icon must be rebuilt. */
 	iconVersion?: number,
-	/**
-	 *  The user made a Start Menu shortcut for this group, so Grouper keeps
-	 *  its shortcut and icon in sync (and recreates them if missing).
-	 */
+	/**  The user made a Start Menu shortcut, so Grouper keeps it in sync. */
 	hasShortcut?: boolean,
 	/**  Where that shortcut was last written. */
 	shortcutPath?: string | null,
@@ -212,10 +173,13 @@ export type LaunchpadLayout = {
 	pages?: LaunchpadItem[][],
 };
 
-/**
- *  The material a window ended up with. With `solid` the page paints
- *  `--solid-bg` itself; with the others it stays transparent.
- */
+/**  A stored Launchpad slot: position `index` on page `page`. */
+export type LaunchpadSlot = {
+	page: number,
+	index: number,
+};
+
+/**  The material a window ended up with. */
 export type Material = "mica" | "acrylic" | "solid";
 
 /**  User settings. */

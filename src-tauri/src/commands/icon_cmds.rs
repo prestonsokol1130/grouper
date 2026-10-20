@@ -25,8 +25,9 @@ fn icon_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(icon_cache_dir(&data))
 }
 
-/// Returns the icon cache folder, `{app_data_dir}/cache/icons`. App icons
-/// are `{appId}.png` in it and the fallback icon is `_fallback.png`.
+/// Returns the icon cache folder, `{app_data_dir}/cache/icons`.
+// App icons are `{appId}.png` in it and the fallback icon is
+// `_fallback.png`.
 #[tauri::command]
 #[specta::specta]
 pub fn get_cache_dir(app: AppHandle) -> Result<String, String> {

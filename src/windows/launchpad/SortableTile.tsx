@@ -8,6 +8,8 @@ type Props = {
   /** Icon side in px, for the drop slot. */
   iconPx: number;
   reduced: boolean;
+  /** Set while a dragged app would merge into this tile (merge intent). */
+  merge?: "app" | "folder";
   /** The tile, given the props that make its button the drag handle. */
   children: (button: TileButtonProps) => ReactNode;
 };
@@ -25,9 +27,10 @@ const MOVE_ASIDE = { duration: PAGE_SWIPE.durationMs, easing: PAGE_SWIPE.easing 
  * it up for the keyboard, the arrows move it, Space or Enter drops it and
  * Escape puts it back. Enter on a tile that is not being moved opens it.
  * While dragged, the cell shows the drop slot and the lifted tile follows
- * the pointer in the drag overlay.
+ * the pointer in the drag overlay. With `merge` set the tile shows it is
+ * the drop target of a merge (see launchpad.css).
  */
-export function SortableTile({ id, iconPx, reduced, children }: Props) {
+export function SortableTile({ id, iconPx, reduced, merge, children }: Props) {
   const {
     active,
     attributes,
@@ -61,6 +64,7 @@ export function SortableTile({ id, iconPx, reduced, children }: Props) {
       style={style}
       data-sortable=""
       data-dragging={isDragging || undefined}
+      data-merge={merge}
       onPointerDown={(event) => listeners?.onPointerDown?.(event)}
       onKeyDownCapture={onKeyDownCapture}
     >

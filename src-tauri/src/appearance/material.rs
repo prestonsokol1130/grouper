@@ -11,8 +11,9 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::flyout::FLYOUT_LABEL;
 use crate::win32::material::{apply_backdrop, backdrops_allowed, Backdrop};
 
-/// The material a window ended up with. With `solid` the page paints
-/// `--solid-bg` itself; with the others it stays transparent.
+/// The material a window ended up with.
+// With `solid` the page paints `--solid-bg` itself; with the others it
+// stays transparent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Material {

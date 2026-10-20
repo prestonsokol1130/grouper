@@ -74,3 +74,47 @@
 .launchpad-lifted img {
   -webkit-user-drag: none;
 }
+
+/* Merge intent: an app rested over the centre of another tile. The target
+   grows to the drop-target scale (DESIGN.md section 10) with the hover
+   timing. An app target also shows a folder tile's background behind it,
+   the folder it is about to become (the macOS hint; Fluent has no folder
+   gesture of its own). With reduced motion nothing grows: the background
+   fades in over 120ms instead, behind a folder target too. */
+[data-merge] .tile:not(:disabled) .tile-art {
+  position: relative;
+  scale: var(--scale-drop-target);
+}
+
+[data-merge] .tile-art::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10%;
+  border-radius: 18%;
+  background-color: var(--folder-bg);
+  box-shadow: inset 0 0 0 1px var(--stroke-card);
+  animation: merge-plate var(--transition-duration-hover) var(--ease-hover);
+}
+
+[data-merge="folder"] .tile-art::before {
+  display: none;
+}
+
+@keyframes merge-plate {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-merge] .tile:not(:disabled) .tile-art {
+    scale: none;
+  }
+
+  [data-merge] .tile-art::before {
+    display: block;
+    animation-duration: var(--transition-duration-reduced);
+    animation-timing-function: linear;
+  }
+}

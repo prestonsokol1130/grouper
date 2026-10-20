@@ -1,4 +1,10 @@
-import { commands, type LaunchpadLayout, type SettingsPatch } from "../bindings";
+import {
+  commands,
+  type LaunchpadItem,
+  type LaunchpadLayout,
+  type LaunchpadSlot,
+  type SettingsPatch,
+} from "../bindings";
 
 /** What every {@link api} call resolves to. It never rejects. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -51,6 +57,10 @@ export const api = {
   reorderGroups: (ids: string[]) => typed(() => commands.reorderGroups(ids)),
   updateSettings: (patch: SettingsPatch) => typed(() => commands.updateSettings(patch)),
   setLaunchpadLayout: (layout: LaunchpadLayout) => typed(() => commands.setLaunchpadLayout(layout)),
+  applyLaunchpadMerge: (draggedAppId: string, target: LaunchpadItem) =>
+    typed(() => commands.applyLaunchpadMerge(draggedAppId, target)),
+  removeAppFromFolder: (groupId: string, appId: string, to: LaunchpadSlot) =>
+    typed(() => commands.removeAppFromFolder(groupId, appId, to)),
   rescanApps: () => typed(() => commands.rescanApps()),
   getCacheDir: () => typed(() => commands.getCacheDir()),
   launchApp: (appId: string) => typed(() => commands.launchApp(appId)),

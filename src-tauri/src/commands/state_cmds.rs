@@ -21,7 +21,7 @@ pub fn emit_state_changed(app: &AppHandle, state: &AppState) {
 }
 
 /// Applies `change` to the store, then emits `state:changed`.
-fn mutate<T>(
+pub(super) fn mutate<T>(
     app: &AppHandle,
     store: &Store,
     change: impl FnOnce(&mut AppState) -> Result<T, String>,
@@ -131,8 +131,14 @@ pub fn delete_group(
             .map(|_| ())
             .ok_or_else(|| format!("Group not found: {id}"))
     })?;
-    queue(&app, Job::Remove { group_id: id });
+    remove_group_files(&app, id);
     Ok(())
+}
+
+/// Queues the removal of deleted group `group_id`'s shortcut and `.ico`
+/// files. Every path that deletes a group calls this after its change.
+pub(super) fn remove_group_files(app: &AppHandle, group_id: String) {
+    queue(app, Job::Remove { group_id });
 }
 
 /// Replaces the apps in group `id` (unknown and repeated ids are dropped).

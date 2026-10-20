@@ -2,6 +2,8 @@
 
 pub mod disk;
 pub mod disk_write;
+pub mod folder_name;
+pub mod folders;
 pub mod ids;
 pub mod migrate;
 pub mod model;
@@ -13,12 +15,15 @@ pub mod store;
 #[cfg(test)]
 mod disk_tests;
 #[cfg(test)]
+mod folders_tests;
+#[cfg(test)]
 mod model_tests;
 #[cfg(test)]
 mod store_icon_tests;
 #[cfg(test)]
 mod store_tests;
 
+pub use folders::LaunchpadSlot;
 pub use model::{
     AppEntry, AppSource, AppState, Group, HotCorners, LaunchpadItem, LaunchpadLayout, Settings,
     SettingsPatch, CURRENT_SCHEMA,
