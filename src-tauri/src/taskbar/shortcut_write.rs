@@ -186,6 +186,10 @@ pub fn write_shortcut_with_icon(
         icon_path: icon_path.to_path_buf(),
         description: description(&group.name),
         aumid,
+        // The icon's folder: Grouper's own cache, which the Shell does not
+        // watch, on the same volume as the Start Menu (both in the
+        // roaming profile).
+        stage_dir: icon_path.parent().unwrap_or(dir).to_path_buf(),
     })?;
     Ok(lnk_path)
 }

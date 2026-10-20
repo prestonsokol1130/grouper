@@ -29,6 +29,8 @@ pub mod version_info;
 pub mod wide;
 
 #[cfg(all(test, windows))]
+pub(crate) mod dir_watch_tests;
+#[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;
 #[cfg(all(test, windows))]
 mod lnk_write_tests;

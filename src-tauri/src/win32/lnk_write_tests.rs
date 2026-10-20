@@ -50,6 +50,7 @@ fn spec(dir: &Path, args: &str) -> LnkSpec {
         icon_path: dir.join("icons dir").join("grp-v3.ico"),
         description: "My Group".to_owned(),
         aumid: "com.grouper.group.aB3_-x".to_owned(),
+        stage_dir: dir.parent().unwrap_or(dir).to_path_buf(),
     }
 }
 
