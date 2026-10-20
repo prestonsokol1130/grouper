@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use image::{ImageFormat, RgbaImage};
 
 use super::{extract, fallback};
-use crate::state::disk_write::{discard, reject_symlink, write_synced};
+use crate::state::disk_write::write_atomic;
 use crate::state::AppEntry;
 
 /// Pixels per side of every cached icon.
@@ -134,7 +134,7 @@ pub fn ensure_fallback(cache_dir: &Path) -> Result<PathBuf, String> {
 }
 
 /// App ids become file names, so they must be non-empty `[A-Za-z0-9_-]`.
-fn check_id(app_id: &str) -> Result<(), String> {
+pub(crate) fn check_id(app_id: &str) -> Result<(), String> {
     let safe = !app_id.is_empty()
         && app_id
             .bytes()
@@ -159,30 +159,9 @@ fn regular_file_mtime(path: &Path) -> Option<SystemTime> {
 /// same folder plus a rename. Never writes through a symlinked cache folder
 /// or PNG.
 fn write_png(cache_dir: &Path, dest: &Path, image: &RgbaImage) -> Result<(), String> {
-    reject_symlink(cache_dir)?;
-    reject_symlink(dest)?;
     let mut bytes = Vec::new();
     image
         .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
         .map_err(|e| format!("encode {}: {e}", dest.display()))?;
-    let temp = temp_path(dest)?;
-    let result = write_synced(&temp, &bytes).and_then(|()| {
-        fs::rename(&temp, dest)
-            .map_err(|e| format!("rename {} over {}: {e}", temp.display(), dest.display()))
-    });
-    if result.is_err() {
-        discard(&temp);
-    }
-    result
-}
-
-/// `{dest}.{random}.tmp`: unique, so two threads writing the same icon never
-/// share a temp file.
-fn temp_path(dest: &Path) -> Result<PathBuf, String> {
-    let mut nonce = [0_u8; 8];
-    getrandom::fill(&mut nonce).map_err(|e| format!("random temp name: {e}"))?;
-    let suffix: String = nonce.iter().map(|b| format!("{b:02x}")).collect();
-    let mut name = dest.as_os_str().to_owned();
-    name.push(format!(".{suffix}.tmp"));
-    Ok(PathBuf::from(name))
+    write_atomic(cache_dir, dest, &bytes)
 }
