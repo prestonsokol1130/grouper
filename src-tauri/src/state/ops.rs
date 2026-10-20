@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use super::model::{AppEntry, AppState, Group, LaunchpadItem};
-use crate::taskbar::group_icon::needs_icon_rebuild;
+use crate::taskbar::icon_inputs::{changed_icon_groups, needs_icon_rebuild};
 
 impl AppState {
     /// The app with `id`, if any.
@@ -22,16 +22,15 @@ impl AppState {
     }
 
     /// Removes an app and every reference to it (groups and Launchpad).
+    /// Bumps the icon version of each group whose folder icon showed it.
     pub fn remove_app(&mut self, id: &str) -> Option<AppEntry> {
         let index = self.apps.iter().position(|app| app.id == id)?;
+        let before = self.clone();
         let removed = self.apps.remove(index);
         for group in &mut self.groups {
-            let before = group.app_ids.len();
             group.app_ids.retain(|app_id| app_id != id);
-            if group.app_ids.len() < before {
-                group.icon_version = group.icon_version.wrapping_add(1);
-            }
         }
+        self.bump_icon_versions(&before);
         for page in &mut self.launchpad.pages {
             page.retain(|item| !matches!(item, LaunchpadItem::App { app_id } if app_id == id));
         }
@@ -96,21 +95,59 @@ impl AppState {
         Some(group.clone())
     }
 
+    /// Bumps the icon version of every group whose folder icon shows other
+    /// apps than in `before` (see [`changed_icon_groups`]), unless its
+    /// version was already changed since `before`. Returns the ids of all
+    /// groups whose icon version now differs from `before`.
+    pub fn bump_icon_versions(&mut self, before: &AppState) -> Vec<String> {
+        for id in changed_icon_groups(before, self) {
+            let old = before.group_by_id(&id).map(|group| group.icon_version);
+            if let Some(group) = self.group_by_id_mut(&id) {
+                if old == Some(group.icon_version) {
+                    group.icon_version = group.icon_version.wrapping_add(1);
+                }
+            }
+        }
+        self.groups
+            .iter()
+            .filter(|group| {
+                before
+                    .group_by_id(&group.id)
+                    .is_some_and(|old| old.icon_version != group.icon_version)
+            })
+            .map(|group| group.id.clone())
+            .collect()
+    }
+
     /// Drops dangling and duplicate ids from groups and the Launchpad, and
-    /// bumps the icon version of each group that lost apps. Returns how many
-    /// references were removed.
+    /// bumps the icon version of each group whose folder icon changed (a
+    /// repeated id among its first four). Returns how many references were
+    /// removed.
     pub fn validate(&mut self) -> usize {
         let app_ids: HashSet<String> = self.apps.iter().map(|app| app.id.clone()).collect();
         let group_ids: HashSet<String> = self.groups.iter().map(|g| g.id.clone()).collect();
         let mut removed = 0;
-        for group in &mut self.groups {
+        let mut shrunk = Vec::new();
+        for (index, group) in self.groups.iter_mut().enumerate() {
             let mut seen = HashSet::new();
-            let before = group.app_ids.len();
+            let before = group.app_ids.clone();
             group
                 .app_ids
                 .retain(|id| app_ids.contains(id) && seen.insert(id.clone()));
-            if group.app_ids.len() < before {
-                removed += before - group.app_ids.len();
+            if group.app_ids.len() < before.len() {
+                removed += before.len() - group.app_ids.len();
+                shrunk.push((index, before));
+            }
+        }
+        for (index, old_ids) in shrunk {
+            let changed = self.groups.get(index).is_some_and(|group| {
+                let old = Group {
+                    app_ids: old_ids,
+                    ..group.clone()
+                };
+                needs_icon_rebuild(&old, group, self)
+            });
+            if let Some(group) = self.groups.get_mut(index).filter(|_| changed) {
                 group.icon_version = group.icon_version.wrapping_add(1);
             }
         }

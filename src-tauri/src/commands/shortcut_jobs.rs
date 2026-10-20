@@ -10,9 +10,10 @@ use super::shortcut_worker::{Job, ShortcutUpdated, SHORTCUT_UPDATED_EVENT};
 use super::state_cmds::emit_state_changed;
 use crate::state::paths::cache_dir;
 use crate::state::Store;
+use crate::taskbar::group_icon::remove_legacy_icons;
 use crate::taskbar::shortcut::{shortcut_dir, shortcut_dir_path};
 use crate::taskbar::shortcut_sync::{
-    remove_group_files, repair_group_shortcut, update_group_shortcut, Change, Repair,
+    icon_file, remove_group_files, repair_group_shortcut, update_group_shortcut, Change, Repair,
 };
 use crate::taskbar::shortcut_write::write_group_shortcut;
 use crate::win32::shell_notify::notify_shortcut_changed;
@@ -58,14 +59,31 @@ pub(super) fn run(app: &AppHandle, job: Job) {
     }
 }
 
-/// Writes the shortcut and records it on the group.
+/// Writes the shortcut and records it on the group. When the group was
+/// renamed or its icon changed while this ran, the shortcut is brought up
+/// to date before returning.
 pub(super) fn create(app: &AppHandle, group_id: &str) -> Result<PathBuf, String> {
     let ctx = ctx(app)?;
     let state = ctx.store.snapshot();
-    let lnk = write_group_shortcut(&state, group_id, &ctx.cache_dir, &shortcut_dir()?, &ctx.exe)?;
+    let dir = shortcut_dir()?;
+    let lnk = write_group_shortcut(&state, group_id, &ctx.cache_dir, &dir, &ctx.exe)?;
     log::info!("wrote shortcut for group {group_id}: {}", lnk.display());
-    notify_shortcut_changed(&lnk);
+    notify_shortcut_changed(&lnk, &icon_file(&ctx.cache_dir, group_id));
     record(app, &ctx.store, group_id, &lnk)?;
+    let now = ctx.store.snapshot();
+    let (Some(written), Some(latest)) = (state.group_by_id(group_id), now.group_by_id(group_id))
+    else {
+        return Ok(lnk);
+    };
+    let change = Change {
+        renamed: latest.name != written.name,
+        icon: latest.icon_version != written.icon_version,
+    };
+    if !change.renamed && !change.icon {
+        return Ok(lnk);
+    }
+    let lnk = update_group_shortcut(&now, group_id, change, &ctx.cache_dir, &dir, &ctx.exe)?;
+    finish(app, &ctx, group_id, &lnk)?;
     Ok(lnk)
 }
 
@@ -79,7 +97,7 @@ fn update(app: &AppHandle, group_id: &str, change: Change) -> Result<(), String>
     let dir = shortcut_dir()?;
     let lnk = update_group_shortcut(&state, group_id, change, &ctx.cache_dir, &dir, &ctx.exe)?;
     log::info!("updated shortcut for group {group_id}: {}", lnk.display());
-    finish(app, &ctx.store, group_id, &lnk)
+    finish(app, &ctx, group_id, &lnk)
 }
 
 fn remove(app: &AppHandle, group_id: &str) -> Result<(), String> {
@@ -95,37 +113,55 @@ fn remove(app: &AppHandle, group_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Repairs every tracked group's shortcut, one group at a time; one
+/// group's failure is logged and the rest still run.
 fn repair_all(app: &AppHandle) -> Result<(), String> {
     let ctx = ctx(app)?;
-    let state = ctx.store.snapshot();
-    let tracked: Vec<&str> = state
+    let tracked: Vec<String> = ctx
+        .store
+        .snapshot()
         .groups
         .iter()
         .filter(|group| group.has_shortcut)
-        .map(|group| group.id.as_str())
+        .map(|group| group.id.clone())
         .collect();
     if tracked.is_empty() {
         return Ok(());
     }
     let dir = shortcut_dir()?;
-    for group_id in tracked {
-        match repair_group_shortcut(&state, group_id, &ctx.cache_dir, &dir, &ctx.exe) {
-            Ok(Repair::Intact(lnk)) => record(app, &ctx.store, group_id, &lnk)?,
-            Ok(Repair::Rebuilt(lnk)) => {
-                log::info!("repaired shortcut for group {group_id}: {}", lnk.display());
-                finish(app, &ctx.store, group_id, &lnk)?;
-            }
-            Err(error) => log::warn!("could not repair group {group_id}'s shortcut: {error}"),
+    for group_id in &tracked {
+        if let Err(error) = repair_one(app, &ctx, &dir, group_id) {
+            log::warn!("could not repair group {group_id}'s shortcut: {error}");
         }
     }
     Ok(())
 }
 
+/// Repairs group `group_id`'s shortcut from the latest state, skipping a
+/// group that is gone or no longer has a shortcut, then removes its legacy
+/// versioned `.ico` files.
+fn repair_one(app: &AppHandle, ctx: &Ctx, dir: &Path, group_id: &str) -> Result<(), String> {
+    let state = ctx.store.snapshot();
+    if !state.group_by_id(group_id).is_some_and(|g| g.has_shortcut) {
+        return Ok(());
+    }
+    match repair_group_shortcut(&state, group_id, &ctx.cache_dir, dir, &ctx.exe)? {
+        Repair::Intact(lnk) => record(app, &ctx.store, group_id, &lnk)?,
+        Repair::Rebuilt(lnk) => {
+            log::info!("repaired shortcut for group {group_id}: {}", lnk.display());
+            finish(app, ctx, group_id, &lnk)?;
+        }
+    }
+    // The shortcut now shows {group_id}.ico, so older files are unused.
+    remove_legacy_icons(&ctx.cache_dir, group_id);
+    Ok(())
+}
+
 /// After a rewrite: refreshes the Shell, records the path, and emits
 /// [`SHORTCUT_UPDATED_EVENT`].
-fn finish(app: &AppHandle, store: &Store, group_id: &str, lnk: &Path) -> Result<(), String> {
-    notify_shortcut_changed(lnk);
-    record(app, store, group_id, lnk)?;
+fn finish(app: &AppHandle, ctx: &Ctx, group_id: &str, lnk: &Path) -> Result<(), String> {
+    notify_shortcut_changed(lnk, &icon_file(&ctx.cache_dir, group_id));
+    record(app, &ctx.store, group_id, lnk)?;
     let payload = ShortcutUpdated {
         group_id: group_id.to_owned(),
         shortcut_path: lnk.to_string_lossy().into_owned(),

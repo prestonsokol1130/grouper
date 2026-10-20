@@ -12,6 +12,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::shortcut_jobs::{create, run};
+use crate::state::Store;
 use crate::taskbar::shortcut_sync::Change;
 use crate::util::spawn::spawn_logged;
 use crate::win32::com::ComGuard;
@@ -40,7 +41,8 @@ pub enum Job {
     Update { group_id: String, change: Change },
     /// The group was deleted; remove its shortcut and `.ico` files.
     Remove { group_id: String },
-    /// Rebuild every tracked shortcut whose `.lnk` or `.ico` is missing.
+    /// Rebuild every tracked shortcut whose `.lnk` or `.ico` is missing or
+    /// that shows another icon file, then drop legacy versioned `.ico`s.
     Repair,
 }
 
@@ -92,6 +94,35 @@ pub fn queue(app: &AppHandle, job: Job) {
         .and_then(|worker| worker.send(job));
     if let Err(error) = sent {
         log::warn!("shortcut job dropped: {error}");
+    }
+}
+
+/// Starts the worker and manages it, tells it about every icon version
+/// `store` bumps from now on, and queues the startup repair. A failed
+/// start is logged; shortcuts then stay as they are.
+pub fn start_shortcut_sync(app: &AppHandle, store: &Store) {
+    match ShortcutWorker::start(app) {
+        Ok(worker) => {
+            app.manage(worker);
+            let handle = app.clone();
+            store.set_icon_listener(Box::new(move |ids| queue_icon_updates(&handle, ids)));
+            queue(app, Job::Repair);
+        }
+        Err(error) => log::error!("could not start the shortcut worker: {error}"),
+    }
+}
+
+/// Queues an icon update for each group in `group_ids` (groups whose icon
+/// version a committed change bumped). The update does nothing for a group
+/// that has no shortcut when it runs.
+pub fn queue_icon_updates(app: &AppHandle, group_ids: &[String]) {
+    for group_id in group_ids {
+        let change = Change {
+            renamed: false,
+            icon: true,
+        };
+        let group_id = group_id.clone();
+        queue(app, Job::Update { group_id, change });
     }
 }
 

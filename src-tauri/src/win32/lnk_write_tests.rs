@@ -135,7 +135,7 @@ fn group_shortcut_has_the_flyout_route_icon_and_aumid() {
     assert_eq!(lnk, start_menu.join("Work Tools.lnk"));
     let resolved = resolve_lnk(&lnk).unwrap();
     assert_eq!(resolved.args, "--flyout aB3_-x");
-    let icon = cache.join("groups").join("aB3_-x-v7.ico");
+    let icon = cache.join("groups").join("aB3_-x.ico");
     assert!(icon.is_file());
     assert_eq!(
         resolved.icon_location,

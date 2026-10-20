@@ -12,6 +12,7 @@
 pub mod compose;
 pub mod group_icon;
 pub mod ico;
+pub mod icon_inputs;
 pub mod shortcut;
 pub mod shortcut_sync;
 pub mod shortcut_write;
@@ -22,6 +23,8 @@ pub mod style;
 mod compose_tests;
 #[cfg(test)]
 mod group_icon_tests;
+#[cfg(test)]
+mod icon_inputs_tests;
 #[cfg(all(test, windows))]
 mod shortcut_sync_tests;
 #[cfg(test)]

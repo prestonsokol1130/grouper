@@ -11,8 +11,9 @@ export const commands = {
 	/**  Creates an empty group called `name`. */
 	createGroup: (name: string) => typedError<Group, string>(__TAURI_INVOKE("create_group", { name })),
 	/**
-	 *  Renames group `id`. When the name changed and the group has a
-	 *  shortcut, the shortcut is renamed in the background.
+	 *  Renames group `id`. When the name changed, a shortcut update is queued;
+	 *  if the group has a shortcut when it runs, the shortcut is renamed in
+	 *  the background.
 	 */
 	renameGroup: (id: string, name: string) => typedError<Group, string>(__TAURI_INVOKE("rename_group", { id, name })),
 	/**

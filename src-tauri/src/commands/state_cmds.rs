@@ -79,8 +79,9 @@ pub fn create_group(
     })
 }
 
-/// Renames group `id`. When the name changed and the group has a
-/// shortcut, the shortcut is renamed in the background.
+/// Renames group `id`. When the name changed, a shortcut update is queued;
+/// if the group has a shortcut when it runs, the shortcut is renamed in
+/// the background.
 #[tauri::command]
 #[specta::specta]
 pub fn rename_group(
@@ -96,7 +97,9 @@ pub fn rename_group(
         group.name = name;
         Ok((group.clone(), renamed))
     })?;
-    if renamed && group.has_shortcut {
+    // Queued even before the group has a shortcut: a shortcut still being
+    // created gets the new name once it is recorded.
+    if renamed {
         let change = Change {
             renamed: true,
             icon: false,
@@ -144,28 +147,13 @@ pub fn set_group_apps(
     id: String,
     app_ids: Vec<String>,
 ) -> Result<Group, String> {
-    let (group, icon) = mutate(&app, &store, |state| {
-        let before = group_mut(state, &id)?.icon_version;
-        let group = state
+    // A bumped icon version reaches the shortcut worker through the
+    // store's icon listener (see `queue_icon_updates`).
+    mutate(&app, &store, |state| {
+        state
             .set_group_apps(&id, app_ids)
-            .ok_or_else(|| format!("Group not found: {id}"))?;
-        let icon = group.icon_version != before;
-        Ok((group, icon))
-    })?;
-    if icon && group.has_shortcut {
-        let change = Change {
-            renamed: false,
-            icon: true,
-        };
-        queue(
-            &app,
-            Job::Update {
-                group_id: id,
-                change,
-            },
-        );
-    }
-    Ok(group)
+            .ok_or_else(|| format!("Group not found: {id}"))
+    })
 }
 
 /// Changes only the settings present in `patch`; the rest are kept.

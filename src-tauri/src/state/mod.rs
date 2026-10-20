@@ -14,6 +14,8 @@ mod disk_tests;
 #[cfg(test)]
 mod model_tests;
 #[cfg(test)]
+mod store_icon_tests;
+#[cfg(test)]
 mod store_tests;
 
 pub use model::{
