@@ -33,11 +33,11 @@ Every `.rs`, `.ts`, and `.tsx` file must stay under **250 lines** (blank lines a
 
 All under the app data directory (`{app_data_dir}`):
 
-| Path                                         | Purpose                                          |
-| -------------------------------------------- | ------------------------------------------------ |
-| `{app_data_dir}/app_state.json`              | App state; write atomically (temp file + rename) |
-| `{app_data_dir}/cache/icons/{app_id}.png`    | Cached app icons                                 |
-| `{app_data_dir}/cache/groups/{group_id}.ico` | Cached group composite icons                     |
+| Path                                                    | Purpose                                                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `{app_data_dir}/app_state.json`                         | App state; write atomically (temp file + rename)                                                                                 |
+| `{app_data_dir}/cache/icons/{app_id}.png`               | Cached app icons                                                                                                                 |
+| `{app_data_dir}/cache/groups/{group_id}-v{version}.ico` | Cached group composite icons; `version` is the group's `icon_version`, and the version in the name makes Windows reload the icon |
 
 ## Logs
 

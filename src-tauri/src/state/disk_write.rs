@@ -1,8 +1,9 @@
-//! Atomic, symlink-safe writes of `app_state.json` and its `.bak`.
+//! Atomic, symlink-safe writes of `app_state.json` and its `.bak`, and of
+//! cached icon files.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::disk::StatePaths;
 use super::model::AppState;
@@ -52,6 +53,35 @@ pub(crate) fn discard(path: &Path) {
             log::warn!("could not remove {}: {error}", path.display());
         }
     }
+}
+
+/// Writes `bytes` to `dest` in folder `dir` atomically: a uniquely named
+/// temp file next to it (written and synced), then a rename. Never writes
+/// through a symlinked folder or destination; a failed write removes its
+/// temp file and leaves `dest` as it was.
+pub(crate) fn write_atomic(dir: &Path, dest: &Path, bytes: &[u8]) -> Result<(), String> {
+    reject_symlink(dir)?;
+    reject_symlink(dest)?;
+    let temp = temp_path(dest)?;
+    let result = write_synced(&temp, bytes).and_then(|()| {
+        fs::rename(&temp, dest)
+            .map_err(|e| format!("rename {} over {}: {e}", temp.display(), dest.display()))
+    });
+    if result.is_err() {
+        discard(&temp);
+    }
+    result
+}
+
+/// `{dest}.{random}.tmp`: unique, so two threads writing the same file never
+/// share a temp file.
+fn temp_path(dest: &Path) -> Result<PathBuf, String> {
+    let mut nonce = [0_u8; 8];
+    getrandom::fill(&mut nonce).map_err(|e| format!("random temp name: {e}"))?;
+    let suffix: String = nonce.iter().map(|b| format!("{b:02x}")).collect();
+    let mut name = dest.as_os_str().to_owned();
+    name.push(format!(".{suffix}.tmp"));
+    Ok(PathBuf::from(name))
 }
 
 /// Copies the current main file to `.bak` through `.bak.tmp` + rename, so a

@@ -49,7 +49,7 @@ fn straighten_alpha(buf: &mut [u8]) {
 }
 
 /// Multiplies each colour channel by its pixel's alpha: `c * a / 255`.
-fn premultiply(pixels: &mut [[u8; 4]]) {
+pub(crate) fn premultiply(pixels: &mut [[u8; 4]]) {
     for px in pixels {
         let alpha = u16::from(px[3]);
         for channel in &mut px[..3] {
@@ -62,7 +62,7 @@ fn premultiply(pixels: &mut [[u8; 4]]) {
 
 /// Divides each colour channel by its pixel's alpha: `c * 255 / a`, clamped
 /// to 255, only where `0 < a < 255`.
-fn unpremultiply(pixels: &mut [[u8; 4]]) {
+pub(crate) fn unpremultiply(pixels: &mut [[u8; 4]]) {
     for px in pixels {
         let alpha = u16::from(px[3]);
         if alpha == 0 || alpha == 255 {

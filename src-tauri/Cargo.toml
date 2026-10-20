@@ -14,6 +14,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 getrandom = "0.3"
+# Multi-size .ico encoding for taskbar group icons.
+ico = "0.6"
 # PNG decoding (the embedded fallback icon) and Lanczos3 resizing (imageops).
 image = { version = "0.25", default-features = false, features = ["png"] }
 log = "0.4"
