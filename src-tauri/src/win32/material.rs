@@ -26,6 +26,12 @@ pub fn apply_backdrop<R: Runtime>(
     imp::apply(window, backdrop)
 }
 
+/// Removes Mica and Acrylic from `window`, so another backdrop (or none,
+/// for Solid) can be applied. Failures (nothing to clear) are ignored.
+pub fn clear_backdrop<R: Runtime>(window: &WebviewWindow<R>) {
+    imp::clear(window);
+}
+
 #[cfg(windows)]
 mod imp {
     use tauri::{Runtime, WebviewWindow};
@@ -77,6 +83,13 @@ mod imp {
         };
         result.map_err(|error| format!("{backdrop:?}: {error}"))
     }
+
+    pub(super) fn clear<R: Runtime>(window: &WebviewWindow<R>) {
+        // Only the one that was applied succeeds; the other has nothing
+        // to clear, which is not an error worth logging.
+        let _ = window_vibrancy::clear_mica(window);
+        let _ = window_vibrancy::clear_acrylic(window);
+    }
 }
 
 #[cfg(not(windows))]
@@ -99,6 +112,8 @@ mod imp {
     ) -> Result<(), String> {
         Err("unsupported platform".to_owned())
     }
+
+    pub(super) fn clear<R: Runtime>(_window: &WebviewWindow<R>) {}
 }
 
 #[cfg(all(test, windows))]

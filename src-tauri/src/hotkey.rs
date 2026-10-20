@@ -87,6 +87,7 @@ pub fn register_at_startup<R: Runtime>(app: &AppHandle<R>, hotkey: &str) {
             if let Err(e) = app.emit(HOTKEY_FAILED_EVENT, &failed) {
                 log::warn!("could not emit {HOTKEY_FAILED_EVENT}: {e}");
             }
+            crate::tray::notify_hotkey_failed(app, hotkey);
             *lock(&state.pending) = Some(failed);
         }
     }
@@ -107,12 +108,13 @@ pub fn notify_pending<R: Runtime>(app: &AppHandle<R>, label: &str) {
     }
 }
 
-/// Swaps the registered shortcut for `hotkey`: the old one is
+/// Swaps the registered shortcut for `hotkey` (it must pass
+/// [`crate::hotkey_rules::check`]): the old one is
 /// unregistered and `hotkey` registered. If that fails the old one is
 /// registered again and the error returned. The caller saves `hotkey`
 /// only on `Ok`.
 pub fn replace<R: Runtime>(app: &AppHandle<R>, hotkey: &str) -> Result<(), String> {
-    parse(hotkey)?;
+    crate::hotkey_rules::check(&parse(hotkey)?)?;
     let state = app
         .try_state::<HotkeyState>()
         .ok_or("the shortcut is not set up yet")?;

@@ -1,10 +1,12 @@
-//! Composes a folder image: up to four app icons on a squircle background.
+//! Composes a folder image: up to four app icons on the folder background.
 
 use image::imageops;
-use image::{Rgba, RgbaImage};
+use image::{GrayImage, Rgba, RgbaImage};
 
-use super::squircle::{apply_mask, inset_squircle_mask, rounded_square_mask, squircle_mask};
-use super::style::FolderStyle;
+use super::squircle::{
+    apply_mask, inset_rounded_square_mask, inset_squircle_mask, rounded_square_mask,
+};
+use super::style::{FolderStyle, Outline};
 use crate::icons::pixels::fit_square;
 
 /// Most icons a folder shows; the rest are left out.
@@ -28,12 +30,12 @@ pub struct Cell {
 /// fitted to its cell with Lanczos3 (on premultiplied pixels), its corners
 /// rounded by `style.inner_icon_corner_ratio`, and drawn source-over
 /// (straight alpha) on the background. The whole canvas is then masked by
-/// the squircle outline.
+/// the folder outline.
 pub fn compose_folder(icons: &[RgbaImage], style: &FolderStyle) -> RgbaImage {
     let size = style.canvas;
     let mut canvas = RgbaImage::from_pixel(size, size, Rgba(style.background));
     if let Some((colour, width)) = style.border {
-        draw_border(&mut canvas, style.corner_exponent, colour, width);
+        draw_border(&mut canvas, style.outline, colour, width);
     }
     let shown = &icons[..icons.len().min(MAX_FOLDER_ICONS)];
     for (icon, cell) in shown.iter().zip(layout(shown.len(), style)) {
@@ -42,7 +44,7 @@ pub fn compose_folder(icons: &[RgbaImage], style: &FolderStyle) -> RgbaImage {
         apply_mask(&mut fitted, &rounded_square_mask(cell.size, radius));
         imageops::overlay(&mut canvas, &fitted, cell.x, cell.y);
     }
-    apply_mask(&mut canvas, &squircle_mask(size, style.corner_exponent));
+    apply_mask(&mut canvas, &outline_mask(size, style.outline, 0.0));
     canvas
 }
 
@@ -86,11 +88,26 @@ pub fn layout(count: usize, style: &FolderStyle) -> Vec<Cell> {
     }
 }
 
-/// Draws a `width`-pixel outline of `colour` just inside the squircle's
-/// edge. The final squircle mask trims its outer side.
-fn draw_border(canvas: &mut RgbaImage, n: f32, colour: [u8; 4], width: f32) {
+/// The mask of `outline` on a `size` canvas, pulled in by `inset` pixels.
+fn outline_mask(size: u32, outline: Outline, inset: f32) -> GrayImage {
+    match outline {
+        Outline::Squircle(n) => inset_squircle_mask(size, n, inset),
+        Outline::RoundedSquare(ratio) => {
+            inset_rounded_square_mask(size, ratio * size as f32, inset)
+        }
+    }
+}
+
+/// Draws a `width`-pixel outline of `colour` just inside the folder's
+/// edge. The final outline mask trims its outer side.
+fn draw_border(canvas: &mut RgbaImage, outline: Outline, colour: [u8; 4], width: f32) {
     let size = canvas.width();
-    let inner = inset_squircle_mask(size, n, width.max(0.0));
+    let inset = if width.is_finite() {
+        width.max(0.0)
+    } else {
+        0.0
+    };
+    let inner = outline_mask(size, outline, inset);
     let ring = RgbaImage::from_fn(size, size, |x, y| {
         let outside_inner = 255 - u32::from(inner.get_pixel(x, y)[0]);
         let alpha = (u32::from(colour[3]) * outside_inner + 127) / 255;

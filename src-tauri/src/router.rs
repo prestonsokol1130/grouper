@@ -18,6 +18,6 @@ pub fn route<R: Runtime>(app: &AppHandle<R>, cmd: LaunchCommand) {
         LaunchCommand::Manager => {
             let _ = show_window(app, "manager");
         }
-        LaunchCommand::None => {}
+        LaunchCommand::Background | LaunchCommand::None => {}
     }
 }

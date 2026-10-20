@@ -51,13 +51,28 @@ pub fn not_found(name: &str) -> String {
 pub fn launch(entry: &AppEntry) -> Result<(), String> {
     let target = launch_target(entry, Path::exists).ok_or_else(|| not_found(&entry.name))?;
     let name = entry.name.clone();
+    on_launch_thread(target).map_err(|error| format!("Could not start {name}: {error}"))
+}
+
+/// Opens `target`, a folder or a web address, with the Shell the way a
+/// double-click would (Explorer, or the default browser). Same thread and
+/// errors as [`launch`].
+pub fn open_with_shell(target: &str) -> Result<(), String> {
+    on_launch_thread(LaunchTarget::Program {
+        file: target.to_owned(),
+        args: String::new(),
+        working_dir: String::new(),
+    })
+}
+
+/// Runs the Shell step for `target` on the launch thread and waits for it.
+fn on_launch_thread(target: LaunchTarget) -> Result<(), String> {
     std::thread::Builder::new()
         .name(LAUNCH_THREAD.to_owned())
         .spawn(move || imp::shell_open(&target))
         .map_err(|e| format!("could not spawn thread {LAUNCH_THREAD:?}: {e}"))?
         .join()
         .map_err(|_| format!("thread {LAUNCH_THREAD:?} panicked"))?
-        .map_err(|error| format!("Could not start {name}: {error}"))
 }
 
 #[cfg(windows)]

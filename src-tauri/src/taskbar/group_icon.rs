@@ -9,7 +9,7 @@ use image::{ImageFormat, RgbaImage};
 use super::compose::compose_folder;
 use super::ico::encode_ico;
 use super::icon_inputs::group_icon_inputs;
-use super::style::FOLDER_STYLE;
+use super::style::folder_style;
 use crate::icons::cache::{check_id, icon_path, ICON_SIZE};
 use crate::icons::fallback::fallback_icon;
 use crate::state::disk_write::{reject_symlink, write_atomic};
@@ -55,7 +55,10 @@ pub fn build_group_icon(
         .iter()
         .map(|app_id| load_icon(&icons_dir, app_id))
         .collect();
-    let bytes = encode_ico(&compose_folder(&icons, &FOLDER_STYLE))?;
+    let bytes = encode_ico(&compose_folder(
+        &icons,
+        &folder_style(state.settings.folder_shape),
+    ))?;
 
     let groups_dir = cache_dir.join(GROUPS_DIR);
     reject_symlink(&groups_dir)?;

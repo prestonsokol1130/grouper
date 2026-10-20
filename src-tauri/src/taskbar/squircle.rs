@@ -33,13 +33,32 @@ pub fn inset_squircle_mask(size: u32, n: f32, inset: f32) -> GrayImage {
 /// A square with its corners rounded to `radius` pixels (clamped to
 /// `0..=size / 2`; a radius that is not a number counts as 0).
 pub fn rounded_square_mask(size: u32, radius: f32) -> GrayImage {
-    let side = size as f32;
+    inset_rounded_square_mask(size, radius, 0.0)
+}
+
+/// Like [`rounded_square_mask`], with the edge pulled in by `inset` pixels
+/// on every side (the corner radius shrinks with it). An empty mask if
+/// nothing is left.
+pub fn inset_rounded_square_mask(size: u32, radius: f32, inset: f32) -> GrayImage {
+    let inset = if inset.is_finite() {
+        inset.max(0.0)
+    } else {
+        0.0
+    };
+    let side = size as f32 - 2.0 * inset;
+    if side <= 0.0 {
+        return GrayImage::new(size, size);
+    }
     let r = if radius.is_finite() {
-        radius.clamp(0.0, side / 2.0)
+        (radius - inset).clamp(0.0, side / 2.0)
     } else {
         0.0
     };
     coverage_mask(size, |x, y| {
+        let (x, y) = (x - inset, y - inset);
+        if x < 0.0 || y < 0.0 || x > side || y > side {
+            return false;
+        }
         // Distance past the straight edges, towards the nearest corner.
         let dx = (r - x).max(x - (side - r)).max(0.0);
         let dy = (r - y).max(y - (side - r)).max(0.0);

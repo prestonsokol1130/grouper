@@ -6,10 +6,10 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 use specta::Type;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::flyout::FLYOUT_LABEL;
-use crate::win32::material::{apply_backdrop, backdrops_allowed, Backdrop};
+use crate::win32::material::{apply_backdrop, backdrops_allowed, clear_backdrop, Backdrop};
 
 /// The material a window ended up with.
 // With `solid` the page paints `--solid-bg` itself; with the others it
@@ -22,16 +22,7 @@ pub enum Material {
     Solid,
 }
 
-/// The "Window background" setting. Only `Mixed`, the default, is used
-/// until the setting exists; the others override every window at once.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum BackgroundSetting {
-    #[default]
-    Mixed,
-    Mica,
-    Acrylic,
-    Solid,
-}
+pub use crate::state::settings::BackgroundSetting;
 
 /// The windows that get a material, by label.
 pub const MATERIAL_WINDOWS: [&str; 3] = ["manager", "launchpad", FLYOUT_LABEL];
@@ -113,10 +104,27 @@ impl MaterialState {
     }
 }
 
+/// Emitted to every window after [`reapply`] changed the materials; each
+/// page then asks for its own again (`get_window_material`).
+pub const MATERIAL_CHANGED_EVENT: &str = "material:changed";
+
 /// Applies each window's material under `setting` and records the result.
 /// Call once at startup, on the main thread, after the windows exist.
 pub fn init<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting) {
     app.manage(MaterialState::default());
+    apply_all(app, setting, false);
+}
+
+/// Applies `setting` to every window again after the "Window background"
+/// setting changed, then emits [`MATERIAL_CHANGED_EVENT`]. Main thread.
+pub fn reapply<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting) {
+    apply_all(app, setting, true);
+    if let Err(error) = app.emit(MATERIAL_CHANGED_EVENT, ()) {
+        log::warn!("could not emit {MATERIAL_CHANGED_EVENT}: {error}");
+    }
+}
+
+fn apply_all<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting, clear: bool) {
     let Some(state) = app.try_state::<MaterialState>() else {
         return;
     };
@@ -126,6 +134,9 @@ pub fn init<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting) {
             log::warn!("window {label:?} not found; no material applied");
             continue;
         };
+        if clear {
+            clear_backdrop(&window);
+        }
         let wanted = wanted(setting, label);
         let got = pick(fallbacks(wanted), allowed, |b| apply_backdrop(&window, b));
         log::info!("window {label:?} material: {got:?} (wanted {wanted:?}, allowed {allowed})");

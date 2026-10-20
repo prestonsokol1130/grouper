@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use super::shortcut_worker::{queue, Job};
 use crate::state::ids::new_group_id;
-use crate::state::{AppState, Group, LaunchpadLayout, Settings, SettingsPatch, Store};
+use crate::state::{AppState, Group, LaunchpadLayout, Store};
 use crate::taskbar::shortcut_sync::Change;
 
 /// Emitted to every window with the full new [`AppState`] after a change.
@@ -171,23 +171,6 @@ pub fn reorder_groups(
     ids: Vec<String>,
 ) -> Result<(), String> {
     mutate(&app, &store, |state| state.reorder_groups(&ids))
-}
-
-/// Changes only the settings present in `patch`; the rest are kept.
-// The shortcut is changed with `set_hotkey`, which registers it first.
-#[tauri::command]
-#[specta::specta]
-pub fn update_settings(
-    app: AppHandle,
-    store: State<'_, Arc<Store>>,
-    patch: SettingsPatch,
-) -> Result<Settings, String> {
-    let settings = mutate(&app, &store, |state| {
-        state.settings.apply(patch);
-        Ok(state.settings.clone())
-    })?;
-    crate::hot_corners::update(&app, settings.hot_corners);
-    Ok(settings)
 }
 
 /// Replaces the Launchpad layout (dangling ids are dropped).

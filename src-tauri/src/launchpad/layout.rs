@@ -7,7 +7,7 @@ use crate::commands::state_cmds::STATE_CHANGED_EVENT;
 use crate::state::{AppEntry, LaunchpadItem, LaunchpadLayout, Store};
 
 /// The default "Launchpad grid" (DESIGN.md section 8): 7 across, 5 down.
-/// Settings has no grid field yet, so this is the grid.
+/// The grid in use is `Settings::per_page`; these are its defaults.
 pub const GRID_COLUMNS: usize = 7;
 pub const GRID_ROWS: usize = 5;
 
@@ -54,7 +54,7 @@ pub fn ensure_default<R: Runtime>(app: &AppHandle<R>, store: &Store) {
             if !is_empty(&state.launchpad) {
                 return Ok(false);
             }
-            let layout = default_layout(&state.apps, PER_PAGE);
+            let layout = default_layout(&state.apps, state.settings.per_page());
             if is_empty(&layout) {
                 return Ok(false);
             }

@@ -3,11 +3,13 @@
 
 pub mod appearance;
 pub mod apps;
+pub mod autostart;
 pub mod cli;
 pub mod commands;
 pub mod flyout;
 pub mod hot_corners;
 pub mod hotkey;
+pub mod hotkey_rules;
 pub mod icons;
 pub mod launchpad;
 pub mod logging;
@@ -50,6 +52,7 @@ fn start() -> Result<(), String> {
         }))
         .plugin(logging::plugin())
         .plugin(hotkey::plugin())
+        .plugin(autostart::plugin())
         .invoke_handler(commands.invoke_handler())
         .on_window_event(windows::handle_window_event)
         .setup(|app| {
@@ -83,13 +86,19 @@ fn start() -> Result<(), String> {
             let settings = store.snapshot().settings;
             hotkey::register_at_startup(handle, &settings.hotkey);
             hot_corners::start(handle, settings.hot_corners);
-            appearance::material::init(handle, appearance::material::BackgroundSetting::default());
+            appearance::material::init(handle, settings.background);
             appearance::accent::init(handle);
             // args_os: std::env::args panics on non-Unicode arguments.
             let args: Vec<String> = std::env::args_os()
                 .map(|arg| arg.to_string_lossy().into_owned())
                 .collect();
-            router::route(handle, cli::parse_args(&args));
+            autostart::sync_setting(&autostart::PluginLauncher(handle), &store);
+            let command = cli::parse_args(&args);
+            // The first run opens the welcome; a sign-in launch never does.
+            if !settings.first_run_done && command == cli::LaunchCommand::None {
+                router::route(handle, cli::LaunchCommand::Manager);
+            }
+            router::route(handle, command);
             Ok(())
         })
         .build(tauri::generate_context!())

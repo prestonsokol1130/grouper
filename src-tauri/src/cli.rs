@@ -9,6 +9,9 @@ pub enum LaunchCommand {
     Launchpad,
     /// Open the Manager window.
     Manager,
+    /// Started by Windows at sign-in (`--background`): open no window,
+    /// not even the first-run welcome.
+    Background,
     /// Nothing to do; stay in the tray.
     None,
 }
@@ -26,15 +29,19 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
             "--flyout" => return parse_flyout(rest.next()),
             "--launchpad" => return LaunchCommand::Launchpad,
             "--manager" => return LaunchCommand::Manager,
+            BACKGROUND_FLAG => return LaunchCommand::Background,
             _ => {}
         }
     }
     LaunchCommand::None
 }
 
+/// The flag the Windows sign-in (Run key) launch passes.
+pub const BACKGROUND_FLAG: &str = "--background";
+
 /// The flags [`parse_args`] knows. One of them after `--flyout` is a
 /// missing id, not an id.
-const KNOWN_FLAGS: [&str; 3] = ["--flyout", "--launchpad", "--manager"];
+const KNOWN_FLAGS: [&str; 4] = ["--flyout", "--launchpad", "--manager", BACKGROUND_FLAG];
 
 /// Validates the id that follows `--flyout`. Group ids may start with `--`
 /// (`-` is in their alphabet), so only the exact known flags are refused.
@@ -157,6 +164,18 @@ mod tests {
         assert_eq!(
             parse_args(&args(&["--verbose", "x", "--manager"])),
             LaunchCommand::Manager
+        );
+    }
+
+    #[test]
+    fn background_launch() {
+        assert_eq!(
+            parse_args(&args(&["--background"])),
+            LaunchCommand::Background
+        );
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--background"])),
+            LaunchCommand::None
         );
     }
 

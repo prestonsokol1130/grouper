@@ -10,6 +10,7 @@ pub mod model;
 pub mod ops;
 pub mod paths;
 pub mod reorder;
+pub mod settings;
 pub mod store;
 
 #[cfg(test)]
@@ -20,6 +21,8 @@ mod folders_store_tests;
 mod folders_tests;
 #[cfg(test)]
 mod model_tests;
+#[cfg(test)]
+mod settings_tests;
 #[cfg(test)]
 mod store_icon_tests;
 #[cfg(test)]

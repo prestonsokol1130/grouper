@@ -8,6 +8,7 @@ pub mod icon_cmds;
 pub mod launch_cmds;
 pub mod launchpad_cmds;
 pub mod scan_cmds;
+pub mod settings_cmds;
 pub mod shortcut_cmds;
 mod shortcut_jobs;
 pub mod shortcut_worker;
@@ -28,7 +29,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             state_cmds::delete_group,
             state_cmds::set_group_apps,
             state_cmds::reorder_groups,
-            state_cmds::update_settings,
+            settings_cmds::update_settings,
             state_cmds::set_launchpad_layout,
             folder_cmds::apply_launchpad_merge,
             folder_cmds::remove_app_from_folder,
@@ -46,6 +47,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             flyout_cmds::launch_from_flyout,
             launchpad_cmds::hide_launchpad,
             launchpad_cmds::set_hotkey,
+            settings_cmds::set_autostart,
+            settings_cmds::open_place,
             appearance_cmds::get_accent_color,
             appearance_cmds::get_window_material,
         ])

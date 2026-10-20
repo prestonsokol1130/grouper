@@ -60,6 +60,10 @@ export const commands = {
 	hideLaunchpad: () => typedError<null, string>(__TAURI_INVOKE("hide_launchpad")),
 	/**  Registers shortcut `hotkey` in place of the old one; saved only if it works. */
 	setHotkey: (hotkey: string) => typedError<Settings, string>(__TAURI_INVOKE("set_hotkey", { hotkey })),
+	/**  Turns "Start with Windows" on or off; saves what Windows then reports. */
+	setAutostart: (enabled: boolean) => typedError<Settings, string>(__TAURI_INVOKE("set_autostart", { enabled })),
+	/**  Opens the logs folder, the data folder or the repo page. */
+	openPlace: (place: Place) => typedError<null, string>(__TAURI_INVOKE("open_place", { place })),
 	/**  The Windows accent colour, or `null` when it could not be read. */
 	getAccentColor: () => __TAURI_INVOKE<{
 	/**  The accent on light backgrounds (`UIColorType::AccentDark1`). */
@@ -79,6 +83,8 @@ export type AccentColors = {
 	/**  The accent on dark backgrounds (`UIColorType::AccentLight2`). */
 	dark: string,
 };
+
+export type AnimationStyle = "genie" | "scale" | "smooth";
 
 /**  One launchable app. */
 export type AppEntry = {
@@ -113,6 +119,8 @@ export type AppState = {
 	settings?: Settings,
 };
 
+export type BackgroundSetting = "mixed" | "mica" | "acrylic" | "solid";
+
 /**  The monitor edge the taskbar is docked to. */
 export type Edge = "bottom" | "top" | "left" | "right";
 
@@ -138,6 +146,8 @@ export type FlyoutSize = {
 	height: number,
 };
 
+export type FolderShape = "square" | "squircle";
+
 /**  A group of apps: both a taskbar folder and a Launchpad folder. */
 export type Group = {
 	/**  Short random url-safe id (`[A-Za-z0-9_-]`). */
@@ -156,6 +166,8 @@ export type HotCorners = {
 	topLeft?: boolean,
 	topRight?: boolean,
 };
+
+export type IconSize = "small" | "medium" | "large";
 
 /**  What a group launch did. */
 export type LaunchSummary = {
@@ -182,22 +194,36 @@ export type LaunchpadSlot = {
 /**  The material a window ended up with. */
 export type Material = "mica" | "acrylic" | "solid";
 
+export type Place = "logs" | "data" | "repo";
+
 /**  User settings. */
 export type Settings = {
 	hotkey?: string,
 	hotCorners?: HotCorners,
 	autostart?: boolean,
-	/**  `"system"`, `"light"` or `"dark"`. */
 	theme?: string,
 	firstRunDone?: boolean,
+	accent?: string,
+	background?: BackgroundSetting,
+	folderShape?: FolderShape,
+	iconSize?: IconSize,
+	gridColumns?: number,
+	gridRows?: number,
+	animation?: AnimationStyle,
 };
 
 /**  A partial settings update: only the fields that are set are changed. */
 export type SettingsPatch = {
 	hotCorners?: HotCorners | null,
-	autostart?: boolean | null,
 	theme?: string | null,
 	firstRunDone?: boolean | null,
+	accent?: string | null,
+	background?: BackgroundSetting | null,
+	folderShape?: FolderShape | null,
+	iconSize?: IconSize | null,
+	gridColumns?: number | null,
+	gridRows?: number | null,
+	animation?: AnimationStyle | null,
 };
 
 /* Tauri Specta runtime */

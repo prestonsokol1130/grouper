@@ -5,7 +5,6 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 use super::state_cmds::{mutate, remove_group_files};
-use crate::launchpad::layout::PER_PAGE;
 use crate::state::ids::new_group_id;
 use crate::state::{LaunchpadItem, LaunchpadSlot, Store};
 
@@ -40,7 +39,8 @@ pub fn remove_app_from_folder(
     to: LaunchpadSlot,
 ) -> Result<(), String> {
     let deleted = mutate(&app, &store, |state| {
-        state.take_out_of_folder(&group_id, &app_id, to, PER_PAGE)
+        let per_page = state.settings.per_page();
+        state.take_out_of_folder(&group_id, &app_id, to, per_page)
     })?;
     if deleted {
         remove_group_files(&app, group_id);

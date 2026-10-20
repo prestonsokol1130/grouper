@@ -3,7 +3,8 @@
 use image::{Rgba, RgbaImage};
 
 use super::compose::{compose_folder, layout, Cell};
-use super::style::{FolderStyle, FOLDER_STYLE};
+use super::style::{folder_style, FolderStyle, Outline, FOLDER_STYLE};
+use crate::state::settings::FolderShape;
 
 const RED: Rgba<u8> = Rgba([220, 40, 40, 255]);
 const GREEN: Rgba<u8> = Rgba([40, 180, 70, 255]);
@@ -114,6 +115,7 @@ fn transparent_icon_edges_have_no_dark_fringe() {
     });
     let style = FolderStyle {
         background: [0, 0, 0, 0],
+        border: None,
         ..FOLDER_STYLE
     };
     let image = compose_folder(&[disc], &style);
@@ -124,14 +126,26 @@ fn transparent_icon_edges_have_no_dark_fringe() {
 
 #[test]
 fn border_draws_inside_the_edge() {
-    let style = FolderStyle {
-        border: Some(([0, 0, 0, 255], 4.0)),
-        ..FOLDER_STYLE
-    };
-    let image = compose_folder(&[], &style);
-    assert_eq!(*image.get_pixel(128, 1), Rgba([0, 0, 0, 255]));
-    assert_eq!(*image.get_pixel(128, 128), Rgba(FOLDER_STYLE.background));
-    assert_corners_clear(&image);
+    for shape in [FolderShape::Square, FolderShape::Squircle] {
+        let style = FolderStyle {
+            border: Some(([0, 0, 0, 255], 4.0)),
+            ..folder_style(shape)
+        };
+        let image = compose_folder(&[], &style);
+        assert_eq!(*image.get_pixel(128, 1), Rgba([0, 0, 0, 255]), "{shape:?}");
+        assert_eq!(*image.get_pixel(128, 128), Rgba(FOLDER_STYLE.background));
+        assert_corners_clear(&image);
+    }
+}
+
+#[test]
+fn the_two_shapes_differ_only_near_the_corners() {
+    let square = compose_folder(&[], &folder_style(FolderShape::Square));
+    let squircle = compose_folder(&[], &folder_style(FolderShape::Squircle));
+    assert_ne!(square, squircle);
+    assert_eq!(square.get_pixel(128, 128), squircle.get_pixel(128, 128));
+    // 18% corners keep (14, 14) inside the square; n = 5 cuts it.
+    assert!(square.get_pixel(14, 14)[3] > squircle.get_pixel(14, 14)[3]);
 }
 
 #[test]
@@ -148,10 +162,16 @@ fn odd_styles_do_not_panic() {
     assert_eq!(compose_folder(&icons(&[RED]), &zero).dimensions(), (0, 0));
     let cramped = FolderStyle {
         padding_ratio: 0.6,
-        corner_exponent: f32::NAN,
+        outline: Outline::Squircle(f32::NAN),
         border: Some(([0, 0, 0, 255], f32::NAN)),
         ..FOLDER_STYLE
     };
     let image = compose_folder(&icons(&[RED, GREEN]), &cramped);
+    assert_eq!(image.dimensions(), (256, 256));
+    let odd_square = FolderStyle {
+        outline: Outline::RoundedSquare(f32::NAN),
+        ..cramped
+    };
+    let image = compose_folder(&icons(&[RED]), &odd_square);
     assert_eq!(image.dimensions(), (256, 256));
 }

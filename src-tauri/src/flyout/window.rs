@@ -10,7 +10,7 @@ use tauri::{
 };
 
 use super::hide::hide_or_log;
-use super::layout::{fit_height, flyout_size, to_physical, LAYOUT};
+use super::layout::{fit_height, flyout_size, layout_for, to_physical};
 use super::origin::origin;
 use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
@@ -111,10 +111,14 @@ fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
 fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> Result<(), String> {
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
-    let size = flyout_size(group.app_ids.len(), &LAYOUT);
-    let size = fit_height(size, usable_height(&monitor), monitor.scale, &LAYOUT);
+    let icon = app
+        .try_state::<Arc<Store>>()
+        .map(|s| s.snapshot().settings.icon_size);
+    let layout = layout_for(icon.unwrap_or_default());
+    let size = flyout_size(group.app_ids.len(), &layout);
+    let size = fit_height(size, usable_height(&monitor), monitor.scale, &layout);
     let logical = (f64::from(size.width), f64::from(size.height));
-    let (x, y) = place(cursor, logical, &monitor, f64::from(LAYOUT.margin));
+    let (x, y) = place(cursor, logical, &monitor, f64::from(layout.margin));
     let edge = taskbar_edge(&monitor);
     let payload = FlyoutShow {
         group_id: group.id.clone(),
