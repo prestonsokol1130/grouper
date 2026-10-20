@@ -51,12 +51,10 @@ if (isTauri()) followAccent();
 if (isTauri() && label !== "styleguide") {
   useAppStore.getState().init();
   // Preload the fallback icon so it is warm for the first UI. The Image is
-  // never attached to the DOM, so nothing is shown. Bumping the icon
-  // version re-renders icons drawn before the cache folder was known.
+  // never attached to the DOM, so nothing is shown.
   initIconUrls()
     .then(() => {
-      useAppStore.getState().bumpIconVersion();
-      const fallback = iconUrl("_fallback");
+      const fallback = iconUrl("_fallback", useAppStore.getState().iconVersion);
       if (fallback !== null) new Image().src = fallback;
     })
     .catch((error: unknown) => console.error("icon URLs:", error));

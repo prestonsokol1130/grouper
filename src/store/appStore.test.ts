@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 
 describe("init", () => {
-  it("loads get_state and follows state:changed and icons:updated", async () => {
+  it("loads get_state and follows state:changed", async () => {
     invokeMock.mockResolvedValueOnce(STATE);
     const stop = store().init();
     await flush();
@@ -36,9 +36,6 @@ describe("init", () => {
     const pushed = { ...STATE, groups: [] };
     emitMock("state:changed", pushed);
     expect(store().state).toBe(pushed);
-
-    emitMock("icons:updated", ["a"]);
-    expect(store().iconVersion).toBe(2);
     stop();
   });
 
@@ -100,6 +97,63 @@ describe("optimistic updates", () => {
     reject("failed");
     await pending;
     expect(store().state).toBe(newer);
+  });
+
+  it("returns to the original state when two overlapping calls both fail", async () => {
+    const rejects: ((reason: string) => void)[] = [];
+    const pending = () => new Promise((_, reject) => rejects.push(reject));
+    invokeMock.mockImplementation((command) =>
+      command === "get_state" ? Promise.resolve(STATE) : pending(),
+    );
+    const rename = store().renameGroup("g1", "Games");
+    const reorder = store().setGroupApps("g1", ["b", "a"]);
+    expect(groupName()).toBe("Games");
+    rejects[0]?.("rename failed");
+    await rename;
+    // The reorder is still in flight; the rename's failure waits for it.
+    expect(groupsById(store().state ?? {}).get("g1")?.appIds).toEqual(["b", "a"]);
+    rejects[1]?.("reorder failed");
+    await reorder;
+    expect(store().state).toBe(STATE);
+    await flush();
+    expect(store().state).toEqual(STATE);
+    expect(invokeMock).toHaveBeenCalledWith("get_state", undefined);
+  });
+
+  it("refetches after overlap so a call that succeeded is kept", async () => {
+    const server = { ...STATE, groups: [{ id: "g1", name: "Work", appIds: ["b", "a"] }] };
+    let rejectRename: (reason: string) => void = () => undefined;
+    invokeMock.mockImplementation((command) => {
+      if (command === "rename_group") return new Promise((_, r) => (rejectRename = r));
+      if (command === "set_group_apps") return Promise.resolve(server.groups[0]);
+      return Promise.resolve(server);
+    });
+    const rename = store().renameGroup("g1", "Games");
+    await store().setGroupApps("g1", ["b", "a"]);
+    rejectRename("rename failed");
+    await rename;
+    await flush();
+    expect(store().state).toBe(server);
+  });
+
+  it("ignores the refetch when a state:changed arrives first", async () => {
+    let resolveFetch: (value: AppState) => void = () => undefined;
+    const rejects: ((reason: string) => void)[] = [];
+    invokeMock.mockImplementation((command) =>
+      command === "get_state"
+        ? new Promise((r) => (resolveFetch = r))
+        : new Promise((_, reject) => rejects.push(reject)),
+    );
+    const a = store().renameGroup("g1", "One");
+    const b = store().renameGroup("g1", "Two");
+    rejects[0]?.("x");
+    rejects[1]?.("y");
+    await Promise.all([a, b]);
+    const pushed = { ...STATE, groups: [] };
+    store().applyState(pushed);
+    resolveFetch(STATE);
+    await flush();
+    expect(store().state).toBe(pushed);
   });
 
   it("does nothing before the state has loaded", async () => {

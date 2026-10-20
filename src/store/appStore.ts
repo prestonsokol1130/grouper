@@ -13,11 +13,13 @@ export type AppStore = {
   /** Why the first read failed, if it did. */
   error: string | null;
   /**
-   * Icon cache-buster: starts at this page load's time and is bumped on
-   * every `icons:updated`, so `<img>` URLs change when an icon does.
+   * The icon cache-buster: starts at this page load's time, so a reloaded
+   * page never reuses an earlier load's cached image, and is bumped on
+   * every `icons:updated` (by `initIconUrls`), so `<img>` URLs change when
+   * an icon does.
    */
   iconVersion: number;
-  /** Reads the state and follows backend events; returns a stop function. */
+  /** Reads the state and follows `state:changed`; returns a stop function. */
   init: () => () => void;
   /** Replaces the state with one pushed by the backend. */
   applyState: (state: AppState) => void;
@@ -28,9 +30,47 @@ export type AppStore = {
 };
 
 /**
- * Applies `update` at once, then runs `call`. On failure the change is
- * rolled back (unless a newer backend state has replaced it meanwhile),
- * the raw error goes to the log and a friendly toast is shown.
+ * Bookkeeping for optimistic calls. `backend` is the last state the
+ * backend sent (get_state or state:changed) and `applied` counts those, so
+ * a refetch can tell whether a newer push beat it.
+ */
+const flight = {
+  backend: null as AppState | null,
+  applied: 0,
+  inFlight: 0,
+  /** A call failed since the store last had nothing in flight. */
+  failed: false,
+  /** Two or more calls overlapped since then. */
+  overlapped: false,
+};
+
+/**
+ * Once no optimistic call is in flight and one of them failed: goes back
+ * to the last backend state, so no failed change (and no other call's
+ * optimistic state) is left showing. After overlapping calls the backend
+ * may have taken some of them, so the state is fetched again; that read is
+ * dropped if a state:changed arrives first.
+ */
+function settle(get: () => AppStore, set: (partial: Partial<AppStore>) => void): void {
+  if (flight.inFlight > 0 || !flight.failed) return;
+  const refetch = flight.overlapped;
+  flight.failed = false;
+  flight.overlapped = false;
+  if (flight.backend !== null && get().state !== flight.backend) set({ state: flight.backend });
+  if (!refetch) return;
+  const applied = flight.applied;
+  void api.getState().then((result) => {
+    if (result.ok && flight.applied === applied && flight.inFlight === 0) {
+      get().applyState(result.value);
+    }
+  });
+}
+
+/**
+ * Applies `update` at once, then runs `call`. On failure the raw error
+ * goes to the log, a friendly toast is shown and, once nothing else is in
+ * flight, the store returns to the backend's state (see {@link settle}).
+ * A newer state:changed always wins.
  */
 async function optimistic(
   get: () => AppStore,
@@ -41,14 +81,18 @@ async function optimistic(
 ): Promise<boolean> {
   const previous = get().state;
   if (previous === null) return false;
-  const next = update(previous);
-  set({ state: next });
+  flight.inFlight += 1;
+  if (flight.inFlight > 1) flight.overlapped = true;
+  set({ state: update(previous) });
   const result = await call();
-  if (result.ok) return true;
-  if (get().state === next) set({ state: previous });
-  console.error(`${failure} ${result.error}`);
-  showToast({ kind: "error", title: failure, message: "Please try again." });
-  return false;
+  flight.inFlight -= 1;
+  if (!result.ok) {
+    flight.failed = true;
+    console.error(`${failure} ${result.error}`);
+    showToast({ kind: "error", title: failure, message: "Please try again." });
+  }
+  settle(get, set);
+  return result.ok;
 }
 
 export const useAppStore = create<AppStore>()((set, get) => ({
@@ -65,7 +109,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       pushed = true;
       get().applyState(state);
     });
-    const stopIcons = onEvent("icons:updated", () => get().bumpIconVersion());
     void api.getState().then((result) => {
       if (pushed) return;
       if (result.ok) {
@@ -80,13 +123,14 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         message: "Restart Grouper to try again.",
       });
     });
-    return () => {
-      stopState();
-      stopIcons();
-    };
+    return stopState;
   },
 
-  applyState: (state) => set({ state, loading: false, error: null }),
+  applyState: (state) => {
+    flight.backend = state;
+    flight.applied += 1;
+    set({ state, loading: false, error: null });
+  },
 
   bumpIconVersion: () => set((store) => ({ iconVersion: store.iconVersion + 1 })),
 

@@ -53,6 +53,7 @@ mod imp {
     use windows::UI::ViewManagement::{UIColorType, UISettings};
 
     use super::{AccentPair, Rgb};
+    use crate::win32::com::ComGuard;
 
     pub(super) struct Watcher {
         settings: UISettings,
@@ -87,6 +88,15 @@ mod imp {
         let pair = read(&settings)?;
         let handler = TypedEventHandler::<UISettings, windows::core::IInspectable>::new(
             move |sender, _args| {
+                // The handler runs on a system thread, so COM is set up
+                // here for the duration of this call.
+                let _com = match ComGuard::new() {
+                    Ok(guard) => guard,
+                    Err(error) => {
+                        log::warn!("accent change: no COM on this thread: {error}");
+                        return Ok(());
+                    }
+                };
                 let colors = match sender.as_ref() {
                     Some(settings) => read(settings),
                     None => Err("no UISettings sender".to_owned()),
@@ -105,9 +115,11 @@ mod imp {
 #[cfg(all(test, windows))]
 mod tests {
     use super::watch_accent;
+    use crate::win32::com::ComGuard;
 
     #[test]
     fn reads_the_live_accent() {
+        let _com = ComGuard::new().unwrap();
         let (pair, watcher) = watch_accent(|_| {}).unwrap();
         // AccentDark1 is darker than AccentLight2 for every Windows accent.
         let sum = |c: super::Rgb| u32::from(c.0) + u32::from(c.1) + u32::from(c.2);
