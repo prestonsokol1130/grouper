@@ -47,10 +47,13 @@ pub fn check(visible: bool, in_front: bool) -> Check {
 /// in front, then hides it.
 pub fn on_blur<R: Runtime>(app: &AppHandle<R>, hwnd: isize) {
     if WATCHING.swap(true, Ordering::SeqCst) {
+        log::debug!("Launchpad blur: already watching");
         return;
     }
+    log::info!("Launchpad blurred; watching the foreground");
     let watcher = app.clone();
     let started = spawn_logged("launchpad-blur", move || {
+        let mut waits = 0_u32;
         loop {
             std::thread::sleep(POLL);
             let visible = super::window::launchpad_visible(&watcher);
@@ -58,9 +61,11 @@ pub fn on_blur<R: Runtime>(app: &AppHandle<R>, hwnd: isize) {
             let in_front = is_foreground(hwnd as *mut std::ffi::c_void);
             match check(visible, in_front) {
                 Check::Stop => break,
-                Check::Wait => {}
+                Check::Wait => waits = waits.saturating_add(1),
                 Check::Hide => {
-                    log::debug!("Launchpad lost the foreground; hiding");
+                    // waits > 0 means the blur came while it was still in
+                    // front: the case this watch exists for.
+                    log::info!("Launchpad lost the foreground after {waits} wait(s); hiding");
                     super::window::hide_or_log(&watcher);
                     break;
                 }
