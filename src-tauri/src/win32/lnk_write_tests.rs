@@ -126,6 +126,7 @@ fn group_shortcut_has_the_flyout_route_icon_and_aumid() {
             name: "Work: Tools?".to_owned(),
             app_ids: Vec::new(),
             icon_version: 7,
+            ..Group::default()
         }],
         ..AppState::default()
     };
@@ -154,6 +155,7 @@ fn named(id: &str, name: &str) -> Group {
         name: name.to_owned(),
         app_ids: Vec::new(),
         icon_version: 0,
+        ..Group::default()
     }
 }
 

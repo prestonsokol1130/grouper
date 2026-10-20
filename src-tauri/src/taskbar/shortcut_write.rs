@@ -125,8 +125,28 @@ fn candidates(
 }
 
 /// Builds group `group_id`'s icon in `cache_dir` (`{app_data_dir}/cache`,
-/// see [`build_group_icon`]), then writes its shortcut into `dir` and
-/// returns the shortcut's path.
+/// see [`build_group_icon`]), then writes its shortcut into `dir` (see
+/// [`write_shortcut_with_icon`]) and returns the shortcut's path.
+///
+/// Blocks; call it off the async runtime. `Err` for an unknown group, an
+/// unsafe group id, or a failed icon or shortcut write.
+pub fn write_group_shortcut(
+    state: &AppState,
+    group_id: &str,
+    cache_dir: &Path,
+    dir: &Path,
+    exe: &Path,
+) -> Result<PathBuf, String> {
+    check_id(group_id).map_err(|_| format!("group id {group_id:?} is not a safe file name"))?;
+    if state.group_by_id(group_id).is_none() {
+        return Err(format!("Group not found: {group_id}"));
+    }
+    let icon_path = build_group_icon(state, group_id, cache_dir)?;
+    write_shortcut_with_icon(state, group_id, &icon_path, dir, exe)
+}
+
+/// Writes group `group_id`'s shortcut into `dir`, showing the `.ico` at
+/// `icon_path`, and returns the shortcut's path.
 ///
 /// The shortcut starts `exe` with `--flyout <group_id>` in `exe`'s folder,
 /// shows the group's `.ico`, and carries the AppUserModelID
@@ -137,11 +157,11 @@ fn candidates(
 ///
 /// Holds its own `ComGuard` while reading and writing shortcuts. Blocks;
 /// call it off the async runtime. `Err` for an unknown group, an unsafe
-/// group id, or a failed icon or shortcut write.
-pub fn write_group_shortcut(
+/// group id, or a failed shortcut write.
+pub fn write_shortcut_with_icon(
     state: &AppState,
     group_id: &str,
-    cache_dir: &Path,
+    icon_path: &Path,
     dir: &Path,
     exe: &Path,
 ) -> Result<PathBuf, String> {
@@ -150,7 +170,6 @@ pub fn write_group_shortcut(
         .group_by_id(group_id)
         .ok_or_else(|| format!("Group not found: {group_id}"))?;
     let (base, start, names) = candidates(state, group_id, dir)?;
-    let icon_path = build_group_icon(state, group_id, cache_dir)?;
     let aumid = group_aumid(group_id);
     // Every COM interface lives inside classify and write_group_lnk, so
     // all are released before this guard drops.
@@ -164,7 +183,7 @@ pub fn write_group_shortcut(
         lnk_path: lnk_path.clone(),
         exe_path: exe.to_path_buf(),
         args: flyout_args(group_id),
-        icon_path,
+        icon_path: icon_path.to_path_buf(),
         description: description(&group.name),
         aumid,
     })?;

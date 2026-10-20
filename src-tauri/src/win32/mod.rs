@@ -15,6 +15,7 @@ pub mod lnk_aumid;
 pub mod lnk_read;
 pub mod lnk_write;
 pub mod reveal;
+pub mod shell_notify;
 pub mod version_info;
 pub mod wide;
 

@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use super::model::{AppEntry, AppState, Group, LaunchpadItem};
+use crate::taskbar::group_icon::needs_icon_rebuild;
 
 impl AppState {
     /// The app with `id`, if any.
@@ -74,16 +75,24 @@ impl AppState {
     }
 
     /// Sets group `id`'s apps, dropping unknown and repeated ids (first one
-    /// wins), and bumps its icon version. Returns the updated group.
+    /// wins). Its icon version is bumped only when the folder icon changes
+    /// (see [`needs_icon_rebuild`]). Returns the updated group.
     pub fn set_group_apps(&mut self, id: &str, app_ids: Vec<String>) -> Option<Group> {
         let mut seen = HashSet::new();
         let known: Vec<String> = app_ids
             .into_iter()
             .filter(|app_id| self.app_by_id(app_id).is_some() && seen.insert(app_id.clone()))
             .collect();
+        let old = self.group_by_id(id)?;
+        let mut new = Group {
+            app_ids: known,
+            ..old.clone()
+        };
+        if needs_icon_rebuild(old, &new, self) {
+            new.icon_version = new.icon_version.wrapping_add(1);
+        }
         let group = self.group_by_id_mut(id)?;
-        group.app_ids = known;
-        group.icon_version = group.icon_version.wrapping_add(1);
+        *group = new;
         Some(group.clone())
     }
 

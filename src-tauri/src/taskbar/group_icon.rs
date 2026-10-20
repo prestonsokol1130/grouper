@@ -12,15 +12,21 @@ use crate::icons::cache::{check_id, icon_path, ICON_SIZE};
 use crate::icons::fallback::fallback_icon;
 use crate::state::disk_write::{reject_symlink, write_atomic};
 use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
-use crate::state::AppState;
+use crate::state::{AppState, Group};
 
 /// The app ids whose icons a group's folder shows: the first four of the
 /// group's apps that exist and are neither missing nor hidden. Empty for
 /// an unknown group.
 pub fn group_icon_inputs(state: &AppState, group_id: &str) -> Vec<String> {
-    let Some(group) = state.group_by_id(group_id) else {
-        return Vec::new();
-    };
+    state
+        .group_by_id(group_id)
+        .map(|group| icon_inputs_of(state, group))
+        .unwrap_or_default()
+}
+
+/// [`group_icon_inputs`] for `group` itself, which need not be in `state`
+/// (only `state`'s apps are looked at).
+fn icon_inputs_of(state: &AppState, group: &Group) -> Vec<String> {
     group
         .app_ids
         .iter()
@@ -32,6 +38,15 @@ pub fn group_icon_inputs(state: &AppState, group_id: &str) -> Vec<String> {
         .take(MAX_FOLDER_ICONS)
         .cloned()
         .collect()
+}
+
+/// Whether going from `old_group` to `new_group` changes the group's
+/// folder icon: true when the first four visible apps (see
+/// [`group_icon_inputs`], judged by the apps in `state`) differ, including
+/// their order. Apps after the fourth visible one, and hidden or missing
+/// apps, never count.
+pub fn needs_icon_rebuild(old_group: &Group, new_group: &Group, state: &AppState) -> bool {
+    icon_inputs_of(state, old_group) != icon_inputs_of(state, new_group)
 }
 
 /// `{groups_dir}/{group_id}-v{version}.ico`.
@@ -73,7 +88,7 @@ pub fn build_group_icon(
     fs::create_dir_all(&groups_dir).map_err(|e| format!("create {}: {e}", groups_dir.display()))?;
     let dest = group_icon_path(&groups_dir, group_id, group.icon_version);
     write_atomic(&groups_dir, &dest, &bytes)?;
-    remove_other_versions(&groups_dir, group_id, group.icon_version);
+    remove_versions(&groups_dir, group_id, Some(group.icon_version));
     Ok(dest)
 }
 
@@ -100,9 +115,24 @@ fn load_icon(icons_dir: &Path, app_id: &str) -> RgbaImage {
     }
 }
 
+/// Deletes every cached `.ico` of group `group_id`
+/// (`{cache_dir}/groups/{group_id}-v{N}.ico`, any version). Only regular
+/// files are removed; failures are logged, never returned.
+pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
+    if let Err(error) = check_id(group_id) {
+        log::warn!("not removing icons: {error}");
+        return;
+    }
+    let groups_dir = cache_dir.join(GROUPS_DIR);
+    if groups_dir.is_dir() {
+        remove_versions(&groups_dir, group_id, None);
+    }
+}
+
 /// Deletes every `{group_id}-v{N}.ico` in `groups_dir` other than version
-/// `keep`. Only regular files are removed; failures are logged.
-fn remove_other_versions(groups_dir: &Path, group_id: &str, keep: u32) {
+/// `keep` (all of them for `None`). Only regular files are removed;
+/// failures are logged.
+fn remove_versions(groups_dir: &Path, group_id: &str, keep: Option<u32>) {
     let entries = match fs::read_dir(groups_dir) {
         Ok(entries) => entries,
         Err(error) => {
@@ -119,7 +149,7 @@ fn remove_other_versions(groups_dir: &Path, group_id: &str, keep: u32) {
             .and_then(|rest| rest.strip_suffix(".ico"))
             .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
             .and_then(|digits| digits.parse::<u32>().ok());
-        let stale = version.is_some_and(|version| version != keep);
+        let stale = version.is_some_and(|version| Some(version) != keep);
         if stale && entry.file_type().is_ok_and(|kind| kind.is_file()) {
             if let Err(error) = fs::remove_file(entry.path()) {
                 log::warn!("could not remove {}: {error}", entry.path().display());

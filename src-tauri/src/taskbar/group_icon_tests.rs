@@ -6,7 +6,9 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 
-use super::group_icon::{build_group_icon, group_icon_inputs, group_icon_path};
+use super::group_icon::{
+    build_group_icon, group_icon_inputs, group_icon_path, needs_icon_rebuild, remove_group_icons,
+};
 use super::ico::ICO_SIZES;
 use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
 use crate::state::{AppEntry, AppState, Group};
@@ -37,6 +39,7 @@ fn state(app_ids: &[&str], icon_version: u32) -> AppState {
             name: "Group".to_owned(),
             app_ids: app_ids.iter().map(|&id| id.to_owned()).collect(),
             icon_version,
+            ..Group::default()
         }],
         ..AppState::default()
     }
@@ -136,4 +139,83 @@ fn unknown_or_unsafe_groups_are_errors() {
     assert!(build_group_icon(&state, "../grp", dir.path()).is_err());
     assert!(build_group_icon(&state, "", dir.path()).is_err());
     assert!(!dir.path().join(GROUPS_DIR).exists());
+}
+
+/// Group "grp" from [`state`] with its apps set to `app_ids`.
+fn with_apps(state: &AppState, app_ids: &[&str]) -> Group {
+    Group {
+        app_ids: app_ids.iter().map(|&id| id.to_owned()).collect(),
+        ..state.groups[0].clone()
+    }
+}
+
+#[test]
+fn rebuild_when_the_first_four_visible_apps_change() {
+    // "b" is missing and "c" hidden; the rest are visible.
+    let state = state(&[], 0);
+    let old = with_apps(&state, &["a", "d", "e", "f", "g"]);
+    assert!(!needs_icon_rebuild(&old, &old.clone(), &state));
+    // A new app inside the first four.
+    let added = with_apps(&state, &["g", "a", "d", "e"]);
+    assert!(needs_icon_rebuild(&old, &added, &state));
+    // An app gone from the first four.
+    let removed = with_apps(&state, &["a", "d", "e"]);
+    assert!(needs_icon_rebuild(&old, &removed, &state));
+    // An order change inside the first four counts.
+    let reordered = with_apps(&state, &["d", "a", "e", "f", "g"]);
+    assert!(needs_icon_rebuild(&old, &reordered, &state));
+}
+
+#[test]
+fn no_rebuild_for_changes_after_the_fourth_visible_app() {
+    let state = state(&[], 0);
+    let four = with_apps(&state, &["a", "d", "e", "f"]);
+    let appended = with_apps(&state, &["a", "d", "e", "f", "g"]);
+    assert!(!needs_icon_rebuild(&four, &appended, &state));
+    // Reordering and removing after the fourth visible app.
+    let tail = with_apps(&state, &["a", "d", "e", "f", "g", "zz"]);
+    let tail_changed = with_apps(&state, &["a", "d", "e", "f", "zz"]);
+    assert!(!needs_icon_rebuild(&tail, &tail_changed, &state));
+}
+
+#[test]
+fn hidden_missing_and_unknown_apps_are_skipped() {
+    let state = state(&[], 0);
+    let old = with_apps(&state, &["a", "d"]);
+    // Adding a missing ("b"), hidden ("c") or unknown ("zz") app changes
+    // nothing.
+    let padded = with_apps(&state, &["b", "a", "c", "d", "zz"]);
+    assert!(!needs_icon_rebuild(&old, &padded, &state));
+    // A hidden app does not take one of the four slots: "f" is still the
+    // fourth visible app, and "g" still out of the icon.
+    let five = with_apps(&state, &["a", "d", "e", "f", "g"]);
+    let hidden_inside = with_apps(&state, &["a", "c", "d", "e", "f", "g"]);
+    assert!(!needs_icon_rebuild(&five, &hidden_inside, &state));
+}
+
+#[test]
+fn every_version_of_a_deleted_group_is_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let groups = dir.path().join(GROUPS_DIR);
+    fs::create_dir_all(&groups).unwrap();
+    let kept_names = ["other-v1.ico", "grp-vx.ico", "grp-v2.png", "grp2-v1.ico"];
+    for name in ["grp-v0.ico", "grp-v1.ico", "grp-v12.ico"]
+        .into_iter()
+        .chain(kept_names)
+    {
+        fs::write(groups.join(name), b"old").unwrap();
+    }
+    remove_group_icons(dir.path(), "grp");
+    // An unsafe id or a missing folder is a logged no-op.
+    remove_group_icons(dir.path(), "../grp");
+    remove_group_icons(&dir.path().join("nowhere"), "grp");
+
+    let mut left: Vec<String> = fs::read_dir(&groups)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    left.sort();
+    let mut expected: Vec<String> = kept_names.iter().map(|&n| n.to_owned()).collect();
+    expected.sort();
+    assert_eq!(left, expected);
 }
