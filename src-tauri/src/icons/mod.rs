@@ -7,6 +7,8 @@ pub mod extract;
 pub mod fallback;
 pub mod gc;
 pub mod pixels;
+pub mod plate;
+pub mod trim;
 pub mod worker;
 
 #[cfg(test)]

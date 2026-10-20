@@ -10,9 +10,12 @@ use std::time::SystemTime;
 
 use image::{ImageFormat, RgbaImage};
 
+use super::plate::{plate_light_glyph, tile_rgb};
+use super::trim::trim_margin;
 use super::{extract, fallback};
 use crate::state::disk_write::write_atomic;
 use crate::state::AppEntry;
+use crate::win32::apps_folder::tile_background;
 
 /// Pixels per side of every cached icon.
 pub const ICON_SIZE: u32 = 256;
@@ -86,6 +89,9 @@ pub fn ensure_icon_with(
 ) -> Result<Ensured, String> {
     check_id(&app.id)?;
     let cached = icon_path(cache_dir, &app.id);
+    if app.apps_folder_id().is_some() {
+        return ensure_folder_icon(app, cache_dir, cached, extract);
+    }
     let target = Path::new(&app.target);
     let target_mtime = fs::metadata(target).and_then(|meta| meta.modified()).ok();
     let lnk = app.lnk_path.as_deref().filter(|lnk| !lnk.is_empty());
@@ -113,6 +119,35 @@ pub fn ensure_icon_with(
     };
     match extracted {
         Ok(image) => {
+            write_png(cache_dir, &cached, &image)?;
+            Ok(Ensured::Written(cached))
+        }
+        Err(error) => {
+            log::warn!("no icon for app {} ({}): {error}", app.id, app.name);
+            ensure_fallback(cache_dir).map(Ensured::Fallback)
+        }
+    }
+}
+
+/// [`ensure_icon_with`] for an Applications-folder app (a Store app), which
+/// has no file to date its icon by: a cached PNG is always reused, else the
+/// icon is extracted from its `shell:AppsFolder` item, with the empty margin
+/// Store icons carry trimmed ([`trim_margin`]) and a white-only glyph put on
+/// the app's tile colour ([`plate_light_glyph`]).
+fn ensure_folder_icon(
+    app: &AppEntry,
+    cache_dir: &Path,
+    cached: PathBuf,
+    extract: Extractor<'_>,
+) -> Result<Ensured, String> {
+    if regular_file_mtime(&cached).is_some() {
+        return Ok(Ensured::Fresh(cached));
+    }
+    match extract(Path::new(&app.target), ICON_SIZE) {
+        Ok(image) => {
+            let id = app.apps_folder_id().unwrap_or_default();
+            let tile = tile_background(id).and_then(tile_rgb);
+            let image = plate_light_glyph(trim_margin(image, ICON_SIZE), ICON_SIZE, tile);
             write_png(cache_dir, &cached, &image)?;
             Ok(Ensured::Written(cached))
         }
