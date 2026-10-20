@@ -17,6 +17,7 @@
         "url": "index.html?window=manager",
         "width": 960,
         "height": 640,
+        "transparent": true,
         "visible": false,
         "focus": false
       },

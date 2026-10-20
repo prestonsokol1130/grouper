@@ -1,6 +1,7 @@
 //! Tauri commands invoked from the frontend, and their TypeScript bindings.
 
 pub mod app_cmds;
+pub mod appearance_cmds;
 pub mod flyout_cmds;
 pub mod icon_cmds;
 pub mod launch_cmds;
@@ -38,6 +39,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             flyout_cmds::hide_flyout,
             flyout_cmds::get_flyout,
             flyout_cmds::launch_from_flyout,
+            appearance_cmds::get_accent_color,
+            appearance_cmds::get_window_material,
         ])
         .typ::<AppState>()
 }

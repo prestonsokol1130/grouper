@@ -1,6 +1,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod appearance;
 pub mod apps;
 pub mod cli;
 pub mod commands;
@@ -75,6 +76,8 @@ fn start() -> Result<(), String> {
             }
             tray::create(handle)?;
             flyout::window::init(handle);
+            appearance::material::init(handle, appearance::material::BackgroundSetting::default());
+            appearance::accent::init(handle);
             // args_os: std::env::args panics on non-Unicode arguments.
             let args: Vec<String> = std::env::args_os()
                 .map(|arg| arg.to_string_lossy().into_owned())
