@@ -127,6 +127,14 @@ pub fn place(
     (saturate(x), saturate(y))
 }
 
+/// The height, in physical pixels, of the area [`place`] keeps the
+/// flyout inside: the work area, minus an auto-hide taskbar at the top or
+/// bottom (one at the side leaves the height alone). Never negative.
+pub fn usable_height(m: &MonitorInfo) -> i32 {
+    let area = usable_area(m);
+    saturate((area.bottom - area.top).max(0))
+}
+
 /// The rectangle the flyout must stay inside, widened to `i64`.
 struct Area {
     left: i64,

@@ -33,6 +33,11 @@ pub struct Toggle {
     shown: Option<String>,
     /// The group last hidden by a blur, and when.
     blurred: Option<(String, Instant)>,
+    /// Identifies the visible show: new on every [`Toggle::shown`], `None`
+    /// once it is hidden or blurred.
+    token: Option<u64>,
+    /// The last token handed out.
+    last_token: u64,
 }
 
 impl Toggle {
@@ -59,6 +64,8 @@ impl Toggle {
     pub fn shown(&mut self, group_id: &str) {
         self.shown = Some(group_id.to_owned());
         self.blurred = None;
+        self.last_token = self.last_token.wrapping_add(1);
+        self.token = Some(self.last_token);
     }
 
     /// The flyout was hidden on purpose (Escape, a launch, a toggle or a
@@ -66,12 +73,14 @@ impl Toggle {
     pub fn hidden(&mut self) {
         self.shown = None;
         self.blurred = None;
+        self.token = None;
     }
 
     /// The flyout lost focus at `now`. Returns true if it was showing and
     /// so must be hidden. A blur while already hidden (for example the one
     /// that follows a deliberate hide) changes nothing.
     pub fn blurred(&mut self, now: Instant) -> bool {
+        self.token = None;
         match self.shown.take() {
             Some(group_id) => {
                 self.blurred = Some((group_id, now));
@@ -79,6 +88,11 @@ impl Toggle {
             }
             None => false,
         }
+    }
+
+    /// The token of the show that is visible now, if any.
+    pub fn token(&self) -> Option<u64> {
+        self.token
     }
 
     /// The group whose flyout is showing, if any.
@@ -187,6 +201,23 @@ mod tests {
         let mut t = shown("a");
         t.blurred(start);
         assert_eq!(t.request("a", start - 5 * MS), Decision::StayHidden);
+    }
+
+    #[test]
+    fn every_show_gets_a_new_token_until_it_is_hidden_or_blurred() {
+        let mut t = Toggle::default();
+        assert_eq!(t.token(), None);
+        t.shown("a");
+        let first = t.token();
+        t.shown("a");
+        assert!(first.is_some() && t.token().is_some() && t.token() != first);
+        t.hidden();
+        assert_eq!(t.token(), None);
+        let start = Instant::now();
+        t.shown("a");
+        assert!(t.blurred(start));
+        assert_eq!(t.token(), None);
+        assert_eq!(t.request("a", start + MS), Decision::StayHidden);
     }
 
     #[test]
