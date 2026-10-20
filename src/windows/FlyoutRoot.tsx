@@ -24,8 +24,14 @@ function useFlyoutData(): { show: FlyoutShow | null; names: Map<string, string> 
         setShow(event.payload),
       ),
     );
+    // A pushed state is newer than the getState() snapshot below, which may
+    // resolve after it; once one has arrived, the snapshot is skipped.
+    let pushed = false;
     const stopState = unlistenLater(
-      listen<AppState>("state:changed", (event) => applyState(event.payload)),
+      listen<AppState>("state:changed", (event) => {
+        pushed = true;
+        applyState(event.payload);
+      }),
     );
     commands
       .getFlyout()
@@ -34,8 +40,8 @@ function useFlyoutData(): { show: FlyoutShow | null; names: Map<string, string> 
     commands
       .getState()
       .then((result) => {
-        if (result.status === "ok") applyState(result.data);
-        else console.error(`flyout: get_state: ${result.error}`);
+        if (result.status === "error") console.error(`flyout: get_state: ${result.error}`);
+        else if (!pushed) applyState(result.data);
       })
       .catch((error: unknown) => console.error("flyout: get_state:", error));
     return () => {

@@ -68,7 +68,9 @@ pub fn request<R: Runtime>(app: &AppHandle<R>, group_id: &str) {
                     log::info!("flyout_show_us={us} group={group_id}");
                 }
                 Err(error) => {
+                    // Never leave a visible topmost window behind a failure.
                     state.toggle().hidden();
+                    hide_window(app);
                     log::warn!("could not show the flyout for {group_id:?}: {error}");
                 }
             }
@@ -142,18 +144,34 @@ fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> R
         .set_position(position)
         .map_err(|e| format!("set_position: {e}"))?;
     window.show().map_err(|e| format!("show: {e}"))?;
-    focus(&window);
+    // A flyout that cannot take focus would never blur, so never hide.
+    focus(&window)?;
     Ok(())
 }
 
 /// Moves keyboard focus to the flyout so a click elsewhere blurs it.
-fn focus<R: Runtime>(window: &WebviewWindow<R>) {
+/// `Err` only when both `SetForegroundWindow` and `set_focus` failed.
+fn focus<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
     // Allowed by the AllowSetForegroundWindow every Grouper launch makes.
-    if let Err(error) = raw_hwnd(window).and_then(bring_to_foreground) {
+    let foreground = raw_hwnd(window).and_then(bring_to_foreground);
+    if let Err(error) = &foreground {
         log::warn!("flyout foreground: {error}");
     }
-    if let Err(error) = window.set_focus() {
+    let set_focus = window.set_focus().map_err(|e| e.to_string());
+    if let Err(error) = &set_focus {
         log::warn!("flyout set_focus: {error}");
+    }
+    either_focused(foreground, set_focus)
+}
+
+/// Focus moved if either attempt succeeded; otherwise both errors.
+fn either_focused(
+    foreground: Result<(), String>,
+    set_focus: Result<(), String>,
+) -> Result<(), String> {
+    match (foreground, set_focus) {
+        (Err(fg), Err(sf)) => Err(format!("focus failed: foreground: {fg}; set_focus: {sf}")),
+        _ => Ok(()),
     }
 }
 
@@ -184,4 +202,26 @@ fn raw_hwnd<R: Runtime>(window: &WebviewWindow<R>) -> Result<*mut std::ffi::c_vo
 #[cfg(not(windows))]
 fn raw_hwnd<R: Runtime>(_window: &WebviewWindow<R>) -> Result<*mut std::ffi::c_void, String> {
     Err("unsupported platform".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::either_focused;
+
+    fn err() -> Result<(), String> {
+        Err("no".to_owned())
+    }
+
+    #[test]
+    fn focus_succeeds_if_either_attempt_does() {
+        assert_eq!(either_focused(Ok(()), Ok(())), Ok(()));
+        assert_eq!(either_focused(err(), Ok(())), Ok(()));
+        assert_eq!(either_focused(Ok(()), err()), Ok(()));
+    }
+
+    #[test]
+    fn focus_fails_only_if_both_do() {
+        let error = either_focused(Err("fg".into()), Err("sf".into())).unwrap_err();
+        assert!(error.contains("fg") && error.contains("sf"), "{error}");
+    }
 }
