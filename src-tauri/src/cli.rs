@@ -16,7 +16,8 @@ pub enum LaunchCommand {
 /// Parses process arguments. `args[0]` is the executable and is skipped.
 ///
 /// The first recognised flag wins and unknown flags are ignored. `--flyout`
-/// needs a following id made only of `[A-Za-z0-9_-]`; anything else yields
+/// needs a following id made only of `[A-Za-z0-9_-]` (it may start with
+/// `--`) that is not itself one of the known flags; anything else yields
 /// [`LaunchCommand::None`] and a log warning.
 pub fn parse_args(args: &[String]) -> LaunchCommand {
     let mut rest = args.iter().skip(1);
@@ -31,14 +32,19 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
     LaunchCommand::None
 }
 
-/// Validates the id that follows `--flyout`.
+/// The flags [`parse_args`] knows. One of them after `--flyout` is a
+/// missing id, not an id.
+const KNOWN_FLAGS: [&str; 3] = ["--flyout", "--launchpad", "--manager"];
+
+/// Validates the id that follows `--flyout`. Group ids may start with `--`
+/// (`-` is in their alphabet), so only the exact known flags are refused.
 fn parse_flyout(value: Option<&String>) -> LaunchCommand {
     match value {
         None => {
             log::warn!("--flyout needs a group id; ignoring");
             LaunchCommand::None
         }
-        Some(id) if id.starts_with("--") => {
+        Some(id) if KNOWN_FLAGS.contains(&id.as_str()) => {
             log::warn!("--flyout needs a group id but got flag {id:?}; ignoring");
             LaunchCommand::None
         }
@@ -96,6 +102,24 @@ mod tests {
         assert_eq!(
             parse_args(&args(&["--flyout", "--manager"])),
             LaunchCommand::None
+        );
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--launchpad"])),
+            LaunchCommand::None
+        );
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--flyout"])),
+            LaunchCommand::None
+        );
+    }
+
+    #[test]
+    fn flyout_id_may_start_with_dashes() {
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--ab_cdE12"])),
+            LaunchCommand::Flyout {
+                group_id: "--ab_cdE12".into()
+            }
         );
     }
 

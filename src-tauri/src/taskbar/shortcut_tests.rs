@@ -1,7 +1,11 @@
-//! Pure tests for group shortcut names: sanitising and collisions.
+//! Pure tests for group shortcut names (sanitising and collisions) and for
+//! picking a path that never replaces another group's shortcut.
 
-use super::shortcut::{sanitise_name, shortcut_file_name, shortcut_path, MAX_NAME_CHARS};
-use crate::state::{AppState, Group};
+use std::path::Path;
+
+use super::shortcut::{sanitise_name, shortcut_file_name, shortcut_name_parts, MAX_NAME_CHARS};
+use super::shortcut_write::{choose_path, find_path, Slot};
+use crate::state::Group;
 
 fn group(id: &str, name: &str) -> Group {
     Group {
@@ -127,16 +131,64 @@ fn a_fallback_id_collides_like_any_other_name() {
 
 #[test]
 fn unknown_group_has_no_shortcut() {
-    let groups = [group("g1", "Work")];
+    let groups = [group("g1", "Work"), group("g2", "Work")];
     assert_eq!(shortcut_file_name(&groups, "nope"), None);
-    let state = AppState {
-        groups: groups.to_vec(),
-        ..AppState::default()
-    };
-    let dir = std::path::Path::new("start-menu");
-    assert_eq!(shortcut_path(dir, &state, "g1"), Ok(dir.join("Work.lnk")));
+    assert_eq!(shortcut_name_parts(&groups, "nope"), None);
     assert_eq!(
-        shortcut_path(dir, &state, "nope"),
-        Err("Group not found: nope".to_owned())
+        shortcut_name_parts(&groups, "g2"),
+        Some(("Work".to_owned(), 2))
     );
+}
+
+/// A slot function over a fixed map of file names; anything else is
+/// missing.
+fn slots<'a>(map: &'a [(&'a str, Slot)]) -> impl FnMut(&Path) -> Slot + 'a {
+    move |path| {
+        let name = path.file_name().unwrap().to_str().unwrap();
+        map.iter()
+            .find(|(file, _)| *file == name)
+            .map_or(Slot::Missing, |(_, slot)| *slot)
+    }
+}
+
+#[test]
+fn the_writer_skips_only_foreign_files() {
+    let dir = Path::new("menu");
+    let choose = |map: &[(&str, Slot)], start| choose_path(dir, "Beta", start, slots(map));
+    assert_eq!(choose(&[], 1), Ok(dir.join("Beta.lnk")));
+    assert_eq!(
+        choose(&[("Beta.lnk", Slot::Ours)], 1),
+        Ok(dir.join("Beta.lnk"))
+    );
+    assert_eq!(
+        choose(&[("Beta.lnk", Slot::Unclaimed)], 1),
+        Ok(dir.join("Beta.lnk"))
+    );
+    let taken = [("Beta.lnk", Slot::Foreign), ("Beta (2).lnk", Slot::Foreign)];
+    assert_eq!(choose(&taken, 1), Ok(dir.join("Beta (3).lnk")));
+    assert_eq!(
+        choose(&[("Beta (2).lnk", Slot::Foreign)], 2),
+        Ok(dir.join("Beta (3).lnk"))
+    );
+    let mut all_foreign = |_: &Path| Slot::Foreign;
+    assert!(choose_path(dir, "Beta", 1, &mut all_foreign).is_err());
+}
+
+#[test]
+fn finding_skips_other_groups_and_stops_at_a_gap() {
+    let dir = Path::new("menu");
+    let find = |map: &[(&str, Slot)]| find_path(dir, "Beta", 1, slots(map));
+    assert_eq!(find(&[]), None);
+    assert_eq!(
+        find(&[("Beta.lnk", Slot::Ours)]),
+        Some(dir.join("Beta.lnk"))
+    );
+    let skipped = [
+        ("Beta.lnk", Slot::Foreign),
+        ("Beta (2).lnk", Slot::Unclaimed),
+        ("Beta (3).lnk", Slot::Ours),
+    ];
+    assert_eq!(find(&skipped), Some(dir.join("Beta (3).lnk")));
+    let gap = [("Beta.lnk", Slot::Foreign), ("Beta (3).lnk", Slot::Ours)];
+    assert_eq!(find(&gap), None);
 }

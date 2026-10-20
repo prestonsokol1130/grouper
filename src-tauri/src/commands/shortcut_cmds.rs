@@ -11,7 +11,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::paths::cache_dir;
 use crate::state::Store;
-use crate::taskbar::shortcut::{shortcut_dir, shortcut_path, write_group_shortcut};
+use crate::taskbar::shortcut::shortcut_dir;
+use crate::taskbar::shortcut_write::{find_group_shortcut, write_group_shortcut};
 use crate::win32::reveal::reveal_in_explorer;
 
 /// The loaded store, or an error when setup has not managed one.
@@ -61,13 +62,9 @@ pub async fn create_group_shortcut(app: AppHandle, group_id: String) -> Result<S
 #[specta::specta]
 pub async fn reveal_group_shortcut(app: AppHandle, group_id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let lnk = shortcut_path(&shortcut_dir()?, &store(&app)?.snapshot(), &group_id)?;
-        if !lnk.is_file() {
-            return Err(format!(
-                "No shortcut for group {group_id} yet: {}",
-                lnk.display()
-            ));
-        }
+        let state = store(&app)?.snapshot();
+        let lnk = find_group_shortcut(&state, &group_id, &shortcut_dir()?)?
+            .ok_or_else(|| format!("No shortcut for group {group_id} yet"))?;
         reveal_in_explorer(&lnk)
     })
     .await

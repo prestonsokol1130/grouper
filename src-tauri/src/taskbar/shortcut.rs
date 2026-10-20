@@ -1,18 +1,14 @@
-//! Group shortcuts in the Start Menu: their folder, file names and
-//! AppUserModelIDs, and writing one for a group.
+//! Group shortcuts in the Start Menu: their folder, file names, arguments
+//! and AppUserModelIDs. Writing one is in [`super::shortcut_write`].
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use super::group_icon::build_group_icon;
-use crate::icons::cache::check_id;
 use crate::scanner::roots::programs_dir;
 use crate::scanner::walk::OWN_FOLDER;
 use crate::state::disk_write::reject_symlink;
-use crate::state::{AppState, Group};
-use crate::win32::com::ComGuard;
-use crate::win32::lnk_write::{write_group_lnk, LnkSpec};
+use crate::state::Group;
 
 /// Every group's AppUserModelID is this plus the group id.
 pub const AUMID_PREFIX: &str = "com.grouper.group.";
@@ -75,36 +71,43 @@ fn is_reserved(name: &str) -> bool {
         .any(|reserved| stem.eq_ignore_ascii_case(reserved))
 }
 
-/// The `.lnk` file name for group `group_id`, or `None` for an unknown
-/// group.
+/// `{base}.lnk` for `number` 1, else `{base} ({number}).lnk`.
+pub fn numbered_file_name(base: &str, number: u32) -> String {
+    if number <= 1 {
+        format!("{base}.lnk")
+    } else {
+        format!("{base} ({number}).lnk")
+    }
+}
+
+/// The sanitised base name for group `group_id` and the number its
+/// shortcut starts at (see [`numbered_file_name`]), or `None` for an
+/// unknown group.
 ///
-/// Names are given out in the order of `groups`: the first group with a
-/// name gets it as is, and later groups whose name is already taken (any
-/// letter case) get ` (2)`, ` (3)` and so on.
-pub fn shortcut_file_name(groups: &[Group], group_id: &str) -> Option<String> {
+/// Numbers are given out in the order of `groups`: the first group with a
+/// name gets it as is (number 1), and later groups whose name is already
+/// taken (any letter case) get 2, 3 and so on.
+pub fn shortcut_name_parts(groups: &[Group], group_id: &str) -> Option<(String, u32)> {
     let mut taken = HashSet::new();
     for group in groups {
         let base = sanitise_name(&group.name, &group.id);
-        let mut name = base.clone();
-        let mut next = 2_u32;
-        while taken.contains(&name.to_lowercase()) {
-            name = format!("{base} ({next})");
-            next = next.saturating_add(1);
+        let mut number = 1_u32;
+        while taken.contains(&numbered_file_name(&base, number).to_lowercase()) {
+            number = number.saturating_add(1);
         }
-        taken.insert(name.to_lowercase());
+        taken.insert(numbered_file_name(&base, number).to_lowercase());
         if group.id == group_id {
-            return Some(format!("{name}.lnk"));
+            return Some((base, number));
         }
     }
     None
 }
 
-/// `{dir}/<shortcut file name>` for group `group_id` (see
-/// [`shortcut_file_name`]). `Err` for an unknown group.
-pub fn shortcut_path(dir: &Path, state: &AppState, group_id: &str) -> Result<PathBuf, String> {
-    shortcut_file_name(&state.groups, group_id)
-        .map(|name| dir.join(name))
-        .ok_or_else(|| format!("Group not found: {group_id}"))
+/// The `.lnk` file name group `group_id` starts at, or `None` for an
+/// unknown group. The writer moves on to the next number when a different
+/// group's shortcut already holds that name.
+pub fn shortcut_file_name(groups: &[Group], group_id: &str) -> Option<String> {
+    shortcut_name_parts(groups, group_id).map(|(base, number)| numbered_file_name(&base, number))
 }
 
 /// Grouper's Start Menu folder, `{FOLDERID_Programs}\Grouper`, created if
@@ -118,7 +121,7 @@ pub fn shortcut_dir() -> Result<PathBuf, String> {
 }
 
 /// The shortcut's description: the group name, cut to fit `INFOTIPSIZE`.
-fn description(name: &str) -> String {
+pub fn description(name: &str) -> String {
     let mut units = 0;
     name.chars()
         .take_while(|c| {
@@ -126,46 +129,6 @@ fn description(name: &str) -> String {
             units <= MAX_DESCRIPTION_UNITS
         })
         .collect()
-}
-
-/// Builds group `group_id`'s icon in `cache_dir` (`{app_data_dir}/cache`,
-/// see [`build_group_icon`]), then writes its shortcut into `dir` and
-/// returns the shortcut's path.
-///
-/// The shortcut starts `exe` with `--flyout <group_id>` in `exe`'s folder,
-/// shows the group's `.ico`, and carries the AppUserModelID
-/// `com.grouper.group.<group_id>`. An existing shortcut at that path is
-/// replaced atomically.
-///
-/// Holds its own `ComGuard` while writing. Blocks; call it off the async
-/// runtime. `Err` for an unknown group, an unsafe group id, or a failed
-/// icon or shortcut write.
-pub fn write_group_shortcut(
-    state: &AppState,
-    group_id: &str,
-    cache_dir: &Path,
-    dir: &Path,
-    exe: &Path,
-) -> Result<PathBuf, String> {
-    check_id(group_id).map_err(|_| format!("group id {group_id:?} is not a safe file name"))?;
-    let group = state
-        .group_by_id(group_id)
-        .ok_or_else(|| format!("Group not found: {group_id}"))?;
-    let lnk_path = shortcut_path(dir, state, group_id)?;
-    let icon_path = build_group_icon(state, group_id, cache_dir)?;
-    let spec = LnkSpec {
-        lnk_path: lnk_path.clone(),
-        exe_path: exe.to_path_buf(),
-        args: flyout_args(group_id),
-        icon_path,
-        description: description(&group.name),
-        aumid: group_aumid(group_id),
-    };
-    // Every COM interface lives inside write_group_lnk, so all are
-    // released before this guard drops.
-    let _com = ComGuard::new()?;
-    write_group_lnk(&spec)?;
-    Ok(lnk_path)
 }
 
 #[cfg(test)]
@@ -186,5 +149,11 @@ mod tests {
         // A surrogate pair is never split.
         let emoji = "📁".repeat(600);
         assert_eq!(description(&emoji).chars().count(), 511);
+    }
+
+    #[test]
+    fn numbered_names() {
+        assert_eq!(numbered_file_name("Work", 1), "Work.lnk");
+        assert_eq!(numbered_file_name("Work", 3), "Work (3).lnk");
     }
 }

@@ -1,28 +1,29 @@
-//! Windows-only tests for `write_group_lnk` and `write_group_shortcut`:
-//! write real shortcuts, read them back with `resolve_lnk`, and read the
-//! AppUserModelID back through `IPropertyStore::GetValue`.
+//! Windows-only tests for `write_group_lnk`, `read_lnk_aumid` and
+//! `write_group_shortcut`: write real shortcuts, read them back with
+//! `resolve_lnk`, and read the AppUserModelID back through
+//! `IPropertyStore::GetValue`.
 
 use std::path::{Path, PathBuf};
 
 use windows::core::{Interface, PCWSTR};
-use windows::Win32::Storage::EnhancedStorage::PKEY_AppUserModel_ID;
 use windows::Win32::System::Com::{
     CoCreateInstance, IPersistFile, CLSCTX_INPROC_SERVER, STGM_READ,
 };
-use windows::Win32::System::Variant::VT_LPWSTR;
-use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
 
 use super::com::ComGuard;
+use super::lnk_aumid::read_lnk_aumid;
 use super::lnk_read::resolve_lnk;
 use super::lnk_write::{write_group_lnk, LnkSpec};
 use super::wide::{from_wide, to_wide};
 use crate::state::{AppState, Group};
-use crate::taskbar::shortcut::write_group_shortcut;
+use crate::taskbar::shortcut_write::{find_group_shortcut, write_group_shortcut};
 
-/// The AppUserModelID (which must be a `VT_LPWSTR`) and the description
-/// stored in the shortcut at `lnk`. The caller must hold a `ComGuard`.
+/// The AppUserModelID (`read_lnk_aumid` accepts only a `VT_LPWSTR`) and
+/// the description stored in the shortcut at `lnk`. The caller must hold a
+/// `ComGuard`.
 fn read_aumid_and_description(lnk: &Path) -> (String, String) {
+    let aumid = read_lnk_aumid(lnk).unwrap().unwrap();
     // SAFETY: the caller holds a ComGuard, so COM is initialised here.
     let link: IShellLinkW =
         unsafe { CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER) }.unwrap();
@@ -30,14 +31,6 @@ fn read_aumid_and_description(lnk: &Path) -> (String, String) {
     let wide = to_wide(lnk.to_str().unwrap());
     // SAFETY: wide is NUL-terminated and outlives the call.
     unsafe { file.Load(PCWSTR(wide.as_ptr()), STGM_READ) }.unwrap();
-    let store: IPropertyStore = link.cast().unwrap();
-    // SAFETY: the key is a live constant; the returned PROPVARIANT is owned
-    // here and cleared (PropVariantClear) by its Drop at the end of scope.
-    let value = unsafe { store.GetValue(&PKEY_AppUserModel_ID) }.unwrap();
-    assert_eq!(value.vt(), VT_LPWSTR);
-    // SAFETY: vt is VT_LPWSTR (checked above), so pwszVal is the live,
-    // NUL-terminated string the PROPVARIANT owns.
-    let aumid = unsafe { value.Anonymous.Anonymous.Anonymous.pwszVal.to_string() }.unwrap();
     let mut buf = vec![0_u16; 1024];
     // SAFETY: buf is a valid, writable buffer.
     unsafe { link.GetDescription(&mut buf) }.unwrap();
@@ -153,4 +146,79 @@ fn group_shortcut_has_the_flyout_route_icon_and_aumid() {
 
     let unknown = write_group_shortcut(&state, "nope", &cache, &start_menu, &exe());
     assert_eq!(unknown, Err("Group not found: nope".to_owned()));
+}
+
+fn named(id: &str, name: &str) -> Group {
+    Group {
+        id: id.to_owned(),
+        name: name.to_owned(),
+        app_ids: Vec::new(),
+        icon_version: 0,
+    }
+}
+
+#[test]
+fn a_renamed_group_never_replaces_another_groups_shortcut() {
+    let _com = ComGuard::new().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let (cache, menu) = (temp.path().join("cache"), temp.path().join("menu"));
+    std::fs::create_dir_all(&menu).unwrap();
+    let mut state = AppState {
+        groups: vec![named("ga", "Alpha"), named("gb", "Beta")],
+        ..AppState::default()
+    };
+    let alpha = write_group_shortcut(&state, "ga", &cache, &menu, &exe()).unwrap();
+    let beta = write_group_shortcut(&state, "gb", &cache, &menu, &exe()).unwrap();
+    assert_eq!(beta, menu.join("Beta.lnk"));
+
+    // A is renamed to "Beta". As the first group it now starts at
+    // "Beta.lnk", which holds B's shortcut, so it must move on.
+    state.groups[0].name = "Beta".to_owned();
+    let renamed = write_group_shortcut(&state, "ga", &cache, &menu, &exe()).unwrap();
+    assert_eq!(renamed, menu.join("Beta (2).lnk"));
+    assert_eq!(
+        read_lnk_aumid(&beta).unwrap().as_deref(),
+        Some("com.grouper.group.gb")
+    );
+    assert_eq!(
+        read_lnk_aumid(&renamed).unwrap().as_deref(),
+        Some("com.grouper.group.ga")
+    );
+    // Writing again reuses A's own file, and finding it skips B's.
+    let again = write_group_shortcut(&state, "ga", &cache, &menu, &exe()).unwrap();
+    assert_eq!(again, renamed);
+    assert_eq!(find_group_shortcut(&state, "ga", &menu), Ok(Some(renamed)));
+    // The old "Alpha.lnk" is left as it was (stale shortcuts are not
+    // cleaned up here).
+    assert!(alpha.is_file());
+}
+
+#[test]
+fn unreadable_files_are_kept_and_unclaimed_shortcuts_replaced() {
+    let _com = ComGuard::new().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let (cache, menu) = (temp.path().join("cache"), temp.path().join("menu"));
+    std::fs::create_dir_all(&menu).unwrap();
+    std::fs::write(menu.join("Beta.lnk"), b"not a shortcut").unwrap();
+    // A shortcut with no AppUserModelID.
+    let unclaimed = menu.join("Beta (2).lnk");
+    let exe_text = exe().to_str().unwrap().to_owned();
+    super::lnk_read_tests::write_lnk_to(&unclaimed, &exe_text, "", "", None);
+    assert_eq!(read_lnk_aumid(&unclaimed), Ok(None));
+    let state = AppState {
+        groups: vec![named("gb", "Beta")],
+        ..AppState::default()
+    };
+
+    assert_eq!(find_group_shortcut(&state, "gb", &menu), Ok(None));
+    let lnk = write_group_shortcut(&state, "gb", &cache, &menu, &exe()).unwrap();
+    assert_eq!(lnk, unclaimed);
+    assert_eq!(
+        std::fs::read(menu.join("Beta.lnk")).unwrap(),
+        b"not a shortcut"
+    );
+    assert_eq!(
+        read_lnk_aumid(&lnk).unwrap().as_deref(),
+        Some("com.grouper.group.gb")
+    );
 }

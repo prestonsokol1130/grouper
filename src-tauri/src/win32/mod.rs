@@ -11,6 +11,7 @@ pub mod file_dialog;
 #[cfg(windows)]
 pub mod gdi;
 pub mod launch;
+pub mod lnk_aumid;
 pub mod lnk_read;
 pub mod lnk_write;
 pub mod reveal;
