@@ -88,17 +88,7 @@ fn show<R: Runtime>(app: &AppHandle<R>, opener: Opener) -> Result<(), String> {
     let position = PhysicalPosition::new(rect.left, rect.top);
     let width = u32::try_from(rect.right.saturating_sub(rect.left)).unwrap_or(1);
     let height = u32::try_from(rect.bottom.saturating_sub(rect.top)).unwrap_or(1);
-    // Moving onto a monitor with another DPI rescales the window, so the
-    // size is set after the move and the position once more after that.
-    window
-        .set_position(position)
-        .map_err(|e| format!("set_position: {e}"))?;
-    window
-        .set_size(PhysicalSize::new(width, height))
-        .map_err(|e| format!("set_size: {e}"))?;
-    window
-        .set_position(position)
-        .map_err(|e| format!("set_position: {e}"))?;
+    cover(&window, position, PhysicalSize::new(width, height))?;
     // Marked visible first so a blur during the show still hides it.
     if let Some(state) = app.try_state::<LaunchpadState>() {
         state.set_visible(true);
@@ -106,6 +96,34 @@ fn show<R: Runtime>(app: &AppHandle<R>, opener: Opener) -> Result<(), String> {
     window.show().map_err(|e| format!("show: {e}"))?;
     focus(&window);
     hotkey::notify_pending(app, LAUNCHPAD_LABEL);
+    Ok(())
+}
+
+/// Moves and sizes the window to exactly `position` and `size`. Crossing
+/// onto a monitor with another DPI makes Windows rescale the window
+/// (sometimes only once the resize lands it there), so it is placed again
+/// until it sticks, at most three times.
+fn cover<R: Runtime>(
+    window: &WebviewWindow<R>,
+    position: PhysicalPosition<i32>,
+    size: PhysicalSize<u32>,
+) -> Result<(), String> {
+    for _ in 0..3 {
+        window
+            .set_position(position)
+            .map_err(|e| format!("set_position: {e}"))?;
+        window
+            .set_size(size)
+            .map_err(|e| format!("set_size: {e}"))?;
+        window
+            .set_position(position)
+            .map_err(|e| format!("set_position: {e}"))?;
+        let placed = window.outer_position().ok() == Some(position);
+        if placed && window.outer_size().ok() == Some(size) {
+            return Ok(());
+        }
+    }
+    log::warn!("Launchpad did not settle at {position:?} {size:?}");
     Ok(())
 }
 
