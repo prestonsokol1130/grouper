@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { onEvent, type LaunchpadShow } from "../../lib/events";
-import { useToastStore } from "../../store/toastStore";
+import { showToast, useToastStore } from "../../store/toastStore";
+import { setLaunchpadVisible, takePending } from "./pendingToast";
 
 /** The last show and a counter that changes on every show. */
 export type ShownLaunchpad = { show: LaunchpadShow | null; seq: number };
@@ -19,7 +20,11 @@ export function useLaunchpadShow(): ShownLaunchpad {
     () =>
       onEvent("launchpad:show", (payload) => {
         flushSync(() => {
+          setLaunchpadVisible(true);
           useToastStore.setState({ toasts: [] });
+          // A Launch All failure that came while hidden shows now.
+          const kept = takePending();
+          if (kept !== null) showToast(kept);
           setShown((previous) => ({ show: payload, seq: previous.seq + 1 }));
         });
       }),

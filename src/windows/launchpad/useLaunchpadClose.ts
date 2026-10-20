@@ -6,6 +6,7 @@ import { useAppStore } from "../../store/appStore";
 import { appsById } from "../../store/selectors";
 import { showToast } from "../../store/toastStore";
 import { playClose, playOpen, resetHidden } from "../flyout/flyoutMotion";
+import { setLaunchpadVisible } from "./pendingToast";
 
 type Options = {
   panel: RefObject<HTMLDivElement | null>;
@@ -52,6 +53,7 @@ export function useLaunchpadClose({ panel, seq, style, reduced, onHidden }: Opti
   useEffect(
     () =>
       onEvent("launchpad:hide", () => {
+        setLaunchpadVisible(false);
         if (panel.current) resetHidden(panel.current);
         hidden.current();
       }),
@@ -61,6 +63,8 @@ export function useLaunchpadClose({ panel, seq, style, reduced, onHidden }: Opti
   const close = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
+    // Hiding: a toast from now on waits for the next open.
+    setLaunchpadVisible(false);
     const started = seqRef.current;
     const element = panel.current;
     const timing = openCloseTiming(style, reduced);
@@ -73,6 +77,7 @@ export function useLaunchpadClose({ panel, seq, style, reduced, onHidden }: Opti
       console.error(`launchpad: hide: ${result.error}`);
       // Still showing: open it back up so closing works again.
       closing.current = false;
+      setLaunchpadVisible(true);
       if (panel.current && seqRef.current === started) playOpen(panel.current);
     });
   }, [style, reduced, panel]);
