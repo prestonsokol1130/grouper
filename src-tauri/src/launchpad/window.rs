@@ -17,8 +17,10 @@ use super::{
 };
 use crate::hotkey;
 use crate::state::Store;
+use crate::taskbar::placement::MonitorInfo;
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
 use crate::win32::monitor::current_monitor_info;
+use crate::win32::window_rect::set_window_rect;
 
 /// Manages the Launchpad's state. Call at startup before any window
 /// exists.
@@ -61,10 +63,10 @@ pub fn toggle<R: Runtime>(app: &AppHandle<R>, opener: Opener) {
         return;
     }
     let started = Instant::now();
-    match show(app, opener) {
-        Ok(()) => {
+    match show(app, opener, started) {
+        Ok(steps) => {
             let us = started.elapsed().as_micros();
-            log::info!("launchpad_show_us={us} opener={opener:?}");
+            log::info!("launchpad_show_us={us} opener={opener:?} {steps}");
         }
         Err(error) => {
             // Never leave a fullscreen topmost window behind a failure.
@@ -80,8 +82,13 @@ pub(super) fn launchpad_visible<R: Runtime>(app: &AppHandle<R>) -> bool {
 }
 
 /// Covers the monitor under the cursor, tells the page where to animate
-/// from, then shows and focuses the window.
-fn show<R: Runtime>(app: &AppHandle<R>, opener: Opener) -> Result<(), String> {
+/// from, then shows and focuses the window. Returns how long after
+/// `started` the window was placed and visible, for the log.
+fn show<R: Runtime>(
+    app: &AppHandle<R>,
+    opener: Opener,
+    started: Instant,
+) -> Result<String, String> {
     let window = launchpad_window(app)?;
     if let Some(store) = app.try_state::<Arc<Store>>() {
         ensure_default(app, &store);
@@ -98,26 +105,37 @@ fn show<R: Runtime>(app: &AppHandle<R>, opener: Opener) -> Result<(), String> {
     let position = PhysicalPosition::new(rect.left, rect.top);
     let width = u32::try_from(rect.right.saturating_sub(rect.left)).unwrap_or(1);
     let height = u32::try_from(rect.bottom.saturating_sub(rect.top)).unwrap_or(1);
-    cover(&window, position, PhysicalSize::new(width, height))?;
+    cover(&window, position, PhysicalSize::new(width, height), monitor)?;
+    let placed = started.elapsed().as_micros();
     // Marked visible first so a blur during the show still hides it.
     if let Some(state) = app.try_state::<LaunchpadState>() {
         state.set_visible(true);
     }
     window.show().map_err(|e| format!("show: {e}"))?;
+    let visible = started.elapsed().as_micros();
     focus(&window);
     hotkey::notify_pending(app, LAUNCHPAD_LABEL);
-    Ok(())
+    Ok(format!("placed_us={placed} visible_us={visible}"))
 }
 
-/// Moves and sizes the window to exactly `position` and `size`. Crossing
-/// onto a monitor with another DPI makes Windows rescale the window
-/// (sometimes only once the resize lands it there), so it is placed again
-/// until it sticks, at most three times.
+/// Moves and sizes the window to exactly `position` and `size`. When it
+/// already has the monitor's DPI, one `SetWindowPos` does it (none when it
+/// is already there). Crossing onto a monitor with another DPI makes
+/// Windows rescale the window (sometimes only once the resize lands it
+/// there), so then it is placed again until it sticks, at most three times.
 fn cover<R: Runtime>(
     window: &WebviewWindow<R>,
     position: PhysicalPosition<i32>,
     size: PhysicalSize<u32>,
+    monitor: MonitorInfo,
 ) -> Result<(), String> {
+    if window.scale_factor().ok() == Some(monitor.scale) {
+        let placed = raw_hwnd(window).and_then(|hwnd| set_window_rect(hwnd, monitor.monitor));
+        match placed {
+            Ok(_) => return Ok(()),
+            Err(error) => log::debug!("Launchpad one-step placement: {error}"),
+        }
+    }
     for _ in 0..3 {
         window
             .set_position(position)

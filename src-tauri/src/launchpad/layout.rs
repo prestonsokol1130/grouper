@@ -44,9 +44,11 @@ pub fn is_empty(layout: &LaunchpadLayout) -> bool {
 /// window hears the new state. A failure is logged; the Launchpad still
 /// opens.
 pub fn ensure_default<R: Runtime>(app: &AppHandle<R>, store: &Store) {
-    // Checked on a copy first: an update always marks the state for saving.
-    let state = store.snapshot();
-    if !is_empty(&state.launchpad) || state.apps.iter().all(|app| app.hidden) {
+    // Checked by reading first: an update always marks the state for
+    // saving, and a copy of every app on each show is not free.
+    let needed =
+        store.read(|state| is_empty(&state.launchpad) && !state.apps.iter().all(|app| app.hidden));
+    if !needed {
         return;
     }
     let built = store.update_and_publish(
