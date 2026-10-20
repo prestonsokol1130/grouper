@@ -84,7 +84,7 @@ export function FlyoutRoot() {
   useEscapeToHide();
 
   return (
-    <div className="h-screen overflow-auto bg-white p-4 text-black">
+    <div className="h-screen overflow-auto p-4 text-primary">
       {show === null || show.apps.length === 0 ? (
         <p>No apps</p>
       ) : (

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import process from "node:process";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -24,6 +25,11 @@ function viteConfig() {
       watch: {
         ignored: ["**/src-tauri/**"],
       },
+    },
+    test: {
+      environment: "jsdom",
+      include: ["src/**/*.test.{ts,tsx}"],
+      setupFiles: ["src/test/setup.ts"],
     },
   };
 }

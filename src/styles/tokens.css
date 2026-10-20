@@ -1,0 +1,156 @@
+/*
+ * Design tokens from DESIGN.md. Light values live on :root; dark values
+ * apply under [data-theme="dark"] (set by src/lib/theme.ts) and, before the
+ * script runs, under prefers-color-scheme: dark. Change a value in DESIGN.md
+ * first, then here.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Section 3: neutrals (Fluent 2). */
+  --text-primary: rgba(0, 0, 0, 0.896);
+  --text-secondary: rgba(0, 0, 0, 0.606);
+  --text-disabled: rgba(0, 0, 0, 0.361);
+  --fill-subtle-hover: rgba(0, 0, 0, 0.037);
+  --fill-subtle-pressed: rgba(0, 0, 0, 0.024);
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --stroke-card: rgba(0, 0, 0, 0.058);
+  --stroke-surface: rgba(117, 117, 117, 0.4);
+  --solid-bg: #f3f3f3;
+  --layer-bg: #fbfbfb;
+  --danger: #c42b1c;
+  --success: #0f7b0f;
+
+  /* Section 3: accent. These are the fallbacks; theme.ts overrides them
+     with the live Windows accent and its derived shades. */
+  --accent: #0067c0;
+  --accent-hover: rgba(0, 103, 192, 0.9);
+  --accent-pressed: rgba(0, 103, 192, 0.8);
+  --text-on-accent: #ffffff;
+  /* Fluent AccentFillColorDisabled (DESIGN.md has no disabled accent). */
+  --accent-disabled: rgba(0, 0, 0, 0.217);
+
+  /* Section 11: keyboard focus ring (inner ring is the Fluent default). */
+  --focus-outer: var(--text-primary);
+  --focus-inner: rgba(255, 255, 255, 0.7);
+
+  /* Section 5: folder tile background in the UI, and the fixed taskbar
+     .ico colours (the .ico cannot follow the theme). */
+  --folder-bg: rgba(255, 255, 255, 0.72);
+  --folder-ico-bg: rgba(235, 235, 240, 0.92);
+  --folder-ico-border: rgba(0, 0, 0, 0.12);
+
+  /* Section 4: acrylic tint opacity per surface. */
+  --acrylic-tint-flyout: 0.8;
+  --acrylic-tint-launchpad: 0.6;
+}
+
+/* Dark values. Kept in one mixin-like block, repeated for the two
+   selectors because plain CSS has no mixins. */
+:root[data-theme="dark"] {
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.786);
+  --text-disabled: rgba(255, 255, 255, 0.363);
+  --fill-subtle-hover: rgba(255, 255, 255, 0.061);
+  --fill-subtle-pressed: rgba(255, 255, 255, 0.042);
+  --card-bg: rgba(255, 255, 255, 0.051);
+  --stroke-card: rgba(0, 0, 0, 0.1);
+  --stroke-surface: rgba(117, 117, 117, 0.4);
+  --solid-bg: #202020;
+  --layer-bg: #2c2c2c;
+  --danger: #ff99a4;
+  --success: #6ccb5f;
+  --accent: #4cc2ff;
+  --accent-hover: rgba(76, 194, 255, 0.9);
+  --accent-pressed: rgba(76, 194, 255, 0.8);
+  --text-on-accent: #000000;
+  --accent-disabled: rgba(255, 255, 255, 0.158);
+  --focus-inner: rgba(0, 0, 0, 0.7);
+  --folder-bg: rgba(255, 255, 255, 0.14);
+  --acrylic-tint-flyout: 0.7;
+  --acrylic-tint-launchpad: 0.55;
+}
+
+/* The "system" theme before theme.ts has set data-theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.786);
+    --text-disabled: rgba(255, 255, 255, 0.363);
+    --fill-subtle-hover: rgba(255, 255, 255, 0.061);
+    --fill-subtle-pressed: rgba(255, 255, 255, 0.042);
+    --card-bg: rgba(255, 255, 255, 0.051);
+    --stroke-card: rgba(0, 0, 0, 0.1);
+    --stroke-surface: rgba(117, 117, 117, 0.4);
+    --solid-bg: #202020;
+    --layer-bg: #2c2c2c;
+    --danger: #ff99a4;
+    --success: #6ccb5f;
+    --accent: #4cc2ff;
+    --accent-hover: rgba(76, 194, 255, 0.9);
+    --accent-pressed: rgba(76, 194, 255, 0.8);
+    --text-on-accent: #000000;
+    --accent-disabled: rgba(255, 255, 255, 0.158);
+    --focus-inner: rgba(0, 0, 0, 0.7);
+    --folder-bg: rgba(255, 255, 255, 0.14);
+    --acrylic-tint-flyout: 0.7;
+    --acrylic-tint-launchpad: 0.55;
+  }
+}
+
+/* The theme toggles color-scheme too, so native scrollbars and form
+   controls match. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/*
+ * Theme-independent tokens. `static` makes Tailwind always emit them as
+ * variables on :root (components.css reads them) and generates utilities
+ * such as rounded-tile, shadow-raised, duration-open and ease-smooth.
+ */
+@theme static {
+  /* Section 5: shape. */
+  --radius-control: 4px;
+  --radius-window: 8px;
+  --radius-card: 8px;
+  --radius-tile: 18%;
+  --radius-mini-icon: 22%;
+  --radius-search: 18px;
+
+  /* Section 6: typography. */
+  --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-text);
+
+  /* Section 10: open/close durations. `open` is the default style (Genie). */
+  --transition-duration-open: 500ms;
+  --transition-duration-genie: 500ms;
+  --transition-duration-scale: 300ms;
+  --transition-duration-smooth: 200ms;
+  --transition-duration-reduced: 120ms;
+  /* Section 10 and 11: other motion. */
+  --transition-duration-hover: 150ms;
+  --transition-duration-press: 80ms;
+  --transition-duration-page: 250ms;
+  --ease-smooth: cubic-bezier(0, 0, 0, 1);
+  --ease-hover: ease-out;
+  --ease-page: ease-out;
+
+  /* Section 11: lift and grow. */
+  --shadow-raised: 0 8px 16px rgba(0, 0, 0, 0.25);
+  --drop-shadow-raised: 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Section 11: transform amounts, read by components.css. */
+:root {
+  --lift-hover: -3px;
+  --scale-hover: 1.08;
+  --scale-press: 0.95;
+  --scale-drop-target: 1.15;
+}

@@ -99,9 +99,33 @@ export const commands = {
 } | null>("get_flyout"),
 	/**  Hides the flyout, then launches app `app_id` like `launch_app`. */
 	launchFromFlyout: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_from_flyout", { appId })),
+	/**
+	 *  The Windows accent colour, or `null` when it could not be read (the
+	 *  frontend then uses DESIGN.md's fallback blue). Changes arrive as
+	 *  `accent:changed` events.
+	 */
+	getAccentColor: () => __TAURI_INVOKE<{
+	/**  The accent on light backgrounds (`UIColorType::AccentDark1`). */
+	light: string,
+	/**  The accent on dark backgrounds (`UIColorType::AccentLight2`). */
+	dark: string,
+} | null>("get_accent_color"),
+	/**
+	 *  The material the calling window is drawn on. `solid` means the page
+	 *  must paint its own background.
+	 */
+	getWindowMaterial: () => __TAURI_INVOKE<Material>("get_window_material"),
 };
 
 /* Types */
+/**  The Windows accent as `#RRGGBB` strings, one per theme. */
+export type AccentColors = {
+	/**  The accent on light backgrounds (`UIColorType::AccentDark1`). */
+	light: string,
+	/**  The accent on dark backgrounds (`UIColorType::AccentLight2`). */
+	dark: string,
+};
+
 /**  One launchable app. */
 export type AppEntry = {
 	/**  Stable id from [`crate::state::ids::app_id`]. */
@@ -182,6 +206,12 @@ export type LaunchpadItem = { kind: "app"; appId: string } | { kind: "folder"; g
 export type LaunchpadLayout = {
 	pages?: LaunchpadItem[][],
 };
+
+/**
+ *  The material a window ended up with. With `solid` the page paints
+ *  `--solid-bg` itself; with the others it stays transparent.
+ */
+export type Material = "mica" | "acrylic" | "solid";
 
 /**  User settings. */
 export type Settings = {

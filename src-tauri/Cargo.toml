@@ -41,6 +41,8 @@ windows = { version = "0.62", features = [
   # PROPVARIANT and PropVariantClear, for the shortcut's AppUserModelID.
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Environment",
+  # GetSystemPowerStatus: battery saver turns window backdrops off.
+  "Win32_System_Power",
   # SHELLEXECUTEINFOW has an HKEY field, so ShellExecuteExW needs Registry.
   "Win32_System_Registry",
   # VT_LPWSTR and the PROPVARIANT layout (needed by StructuredStorage).
@@ -53,7 +55,12 @@ windows = { version = "0.62", features = [
   # IPropertyStore on a ShellLink.
   "Win32_UI_Shell_PropertiesSystem",
   "Win32_UI_WindowsAndMessaging",
+  # WinRT UISettings: the accent colour and its change event.
+  "Foundation",
+  "UI_ViewManagement",
 ] }
+# Mica and Acrylic window backdrops.
+window-vibrancy = "0.8"
 
 # https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

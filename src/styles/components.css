@@ -1,0 +1,141 @@
+/*
+ * State styles for the shared components (DESIGN.md section 11). Each
+ * state also answers to data-preview="<state>" so the style guide can show
+ * it without a pointer.
+ */
+
+/* Keyboard focus: 2px outer ring in --text-primary and a 1px contrasting
+   inner ring, 3px off the element, only for keyboard focus. */
+.focus-ring {
+  position: relative;
+  outline: none;
+}
+
+.focus-ring:focus-visible::after,
+.focus-ring[data-preview="focus"]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--focus-radius, var(--radius-control)) + 3px);
+  box-shadow:
+    0 0 0 2px var(--focus-outer),
+    inset 0 0 0 1px var(--focus-inner);
+  pointer-events: none;
+}
+
+/* App and folder tiles: the icon lifts and grows on hover, shrinks when
+   pressed. Lists and menus use the subtle fill instead (see .subtle). */
+.tile-art {
+  transition-property: translate, scale, filter;
+  transition-duration: var(--transition-duration-hover);
+  transition-timing-function: var(--ease-hover);
+}
+
+.tile:not(:disabled):hover .tile-art,
+.tile[data-preview="hover"] .tile-art {
+  translate: 0 var(--lift-hover);
+  scale: var(--scale-hover);
+  filter: drop-shadow(var(--drop-shadow-raised));
+}
+
+.tile:not(:disabled):active .tile-art,
+.tile[data-preview="pressed"] .tile-art {
+  translate: 0 0;
+  scale: var(--scale-press);
+  filter: none;
+  transition-duration: var(--transition-duration-press);
+}
+
+.tile:disabled,
+.tile[data-preview="disabled"] {
+  cursor: default;
+  color: var(--text-disabled);
+}
+
+.tile:disabled .tile-art,
+.tile[data-preview="disabled"] .tile-art,
+.tile [data-missing="true"] {
+  opacity: 0.5;
+}
+
+/* Buttons. Fluent buttons change fill on hover and press; they do not
+   lift. Hover and pressed fills are layered over the base background. */
+.btn {
+  --btn-overlay: transparent;
+  background-image: linear-gradient(var(--btn-overlay), var(--btn-overlay));
+  transition-property: background-color, background-image, color;
+  transition-duration: var(--transition-duration-press);
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.btn-primary:not(:disabled):hover,
+.btn-primary[data-preview="hover"] {
+  background-color: var(--accent-hover);
+}
+
+.btn-primary:not(:disabled):active,
+.btn-primary[data-preview="pressed"] {
+  background-color: var(--accent-pressed);
+}
+
+.btn-secondary {
+  background-color: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--stroke-card);
+  color: var(--text-primary);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.btn-secondary:not(:disabled):hover,
+.btn-secondary[data-preview="hover"],
+.btn-ghost:not(:disabled):hover,
+.btn-ghost[data-preview="hover"] {
+  --btn-overlay: var(--fill-subtle-hover);
+}
+
+.btn-secondary:not(:disabled):active,
+.btn-secondary[data-preview="pressed"],
+.btn-ghost:not(:disabled):active,
+.btn-ghost[data-preview="pressed"] {
+  --btn-overlay: var(--fill-subtle-pressed);
+  color: var(--text-secondary);
+}
+
+.btn:disabled,
+.btn[data-preview="disabled"] {
+  cursor: default;
+  color: var(--text-disabled);
+}
+
+.btn-primary:disabled,
+.btn-primary[data-preview="disabled"] {
+  background-color: var(--accent-disabled);
+}
+
+/* List rows and menu items: the Fluent subtle fill, no lift. */
+.subtle:hover {
+  background-color: var(--fill-subtle-hover);
+}
+
+.subtle:active {
+  background-color: var(--fill-subtle-pressed);
+}
+
+/* Windows "Animation effects" off: no movement, the hover shadow fades in
+   over the reduced-motion duration instead. */
+@media (prefers-reduced-motion: reduce) {
+  .tile .tile-art,
+  .tile:not(:disabled):hover .tile-art,
+  .tile:not(:disabled):active .tile-art {
+    translate: none;
+    scale: none;
+    transition-duration: var(--transition-duration-reduced);
+  }
+}

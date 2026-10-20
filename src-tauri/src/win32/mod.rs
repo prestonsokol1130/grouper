@@ -5,6 +5,7 @@
 //! `Err("unsupported platform")`. The exception is [`gdi`], which wraps
 //! Win32 handle types and so exists on Windows only.
 
+pub mod accent;
 pub mod com;
 pub mod env;
 pub mod file_dialog;
@@ -15,6 +16,7 @@ pub mod launch;
 pub mod lnk_aumid;
 pub mod lnk_read;
 pub mod lnk_write;
+pub mod material;
 pub mod monitor;
 pub mod reveal;
 pub mod shell_notify;
