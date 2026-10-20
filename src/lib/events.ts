@@ -1,14 +1,16 @@
 import { listen } from "@tauri-apps/api/event";
-import type { AccentColors, AppState } from "../bindings";
+import type { AccentColors, AppState, FlyoutShow } from "../bindings";
 
 /**
  * Backend events and their payloads. The names match the Rust constants
- * `STATE_CHANGED_EVENT`, `ICONS_UPDATED_EVENT` and `ACCENT_CHANGED_EVENT`.
+ * `STATE_CHANGED_EVENT`, `ICONS_UPDATED_EVENT`, `ACCENT_CHANGED_EVENT`
+ * and `FLYOUT_SHOW_EVENT`.
  */
 type Events = {
   "state:changed": AppState;
   "icons:updated": string[];
   "accent:changed": AccentColors | null;
+  "flyout:show": FlyoutShow;
 };
 
 /**

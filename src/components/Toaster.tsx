@@ -61,7 +61,8 @@ function ToastItem({ toast }: { toast: Toast }) {
 
 /**
  * Shows the queued toasts at the bottom-right of the window, newest at the
- * bottom. Render once per window root.
+ * bottom, never wider than the window (the flyout is narrow). Render once
+ * per window root.
  */
 export function Toaster() {
   const toasts = useToastStore((store) => store.toasts);
@@ -71,7 +72,7 @@ export function Toaster() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed right-3 bottom-3 z-50 flex flex-col items-end gap-2"
+      className="pointer-events-none fixed right-3 bottom-3 left-3 z-50 flex flex-col items-end gap-2"
     >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />

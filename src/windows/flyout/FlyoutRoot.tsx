@@ -1,102 +1,149 @@
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useEffect, useState } from "react";
-import { commands, type AppState, type FlyoutShow } from "../bindings";
+import { useCallback, useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { AppTile } from "../../components/AppTile";
+import { api } from "../../lib/api";
+import { openCloseTiming, usePrefersReducedMotion } from "../../lib/motion";
+import { useAppStore } from "../../store/appStore";
+import { useGroup } from "../../store/hooks";
+import { appsById } from "../../store/selectors";
+import { showToast } from "../../store/toastStore";
+import { FLYOUT_ICON_PX, flyoutColumns, nextIndex } from "./flyoutGrid";
+import {
+  motionName,
+  motionVars,
+  playClose,
+  playOpen,
+  resetHidden,
+  useOpenCloseStyle,
+} from "./flyoutMotion";
+import { useFlyoutShow } from "./useFlyoutShow";
 
-/** Calls `stop` once `pending` resolves, ignoring a failed registration. */
-function unlistenLater(pending: Promise<() => void>): () => void {
-  return () => {
-    pending.then((stop) => stop()).catch(() => undefined);
-  };
+/** DESIGN.md section 13. */
+const EMPTY_MESSAGE = "No apps in this group yet. Drag apps here or click Add apps.";
+
+/** Launches `appId`; on failure says so in the flyout, which stays open. */
+async function launch(appId: string): Promise<void> {
+  const result = await api.launchFromFlyout(appId);
+  if (result.ok) return;
+  console.error(`flyout: launch ${appId}: ${result.error}`);
+  const state = useAppStore.getState().state;
+  const name = state ? appsById(state).get(appId)?.name : undefined;
+  showToast({
+    kind: "error",
+    title: name ? `Couldn't open ${name}.` : "Couldn't open the app.",
+    message: "It may have been moved or uninstalled.",
+  });
 }
 
-/** Keeps the shown group's payload and app names current. */
-function useFlyoutData(): { show: FlyoutShow | null; names: Map<string, string> } {
-  const [show, setShow] = useState<FlyoutShow | null>(null);
-  const [names, setNames] = useState<Map<string, string>>(new Map());
-
-  useEffect(() => {
-    const applyState = (state: AppState) =>
-      setNames(new Map((state.apps ?? []).map((app) => [app.id ?? "", app.name ?? ""])));
-    // Listeners first, so nothing sent while the initial reads run is lost.
-    const stopShow = unlistenLater(
-      getCurrentWebviewWindow().listen<FlyoutShow>("flyout:show", (event) =>
-        setShow(event.payload),
-      ),
-    );
-    // A pushed state is newer than the getState() snapshot below, which may
-    // resolve after it; once one has arrived, the snapshot is skipped.
-    let pushed = false;
-    const stopState = unlistenLater(
-      listen<AppState>("state:changed", (event) => {
-        pushed = true;
-        applyState(event.payload);
-      }),
-    );
-    commands
-      .getFlyout()
-      .then((current) => setShow((previous) => previous ?? current))
-      .catch((error: unknown) => console.error("flyout: get_flyout:", error));
-    commands
-      .getState()
-      .then((result) => {
-        if (result.status === "error") console.error(`flyout: get_state: ${result.error}`);
-        else if (!pushed) applyState(result.data);
-      })
-      .catch((error: unknown) => console.error("flyout: get_state:", error));
-    return () => {
-      stopShow();
-      stopState();
-    };
-  }, []);
-
-  return { show, names };
-}
-
-/** Escape hides the flyout. */
-function useEscapeToHide(): void {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      commands.hideFlyout().catch((error: unknown) => console.error("flyout: hide:", error));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-}
-
-/** Starts app `appId`; the backend hides the flyout first. */
-function launch(appId: string): void {
-  commands
-    .launchFromFlyout(appId)
-    .then((result) => {
-      if (result.status === "error") console.error(`flyout: launch: ${result.error}`);
-    })
-    .catch((error: unknown) => console.error("flyout: launch:", error));
+/** The tiles in `panel`, in grid order. */
+function tilesIn(panel: HTMLElement | null): HTMLElement[] {
+  return panel ? [...panel.querySelectorAll<HTMLElement>(".tile")] : [];
 }
 
 /**
- * Placeholder flyout: a plain list of the group's app names. The real
- * flyout UI comes with S4-04 and DESIGN.md.
+ * The taskbar flyout. Mounted once and kept forever: each `flyout:show`
+ * swaps in the group's data and replays the open animation. Shows the
+ * group name and its apps three across; arrows move between tiles, Enter
+ * or a click launches, Escape plays the close animation and hides.
  */
 export function FlyoutRoot() {
-  const { show, names } = useFlyoutData();
-  useEscapeToHide();
+  const { show, seq } = useFlyoutShow();
+  const style = useOpenCloseStyle();
+  const reduced = usePrefersReducedMotion();
+  const group = useGroup(show?.groupId ?? "");
+  const panel = useRef<HTMLDivElement>(null);
+  const seqRef = useRef(seq);
+  const closing = useRef(false);
+  const apps = show?.apps ?? [];
+  const columns = flyoutColumns(apps.length);
+
+  useLayoutEffect(() => {
+    seqRef.current = seq;
+    closing.current = false;
+    const element = panel.current;
+    if (seq === 0 || element === null) return;
+    playOpen(element);
+    tilesIn(element)[0]?.focus();
+  }, [seq]);
+
+  // Rust hides the window on blur without waiting; start the next show
+  // from nothing rather than from this group's last frame.
+  useEffect(() => {
+    const onBlur = () => {
+      if (panel.current) resetHidden(panel.current);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+  }, []);
+
+  const close = useCallback(() => {
+    const element = panel.current;
+    if (closing.current) return;
+    closing.current = true;
+    const started = seqRef.current;
+    const timing = openCloseTiming(style, reduced);
+    const played = element ? playClose(element, timing.durationMs) : Promise.resolve();
+    void played.then(async () => {
+      // A show that arrived during the animation wins.
+      if (seqRef.current !== started) return;
+      const result = await api.hideFlyout();
+      if (!result.ok) console.error(`flyout: hide: ${result.error}`);
+    });
+  }, [style, reduced]);
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
+
+  const onGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const tiles = tilesIn(panel.current);
+    const index = tiles.findIndex((tile) => tile === document.activeElement);
+    if (index < 0) return;
+    const next = nextIndex(event.key, index, tiles.length, columns);
+    if (next === null) return;
+    event.preventDefault();
+    tiles[next]?.focus();
+  };
 
   return (
-    <div className="h-screen overflow-auto p-4 text-primary">
-      {show === null || show.apps.length === 0 ? (
-        <p>No apps</p>
-      ) : (
-        <ul>
-          {show.apps.map((appId) => (
-            <li key={appId}>
-              <button type="button" onClick={() => launch(appId)}>
-                {names.get(appId) ?? appId}
-              </button>
-            </li>
-          ))}
-        </ul>
+    <div
+      ref={panel}
+      className="flyout-panel flex h-screen flex-col overflow-x-hidden overflow-y-auto p-3 text-primary"
+      data-motion={motionName(style, reduced)}
+      data-edge={show?.origin.edge ?? "bottom"}
+      style={motionVars(style, reduced, show?.origin)}
+    >
+      {show !== null && (
+        <>
+          <h1 className="mb-2 shrink-0 truncate type-subtitle" title={group?.name}>
+            {group?.name ?? ""}
+          </h1>
+          {apps.length === 0 ? (
+            <p className="type-body text-secondary">{EMPTY_MESSAGE}</p>
+          ) : (
+            <div
+              role="group"
+              aria-label={group?.name}
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${columns}, max-content)` }}
+              onKeyDown={onGridKey}
+            >
+              {apps.map((appId) => (
+                <AppTile
+                  key={appId}
+                  appId={appId}
+                  size={FLYOUT_ICON_PX}
+                  onActivate={(id) => void launch(id)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

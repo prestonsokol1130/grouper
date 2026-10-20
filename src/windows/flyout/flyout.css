@@ -1,0 +1,147 @@
+/*
+ * Flyout open/close animations (DESIGN.md section 10). flyoutMotion.ts
+ * sets data-motion (genie, scale, smooth or reduced), data-edge (the
+ * taskbar side), the timing variables from motion.ts and the origin point,
+ * then toggles .is-opening / .is-closing / .is-hidden. Closing plays the
+ * opening keyframes in reverse. Only the page content animates: the window
+ * itself (and its Acrylic) is shown by Rust at once.
+ */
+
+/* Registered so the keyframes can animate them. */
+@property --genie-sx {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --genie-sy {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --genie-pinch {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+.flyout-panel {
+  transform-origin: var(--origin-x) var(--origin-y);
+  animation-duration: var(--motion-duration);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
+}
+
+.flyout-panel.is-closing {
+  animation-direction: reverse;
+}
+
+.flyout-panel.is-hidden {
+  visibility: hidden;
+}
+
+/* Genie (approximation of the Mac minimize, reversed): the content pours
+   out of the origin as a thin sliver, stretches away from the taskbar,
+   then widens. --genie-sy is the stretch away from the taskbar and
+   --genie-sx the width along it; the clip pinches the taskbar side into a
+   funnel that opens up as it lands. */
+@keyframes flyout-genie {
+  0% {
+    --genie-sx: 0.06;
+    --genie-sy: 0.02;
+    --genie-pinch: 45%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  55% {
+    --genie-sx: 0.4;
+    --genie-sy: 0.85;
+    --genie-pinch: 30%;
+  }
+  100% {
+    --genie-sx: 1;
+    --genie-sy: 1;
+    --genie-pinch: 0%;
+    opacity: 1;
+  }
+}
+
+.flyout-panel[data-motion="genie"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-genie;
+  transform: scale(var(--genie-sx), var(--genie-sy));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing),
+.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
+  transform: scale(var(--genie-sy), var(--genie-sx));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="bottom"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--genie-pinch)) 100%, var(--genie-pinch) 100%);
+}
+
+.flyout-panel[data-motion="genie"][data-edge="top"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(var(--genie-pinch) 0, calc(100% - var(--genie-pinch)) 0, 100% 100%, 0 100%);
+}
+
+.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 var(--genie-pinch), 100% 0, 100% 100%, 0 calc(100% - var(--genie-pinch)));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 0, 100% var(--genie-pinch), 100% calc(100% - var(--genie-pinch)), 0 100%);
+}
+
+/* Scale: grows from the origin while fading in. */
+@keyframes flyout-scale {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="scale"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-scale;
+}
+
+/* Windows smooth: fades in and slides away from the taskbar. */
+@keyframes flyout-smooth {
+  from {
+    translate: var(--slide-x, 0) var(--slide-y, 0);
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="smooth"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-smooth;
+}
+
+.flyout-panel[data-edge="bottom"] {
+  --slide-y: var(--motion-slide);
+}
+
+.flyout-panel[data-edge="top"] {
+  --slide-y: calc(-1 * var(--motion-slide));
+}
+
+.flyout-panel[data-edge="left"] {
+  --slide-x: calc(-1 * var(--motion-slide));
+}
+
+.flyout-panel[data-edge="right"] {
+  --slide-x: var(--motion-slide);
+}
+
+/* Windows "Animation effects" off: every style is a plain fade. */
+@keyframes flyout-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="reduced"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-fade;
+}
