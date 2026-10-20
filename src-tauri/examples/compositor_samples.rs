@@ -7,6 +7,8 @@
 //!   in the default style, at 256 x 256.
 //! - `golden_16.png`, `golden_32.png`: the 16 and 32 px frames decoded from
 //!   `tests/golden/folder_4.ico`.
+//! - `empty_256.png`, `empty_48.png`, `empty_24.png`, `empty_16.png`: the
+//!   empty folder's `.ico` frames, as the taskbar gets them.
 
 use std::error::Error;
 use std::fs;
@@ -14,6 +16,7 @@ use std::io::Cursor;
 use std::path::Path;
 
 use grouper_lib::taskbar::compose::compose_folder;
+use grouper_lib::taskbar::ico::encode_ico;
 use grouper_lib::taskbar::style::FOLDER_STYLE;
 use ico::IconDir;
 use image::{Rgba, RgbaImage};
@@ -41,14 +44,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let golden = fs::read(root.join("tests").join("golden").join("folder_4.ico"))?;
-    let dir = IconDir::read(Cursor::new(golden))?;
+    write_frames(&golden, &[16, 32], "golden", &out)?;
+    let empty = encode_ico(&compose_folder(&[], &FOLDER_STYLE))?;
+    write_frames(&empty, &[16, 24, 48, 256], "empty", &out)
+}
+
+/// Saves the `sizes` frames of the `.ico` in `bytes` as `{prefix}_{size}.png`.
+fn write_frames(
+    bytes: &[u8],
+    sizes: &[u32],
+    prefix: &str,
+    out: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let dir = IconDir::read(Cursor::new(bytes))?;
     for entry in dir.entries() {
         let size = entry.width();
-        if size == 16 || size == 32 {
+        if sizes.contains(&size) {
             let frame = entry.decode()?;
             let image = RgbaImage::from_raw(size, size, frame.into_rgba_data())
                 .ok_or("frame has the wrong number of pixels")?;
-            let path = out.join(format!("golden_{size}.png"));
+            let path = out.join(format!("{prefix}_{size}.png"));
             image.save(&path)?;
             println!("{}", path.display());
         }

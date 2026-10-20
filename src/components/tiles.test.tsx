@@ -22,6 +22,7 @@ const STATE: AppState = {
   groups: [
     { id: "five", name: "Five", appIds: ["a", "b", "c", "d", "e"] },
     { id: "skip", name: "Skip", appIds: ["gone", "a"] },
+    { id: "empty", name: "Empty", appIds: ["gone"] },
   ],
 };
 
@@ -137,6 +138,18 @@ describe("FolderTile", () => {
     render(<FolderTile groupId="skip" />);
     const imgs = screen.getByTestId("folder-art").querySelectorAll("img");
     expect([...imgs].map((img) => img.getAttribute("src"))).toEqual(["a.png"]);
+  });
+
+  it("outlines four empty slots when no app is visible", () => {
+    render(<FolderTile groupId="empty" />);
+    const art = screen.getByTestId("folder-art");
+    expect(art.querySelectorAll("img")).toHaveLength(0);
+    expect(screen.getAllByTestId("empty-slot")).toHaveLength(4);
+  });
+
+  it("has no empty slots once it shows an app", () => {
+    render(<FolderTile groupId="skip" />);
+    expect(screen.queryAllByTestId("empty-slot")).toHaveLength(0);
   });
 
   it("uses the squircle clip path when asked", () => {
