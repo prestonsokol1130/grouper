@@ -8,6 +8,7 @@
 pub mod com;
 pub mod env;
 pub mod file_dialog;
+pub mod flyout_window;
 #[cfg(windows)]
 pub mod gdi;
 pub mod launch;

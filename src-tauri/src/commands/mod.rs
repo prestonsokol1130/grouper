@@ -1,6 +1,7 @@
 //! Tauri commands invoked from the frontend, and their TypeScript bindings.
 
 pub mod app_cmds;
+pub mod flyout_cmds;
 pub mod icon_cmds;
 pub mod launch_cmds;
 pub mod scan_cmds;
@@ -32,6 +33,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             app_cmds::remove_app,
             shortcut_cmds::create_group_shortcut,
             shortcut_cmds::reveal_group_shortcut,
+            flyout_cmds::hide_flyout,
+            flyout_cmds::get_flyout,
+            flyout_cmds::launch_from_flyout,
         ])
         .typ::<AppState>()
 }

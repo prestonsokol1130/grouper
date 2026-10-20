@@ -4,6 +4,7 @@
 pub mod apps;
 pub mod cli;
 pub mod commands;
+pub mod flyout;
 pub mod icons;
 pub mod launchpad;
 pub mod logging;
@@ -23,6 +24,9 @@ use tauri::{Manager, RunEvent};
 /// Starts Grouper. Startup failures are logged and the process exits.
 pub fn run() {
     logging::install_panic_hook();
+    // Before the single-instance check: a second launch from a taskbar
+    // click passes its foreground right on to the running instance.
+    win32::flyout_window::allow_any_foreground();
     if let Err(error) = start() {
         // stderr too: a failure before the log plugin starts has no logger.
         eprintln!("grouper: startup failed: {error}");
@@ -67,6 +71,7 @@ fn start() -> Result<(), String> {
                 log::error!("could not start the first app scan: {error}");
             }
             tray::create(handle)?;
+            flyout::window::init(handle);
             // args_os: std::env::args panics on non-Unicode arguments.
             let args: Vec<String> = std::env::args_os()
                 .map(|arg| arg.to_string_lossy().into_owned())
