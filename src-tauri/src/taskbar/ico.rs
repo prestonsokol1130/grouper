@@ -22,13 +22,17 @@ const SHARPEN_AMOUNT: f32 = 0.35;
 /// Encodes `img256` (must be 256 x 256) as an `.ico` with every size in
 /// [`ICO_SIZES`]. Smaller sizes are downscaled from it with Lanczos3 (on
 /// premultiplied pixels); 32 and below then get a light unsharp pass.
+///
+/// The directory is laid out like the icons in `shell32.dll`: largest
+/// frame first, and every entry (the PNG one too) with one colour plane
+/// and 32 bits per pixel.
 pub fn encode_ico(img256: &RgbaImage) -> Result<Vec<u8>, String> {
     if img256.dimensions() != (SOURCE_SIZE, SOURCE_SIZE) {
         let (width, height) = img256.dimensions();
         return Err(format!("icon must be 256 x 256, not {width} x {height}"));
     }
     let mut dir = IconDir::new(ResourceType::Icon);
-    for size in ICO_SIZES {
+    for size in ICO_SIZES.into_iter().rev() {
         let mut frame = fit_square(img256.clone(), size);
         if size <= SHARPEN_MAX {
             sharpen(&mut frame);
@@ -46,7 +50,28 @@ pub fn encode_ico(img256: &RgbaImage) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     dir.write(&mut bytes)
         .map_err(|e| format!("write ico: {e}"))?;
+    set_planes(&mut bytes);
     Ok(bytes)
+}
+
+/// The size of the `ICONDIR` header and of each `ICONDIRENTRY`.
+const DIR_HEADER: usize = 6;
+const DIR_ENTRY: usize = 16;
+
+/// Sets `wPlanes` to 1 in every directory entry that has 0. The `ico`
+/// crate writes 0 for PNG frames; Windows' own icons use 1.
+fn set_planes(bytes: &mut [u8]) {
+    let count = bytes
+        .get(4..DIR_HEADER)
+        .map_or(0, |n| usize::from(u16::from_le_bytes([n[0], n[1]])));
+    for index in 0..count {
+        let at = DIR_HEADER + index * DIR_ENTRY + 4;
+        if let Some(planes) = bytes.get_mut(at..at + 2) {
+            if planes == [0, 0] {
+                planes.copy_from_slice(&1_u16.to_le_bytes());
+            }
+        }
+    }
 }
 
 /// A light unsharp mask: each colour channel gets `SHARPEN_AMOUNT` times

@@ -25,9 +25,13 @@ mod compose_tests;
 #[cfg(test)]
 mod group_icon_tests;
 #[cfg(test)]
+mod ico_tests;
+#[cfg(test)]
 mod icon_inputs_tests;
 #[cfg(test)]
 mod placement_tests;
+#[cfg(all(test, windows))]
+mod shortcut_shell_tests;
 #[cfg(all(test, windows))]
 mod shortcut_sync_pin_tests;
 #[cfg(all(test, windows))]
