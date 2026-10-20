@@ -66,6 +66,9 @@ fn start() -> Result<(), String> {
                 }
                 Err(error) => log::error!("could not start the icon worker: {error}"),
             }
+            // Shortcuts are kept in sync in the background; at startup any
+            // tracked shortcut whose .lnk or .ico is missing is rebuilt.
+            commands::shortcut_worker::start_shortcut_sync(handle, &store);
             // A failed first scan is logged; the app still starts.
             if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
                 log::error!("could not start the first app scan: {error}");
@@ -90,6 +93,9 @@ fn start() -> Result<(), String> {
         } => api.prevent_exit(),
         RunEvent::Exit => {
             commands::icon_cmds::stop_icon_worker(app);
+            if let Some(worker) = app.try_state::<commands::shortcut_worker::ShortcutWorker>() {
+                worker.stop();
+            }
             if let Some(store) = app.try_state::<Arc<state::Store>>() {
                 if let Err(error) = store.shutdown() {
                     log::error!("saving app state on exit failed: {error}");

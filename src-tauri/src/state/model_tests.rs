@@ -42,6 +42,7 @@ fn populated() -> AppState {
             name: "Work".into(),
             app_ids: vec!["a".into(), "b".into()],
             icon_version: 3,
+            ..Group::default()
         }],
         launchpad: LaunchpadLayout {
             pages: vec![vec![folder_item("g1"), app_item("c")], vec![app_item("b")]],
@@ -140,6 +141,7 @@ fn remove_app_bumps_only_groups_that_held_it() {
         name: "Other".into(),
         app_ids: vec!["c".into()],
         icon_version: 7,
+        ..Group::default()
     });
     state.remove_app("a");
     assert_eq!(state.group_by_id("g1").map(|g| g.icon_version), Some(4));
@@ -158,6 +160,21 @@ fn set_group_apps_drops_unknown_and_repeated_ids() {
     assert_eq!(group.app_ids, vec!["c".to_string(), "a".to_string()]);
     assert_eq!(group.icon_version, 4);
     assert!(state.set_group_apps("nope", Vec::new()).is_none());
+}
+
+#[test]
+fn set_group_apps_bumps_the_icon_version_only_when_the_icon_changes() {
+    let mut state = populated();
+    // "c" is missing and hidden, so the folder still shows "a" and "b".
+    let group = state
+        .set_group_apps("g1", vec!["a".into(), "c".into(), "b".into()])
+        .unwrap();
+    assert_eq!(group.icon_version, 3);
+    let group = state
+        .set_group_apps("g1", vec!["b".into(), "a".into()])
+        .unwrap();
+    assert_eq!(group.icon_version, 4);
+    assert_eq!(state.group_by_id("g1"), Some(&group));
 }
 
 #[test]

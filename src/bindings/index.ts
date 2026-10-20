@@ -10,13 +10,23 @@ export const commands = {
 	getState: () => typedError<AppState, string>(__TAURI_INVOKE("get_state")),
 	/**  Creates an empty group called `name`. */
 	createGroup: (name: string) => typedError<Group, string>(__TAURI_INVOKE("create_group", { name })),
-	/**  Renames group `id`. */
+	/**
+	 *  Renames group `id`. When the name changed, a shortcut update is queued;
+	 *  if the group has a shortcut when it runs, the shortcut is renamed in
+	 *  the background.
+	 */
 	renameGroup: (id: string, name: string) => typedError<Group, string>(__TAURI_INVOKE("rename_group", { id, name })),
-	/**  Deletes group `id`; its Launchpad folder unfolds into its apps. */
+	/**
+	 *  Deletes group `id`; its Launchpad folder unfolds into its apps. Its
+	 *  shortcut and cached `.ico` files are removed afterwards in the
+	 *  background; a failure there is logged and never undoes the deletion.
+	 */
 	deleteGroup: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_group", { id })),
 	/**
-	 *  Replaces the apps in group `id` (unknown and repeated app ids are dropped) and bumps
-	 *  its icon version so the composite icon is rebuilt.
+	 *  Replaces the apps in group `id` (unknown and repeated app ids are
+	 *  dropped). When its first four visible apps change, its icon version is
+	 *  bumped and, if it has a shortcut, its `.ico` and shortcut are rebuilt
+	 *  in the background.
 	 */
 	setGroupApps: (id: string, appIds: string[]) => typedError<Group, string>(__TAURI_INVOKE("set_group_apps", { id, appIds })),
 	/**  Changes only the settings present in `patch`; the rest are kept. */
@@ -62,8 +72,11 @@ export const commands = {
 	 */
 	removeApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("remove_app", { appId })),
 	/**
-	 *  Creates (or rewrites) group `group_id`'s Start Menu shortcut and returns
-	 *  its path.
+	 *  Builds group `group_id`'s icon, then creates (or rewrites) its Start
+	 *  Menu shortcut, `{FOLDERID_Programs}\Grouper\<group name>.lnk`, pointing
+	 *  at this executable with `--flyout <group_id>`. Marks the group
+	 *  `has_shortcut`, so later renames and icon changes keep the shortcut in
+	 *  step, and returns its path.
 	 */
 	createGroupShortcut: (groupId: string) => typedError<string, string>(__TAURI_INVOKE("create_group_shortcut", { groupId })),
 	/**
@@ -145,6 +158,13 @@ export type Group = {
 	appIds?: string[],
 	/**  Bumped whenever the group's composite icon must be rebuilt. */
 	iconVersion?: number,
+	/**
+	 *  The user made a Start Menu shortcut for this group, so Grouper keeps
+	 *  its shortcut and icon in sync (and recreates them if missing).
+	 */
+	hasShortcut?: boolean,
+	/**  Where that shortcut was last written. */
+	shortcutPath?: string | null,
 };
 
 /**  What a group launch did. */

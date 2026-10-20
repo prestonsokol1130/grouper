@@ -15,6 +15,7 @@ fn group(id: &str, name: &str) -> Group {
         name: name.to_owned(),
         app_ids: Vec::new(),
         icon_version: 0,
+        ..Group::default()
     }
 }
 

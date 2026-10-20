@@ -6,6 +6,8 @@ pub mod icon_cmds;
 pub mod launch_cmds;
 pub mod scan_cmds;
 pub mod shortcut_cmds;
+mod shortcut_jobs;
+pub mod shortcut_worker;
 pub mod state_cmds;
 
 use tauri_specta::{collect_commands, Builder};

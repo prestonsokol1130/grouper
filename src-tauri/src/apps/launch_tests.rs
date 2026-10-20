@@ -36,6 +36,7 @@ fn store(dir: &tempfile::TempDir) -> Store {
                     name: "G".into(),
                     app_ids: vec!["a".into(), "gone".into(), "b".into()],
                     icon_version: 0,
+                    ..Group::default()
                 }],
                 ..AppState::default()
             };

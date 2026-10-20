@@ -4,8 +4,10 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 
+use super::shortcut_worker::{queue, Job};
 use crate::state::ids::new_group_id;
 use crate::state::{AppState, Group, LaunchpadLayout, Settings, SettingsPatch, Store};
+use crate::taskbar::shortcut_sync::Change;
 
 /// Emitted to every window with the full new [`AppState`] after a change.
 pub const STATE_CHANGED_EVENT: &str = "state:changed";
@@ -69,13 +71,17 @@ pub fn create_group(
             name,
             app_ids: Vec::new(),
             icon_version: 0,
+            has_shortcut: false,
+            shortcut_path: None,
         };
         state.groups.push(group.clone());
         Ok(group)
     })
 }
 
-/// Renames group `id`.
+/// Renames group `id`. When the name changed, a shortcut update is queued;
+/// if the group has a shortcut when it runs, the shortcut is renamed in
+/// the background.
 #[tauri::command]
 #[specta::specta]
 pub fn rename_group(
@@ -85,14 +91,33 @@ pub fn rename_group(
     name: String,
 ) -> Result<Group, String> {
     let name = clean_name(&name)?;
-    mutate(&app, &store, |state| {
+    let (group, renamed) = mutate(&app, &store, |state| {
         let group = group_mut(state, &id)?;
+        let renamed = group.name != name;
         group.name = name;
-        Ok(group.clone())
-    })
+        Ok((group.clone(), renamed))
+    })?;
+    // Queued even before the group has a shortcut: a shortcut still being
+    // created gets the new name once it is recorded.
+    if renamed {
+        let change = Change {
+            renamed: true,
+            icon: false,
+        };
+        queue(
+            &app,
+            Job::Update {
+                group_id: id,
+                change,
+            },
+        );
+    }
+    Ok(group)
 }
 
-/// Deletes group `id`; its Launchpad folder unfolds into its apps.
+/// Deletes group `id`; its Launchpad folder unfolds into its apps. Its
+/// shortcut and cached `.ico` files are removed afterwards in the
+/// background; a failure there is logged and never undoes the deletion.
 #[tauri::command]
 #[specta::specta]
 pub fn delete_group(
@@ -105,11 +130,15 @@ pub fn delete_group(
             .remove_group(&id)
             .map(|_| ())
             .ok_or_else(|| format!("Group not found: {id}"))
-    })
+    })?;
+    queue(&app, Job::Remove { group_id: id });
+    Ok(())
 }
 
-/// Replaces the apps in group `id` (unknown and repeated app ids are dropped) and bumps
-/// its icon version so the composite icon is rebuilt.
+/// Replaces the apps in group `id` (unknown and repeated app ids are
+/// dropped). When its first four visible apps change, its icon version is
+/// bumped and, if it has a shortcut, its `.ico` and shortcut are rebuilt
+/// in the background.
 #[tauri::command]
 #[specta::specta]
 pub fn set_group_apps(
@@ -118,6 +147,8 @@ pub fn set_group_apps(
     id: String,
     app_ids: Vec<String>,
 ) -> Result<Group, String> {
+    // A bumped icon version reaches the shortcut worker through the
+    // store's icon listener (see `queue_icon_updates`).
     mutate(&app, &store, |state| {
         state
             .set_group_apps(&id, app_ids)
