@@ -4,6 +4,7 @@ pub mod app_cmds;
 pub mod icon_cmds;
 pub mod launch_cmds;
 pub mod scan_cmds;
+pub mod shortcut_cmds;
 pub mod state_cmds;
 
 use tauri_specta::{collect_commands, Builder};
@@ -29,6 +30,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             app_cmds::pick_and_add_apps,
             app_cmds::add_app_from_path,
             app_cmds::remove_app,
+            shortcut_cmds::create_group_shortcut,
+            shortcut_cmds::reveal_group_shortcut,
         ])
         .typ::<AppState>()
 }

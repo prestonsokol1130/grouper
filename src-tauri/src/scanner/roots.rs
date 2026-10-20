@@ -23,6 +23,12 @@ pub fn scan_roots() -> Result<Vec<ScanRoot>, String> {
     imp::scan_roots()
 }
 
+/// The current user's Start Menu "Programs" folder (`FOLDERID_Programs`).
+/// On non-Windows platforms this returns `Err("unsupported platform")`.
+pub fn programs_dir() -> Result<PathBuf, String> {
+    imp::programs_dir()
+}
+
 #[cfg(windows)]
 mod imp {
     use std::ffi::OsString;
@@ -55,6 +61,10 @@ mod imp {
         Ok(roots)
     }
 
+    pub(super) fn programs_dir() -> Result<PathBuf, String> {
+        known_folder(&FOLDERID_Programs).map_err(|e| format!("Start Menu Programs folder: {e}"))
+    }
+
     /// The path of known folder `id` for the current user.
     fn known_folder(id: &GUID) -> Result<PathBuf, String> {
         // SAFETY: `id` points to a live GUID for the whole call, and a None
@@ -79,16 +89,22 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
+    use std::path::PathBuf;
+
     use super::ScanRoot;
 
     pub(super) fn scan_roots() -> Result<Vec<ScanRoot>, String> {
+        Err("unsupported platform".to_owned())
+    }
+
+    pub(super) fn programs_dir() -> Result<PathBuf, String> {
         Err("unsupported platform".to_owned())
     }
 }
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::{scan_roots, ROOT_COUNT};
+    use super::{programs_dir, scan_roots, ROOT_COUNT};
 
     #[test]
     fn finds_both_start_menu_folders() {
@@ -100,5 +116,10 @@ mod tests {
             assert!(root.path.is_absolute(), "{}", root.path.display());
             assert!(root.path.ends_with("Programs"), "{}", root.path.display());
         }
+    }
+
+    #[test]
+    fn programs_dir_is_the_per_user_root() {
+        assert_eq!(programs_dir().unwrap(), scan_roots().unwrap()[0].path);
     }
 }

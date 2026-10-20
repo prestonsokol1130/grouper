@@ -61,6 +61,16 @@ export const commands = {
 	 *  and the Launchpad; a Start Menu app is hidden instead.
 	 */
 	removeApp: (appId: string) => typedError<null, string>(__TAURI_INVOKE("remove_app", { appId })),
+	/**
+	 *  Creates (or rewrites) group `group_id`'s Start Menu shortcut and returns
+	 *  its path.
+	 */
+	createGroupShortcut: (groupId: string) => typedError<string, string>(__TAURI_INVOKE("create_group_shortcut", { groupId })),
+	/**
+	 *  Opens Explorer on Grouper's Start Menu folder with group `group_id`'s
+	 *  shortcut selected. `Err` when the shortcut has not been created yet.
+	 */
+	revealGroupShortcut: (groupId: string) => typedError<null, string>(__TAURI_INVOKE("reveal_group_shortcut", { groupId })),
 };
 
 /* Types */

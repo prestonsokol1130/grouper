@@ -12,8 +12,12 @@ pub mod file_dialog;
 pub mod gdi;
 pub mod launch;
 pub mod lnk_read;
+pub mod lnk_write;
+pub mod reveal;
 pub mod version_info;
 pub mod wide;
 
 #[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;
+#[cfg(all(test, windows))]
+mod lnk_write_tests;
