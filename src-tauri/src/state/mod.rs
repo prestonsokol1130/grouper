@@ -7,6 +7,7 @@ pub mod migrate;
 pub mod model;
 pub mod ops;
 pub mod paths;
+pub mod reorder;
 pub mod store;
 
 #[cfg(test)]

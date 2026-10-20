@@ -25,6 +25,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             state_cmds::rename_group,
             state_cmds::delete_group,
             state_cmds::set_group_apps,
+            state_cmds::reorder_groups,
             state_cmds::update_settings,
             state_cmds::set_launchpad_layout,
             scan_cmds::rescan_apps,

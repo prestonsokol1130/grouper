@@ -79,9 +79,9 @@ pub fn create_group(
     })
 }
 
-/// Renames group `id`. When the name changed, a shortcut update is queued;
-/// if the group has a shortcut when it runs, the shortcut is renamed in
-/// the background.
+/// Renames group `id`.
+// When the name changed, a shortcut update is queued; if the group has a
+// shortcut when it runs, the shortcut is renamed in the background.
 #[tauri::command]
 #[specta::specta]
 pub fn rename_group(
@@ -115,9 +115,9 @@ pub fn rename_group(
     Ok(group)
 }
 
-/// Deletes group `id`; its Launchpad folder unfolds into its apps. Its
-/// shortcut and cached `.ico` files are removed afterwards in the
-/// background; a failure there is logged and never undoes the deletion.
+/// Deletes group `id`; its Launchpad folder unfolds into its apps.
+// Its shortcut and cached `.ico` files are removed afterwards in the
+// background; a failure there is logged and never undoes the deletion.
 #[tauri::command]
 #[specta::specta]
 pub fn delete_group(
@@ -135,10 +135,10 @@ pub fn delete_group(
     Ok(())
 }
 
-/// Replaces the apps in group `id` (unknown and repeated app ids are
-/// dropped). When its first four visible apps change, its icon version is
-/// bumped and, if it has a shortcut, its `.ico` and shortcut are rebuilt
-/// in the background.
+/// Replaces the apps in group `id` (unknown and repeated ids are dropped).
+// When its first four visible apps change, its icon version is bumped
+// and, if it has a shortcut, its `.ico` and shortcut are rebuilt in the
+// background.
 #[tauri::command]
 #[specta::specta]
 pub fn set_group_apps(
@@ -154,6 +154,17 @@ pub fn set_group_apps(
             .set_group_apps(&id, app_ids)
             .ok_or_else(|| format!("Group not found: {id}"))
     })
+}
+
+/// Puts the groups in the order of `ids` (every group id exactly once).
+#[tauri::command]
+#[specta::specta]
+pub fn reorder_groups(
+    app: AppHandle,
+    store: State<'_, Arc<Store>>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    mutate(&app, &store, |state| state.reorder_groups(&ids))
 }
 
 /// Changes only the settings present in `patch`; the rest are kept.

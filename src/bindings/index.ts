@@ -10,25 +10,14 @@ export const commands = {
 	getState: () => typedError<AppState, string>(__TAURI_INVOKE("get_state")),
 	/**  Creates an empty group called `name`. */
 	createGroup: (name: string) => typedError<Group, string>(__TAURI_INVOKE("create_group", { name })),
-	/**
-	 *  Renames group `id`. When the name changed, a shortcut update is queued;
-	 *  if the group has a shortcut when it runs, the shortcut is renamed in
-	 *  the background.
-	 */
+	/**  Renames group `id`. */
 	renameGroup: (id: string, name: string) => typedError<Group, string>(__TAURI_INVOKE("rename_group", { id, name })),
-	/**
-	 *  Deletes group `id`; its Launchpad folder unfolds into its apps. Its
-	 *  shortcut and cached `.ico` files are removed afterwards in the
-	 *  background; a failure there is logged and never undoes the deletion.
-	 */
+	/**  Deletes group `id`; its Launchpad folder unfolds into its apps. */
 	deleteGroup: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_group", { id })),
-	/**
-	 *  Replaces the apps in group `id` (unknown and repeated app ids are
-	 *  dropped). When its first four visible apps change, its icon version is
-	 *  bumped and, if it has a shortcut, its `.ico` and shortcut are rebuilt
-	 *  in the background.
-	 */
+	/**  Replaces the apps in group `id` (unknown and repeated ids are dropped). */
 	setGroupApps: (id: string, appIds: string[]) => typedError<Group, string>(__TAURI_INVOKE("set_group_apps", { id, appIds })),
+	/**  Puts the groups in the order of `ids` (every group id exactly once). */
+	reorderGroups: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("reorder_groups", { ids })),
 	/**  Changes only the settings present in `patch`; the rest are kept. */
 	updateSettings: (patch: SettingsPatch) => typedError<Settings, string>(__TAURI_INVOKE("update_settings", { patch })),
 	/**  Replaces the Launchpad layout (dangling ids are dropped). */
