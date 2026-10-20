@@ -2,6 +2,7 @@
 
 pub mod app_cmds;
 pub mod appearance_cmds;
+pub mod cache_watch;
 pub mod flyout_cmds;
 pub mod folder_cmds;
 pub mod icon_cmds;

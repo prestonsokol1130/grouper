@@ -9,6 +9,7 @@ pub mod accent;
 pub mod balloon;
 pub mod com;
 pub mod cursor;
+pub mod dir_watch;
 pub mod env;
 pub mod file_dialog;
 pub mod flyout_window;
