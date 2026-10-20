@@ -73,8 +73,8 @@ export const commands = {
 	 *  shortcut selected. `Err` when the shortcut has not been created yet.
 	 */
 	revealGroupShortcut: (groupId: string) => typedError<null, string>(__TAURI_INVOKE("reveal_group_shortcut", { groupId })),
-	/**  Hides the flyout (Escape in the flyout window). */
-	hideFlyout: () => __TAURI_INVOKE<void>("hide_flyout"),
+	/**  Hides the flyout (Escape); `Err` when Windows could not hide it. */
+	hideFlyout: () => typedError<null, string>(__TAURI_INVOKE("hide_flyout")),
 	/**  The last `flyout:show` payload (`null` before any), for a late page. */
 	getFlyout: () => __TAURI_INVOKE<{
 	groupId: string,

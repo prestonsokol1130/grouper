@@ -5,14 +5,14 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 use super::launch_cmds::launch_app;
-use crate::flyout::{window, FlyoutShow, FlyoutState};
+use crate::flyout::{hide, FlyoutShow, FlyoutState};
 use crate::state::Store;
 
-/// Hides the flyout (Escape in the flyout window).
+/// Hides the flyout (Escape); `Err` when Windows could not hide it.
 #[tauri::command]
 #[specta::specta]
-pub fn hide_flyout(app: AppHandle) {
-    window::hide(&app);
+pub fn hide_flyout(app: AppHandle) -> Result<(), String> {
+    hide::hide(&app)
 }
 
 /// The last `flyout:show` payload (`null` before any), for a late page.
@@ -36,7 +36,10 @@ pub async fn launch_from_flyout(
     let before = flyout.visible_token();
     let launched = launch_app(app.clone(), store, app_id).await;
     if hide_after_launch(&launched, before, flyout.visible_token()) {
-        window::hide(&app);
+        // The launch already succeeded, so a failed hide is only logged.
+        if let Err(error) = hide::hide(&app) {
+            log::warn!("{error}");
+        }
     }
     launched
 }

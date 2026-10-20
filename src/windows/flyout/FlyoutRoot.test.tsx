@@ -118,7 +118,8 @@ describe("FlyoutRoot", () => {
   it("opens back up when the hide fails, and Escape works again", async () => {
     vi.useFakeTimers();
     const view = await renderShown();
-    invokeMock.mockRejectedValueOnce("window gone");
+    // What Tauri rejects with when hide_flyout returns the Rust Err.
+    invokeMock.mockRejectedValueOnce("could not hide the flyout: ShowWindow failed");
     fireEvent.keyDown(window, { key: "Escape" });
     await act(() => vi.advanceTimersByTimeAsync(600));
     expect(invoked("hide_flyout")).toHaveLength(1);

@@ -9,10 +9,11 @@ use tauri::{
     WebviewWindow, WindowEvent,
 };
 
+use super::hide::hide_or_log;
 use super::layout::{fit_height, flyout_size, to_physical, LAYOUT};
 use super::origin::origin;
 use super::toggle::Decision;
-use super::{FlyoutShow, FlyoutState, FLYOUT_HIDE_EVENT, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
+use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
 use crate::taskbar::placement::{place, taskbar_edge, usable_height};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
@@ -60,7 +61,7 @@ pub fn request<R: Runtime>(app: &AppHandle<R>, group_id: &str) {
     match decision {
         Decision::Hide => {
             log::info!("flyout for {group_id:?} toggled off");
-            hide_window(app);
+            hide_or_log(app);
         }
         Decision::StayHidden => {
             log::info!("flyout for {group_id:?} toggled off (already hidden by the click)");
@@ -76,21 +77,12 @@ pub fn request<R: Runtime>(app: &AppHandle<R>, group_id: &str) {
                 Err(error) => {
                     // Never leave a visible topmost window behind a failure.
                     state.toggle().hidden();
-                    hide_window(app);
+                    hide_or_log(app);
                     log::warn!("could not show the flyout for {group_id:?}: {error}");
                 }
             }
         }
     }
-}
-
-/// Hides the flyout on purpose (Escape, a launch). The next request for
-/// any group shows it again.
-pub fn hide<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(state) = app.try_state::<FlyoutState>() {
-        state.toggle().hidden();
-    }
-    hide_window(app);
 }
 
 /// The flyout lost focus: hide it, remembering the group for the toggle.
@@ -101,7 +93,7 @@ fn on_blur<R: Runtime>(app: &AppHandle<R>) {
     let must_hide = state.toggle().blurred(Instant::now());
     if must_hide {
         log::debug!("flyout lost focus; hiding");
-        hide_window(app);
+        hide_or_log(app);
     }
 }
 
@@ -184,23 +176,7 @@ fn either_focused(
     }
 }
 
-/// Hides the window and tells the page, so its next show starts empty.
-fn hide_window<R: Runtime>(app: &AppHandle<R>) {
-    match flyout_window(app) {
-        Ok(window) => {
-            if let Err(error) = window.hide() {
-                log::warn!("could not hide the flyout: {error}");
-            }
-        }
-        Err(error) => log::warn!("{error}"),
-    }
-    let target = EventTarget::webview_window(FLYOUT_LABEL);
-    if let Err(error) = app.emit_to(target, FLYOUT_HIDE_EVENT, ()) {
-        log::warn!("could not emit {FLYOUT_HIDE_EVENT}: {error}");
-    }
-}
-
-fn flyout_window<R: Runtime>(app: &AppHandle<R>) -> Result<WebviewWindow<R>, String> {
+pub(super) fn flyout_window<R: Runtime>(app: &AppHandle<R>) -> Result<WebviewWindow<R>, String> {
     app.get_webview_window(FLYOUT_LABEL)
         .ok_or_else(|| format!("flyout window {FLYOUT_LABEL:?} not found"))
 }

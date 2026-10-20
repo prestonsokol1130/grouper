@@ -3,8 +3,10 @@
 //! button.
 //!
 //! [`layout`] sizes it, [`origin`] finds where it animates from and [`toggle`] decides whether a request shows or
-//! hides it; both are pure. [`window`] does the Tauri and Win32 work.
+//! hides it; both are pure. [`window`] does the Tauri and Win32 work and [`hide`]
+//! hides it.
 
+pub mod hide;
 pub mod layout;
 pub mod origin;
 pub mod toggle;

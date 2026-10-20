@@ -60,7 +60,7 @@ export const api = {
   removeApp: (appId: string) => typed(() => commands.removeApp(appId)),
   createGroupShortcut: (groupId: string) => typed(() => commands.createGroupShortcut(groupId)),
   revealGroupShortcut: (groupId: string) => typed(() => commands.revealGroupShortcut(groupId)),
-  hideFlyout: () => plain(() => commands.hideFlyout()),
+  hideFlyout: () => typed(() => commands.hideFlyout()),
   getFlyout: () => plain(() => commands.getFlyout()),
   launchFromFlyout: (appId: string) => typed(() => commands.launchFromFlyout(appId)),
   getAccentColor: () => plain(() => commands.getAccentColor()),

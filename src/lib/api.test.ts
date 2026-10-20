@@ -27,7 +27,17 @@ describe("api wrappers", () => {
     invokeMock.mockResolvedValueOnce(null);
     await expect(api.getFlyout()).resolves.toEqual({ ok: true, value: null });
     invokeMock.mockRejectedValueOnce({ code: 3 });
-    await expect(api.hideFlyout()).resolves.toEqual({ ok: false, error: '{"code":3}' });
+    await expect(api.getAccentColor()).resolves.toEqual({ ok: false, error: '{"code":3}' });
+  });
+
+  it("reports a native flyout hide failure from Rust as ok:false", async () => {
+    invokeMock.mockRejectedValueOnce("could not hide the flyout: ShowWindow failed");
+    await expect(api.hideFlyout()).resolves.toEqual({
+      ok: false,
+      error: "could not hide the flyout: ShowWindow failed",
+    });
+    invokeMock.mockResolvedValueOnce(null);
+    await expect(api.hideFlyout()).resolves.toEqual({ ok: true, value: null });
   });
 
   it("passes camelCase argument names through", async () => {
