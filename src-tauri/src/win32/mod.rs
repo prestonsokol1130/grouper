@@ -25,6 +25,7 @@ pub mod reveal;
 pub mod shell_notify;
 pub mod version_info;
 pub mod wide;
+pub mod window_rect;
 
 #[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;

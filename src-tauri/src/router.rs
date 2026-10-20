@@ -18,6 +18,7 @@ pub fn route<R: Runtime>(app: &AppHandle<R>, cmd: LaunchCommand) {
         LaunchCommand::Manager => {
             let _ = show_window(app, "manager");
         }
+        LaunchCommand::BenchFlyout => flyout::bench::start(app),
         LaunchCommand::Background | LaunchCommand::None => {}
     }
 }

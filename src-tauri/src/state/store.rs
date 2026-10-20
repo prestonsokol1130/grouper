@@ -108,6 +108,11 @@ impl Store {
         lock(&self.state).clone()
     }
 
+    /// Runs `read` on the current state without copying all of it.
+    pub fn read<T>(&self, read: impl FnOnce(&AppState) -> T) -> T {
+        read(&lock(&self.state))
+    }
+
     /// Applies `change`, validates, gives any visible app or group missing
     /// from the Launchpad a slot at its end
     /// ([`AppState::place_missing_on_launchpad`]), bumps the icon version of each group

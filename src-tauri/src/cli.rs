@@ -12,6 +12,9 @@ pub enum LaunchCommand {
     /// Started by Windows at sign-in (`--background`): open no window,
     /// not even the first-run welcome.
     Background,
+    /// Hidden, for measuring (`--bench flyout`): show and hide the flyout
+    /// 100 times and log the timings. Never launches anything.
+    BenchFlyout,
     /// Nothing to do; stay in the tray.
     None,
 }
@@ -30,6 +33,11 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
             "--launchpad" => return LaunchCommand::Launchpad,
             "--manager" => return LaunchCommand::Manager,
             BACKGROUND_FLAG => return LaunchCommand::Background,
+            // Only the exact value counts; anything else does nothing.
+            BENCH_FLAG if rest.next().is_some_and(|value| value == "flyout") => {
+                return LaunchCommand::BenchFlyout;
+            }
+            BENCH_FLAG => return LaunchCommand::None,
             _ => {}
         }
     }
@@ -39,9 +47,18 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
 /// The flag the Windows sign-in (Run key) launch passes.
 pub const BACKGROUND_FLAG: &str = "--background";
 
+/// The hidden measuring flag; see [`LaunchCommand::BenchFlyout`].
+const BENCH_FLAG: &str = "--bench";
+
 /// The flags [`parse_args`] knows. One of them after `--flyout` is a
 /// missing id, not an id.
-const KNOWN_FLAGS: [&str; 4] = ["--flyout", "--launchpad", "--manager", BACKGROUND_FLAG];
+const KNOWN_FLAGS: [&str; 5] = [
+    "--flyout",
+    "--launchpad",
+    "--manager",
+    BACKGROUND_FLAG,
+    BENCH_FLAG,
+];
 
 /// Validates the id that follows `--flyout`. Group ids may start with `--`
 /// (`-` is in their alphabet), so only the exact known flags are refused.
@@ -175,6 +192,21 @@ mod tests {
         );
         assert_eq!(
             parse_args(&args(&["--flyout", "--background"])),
+            LaunchCommand::None
+        );
+    }
+
+    #[test]
+    fn bench_needs_the_exact_value() {
+        assert_eq!(
+            parse_args(&args(&["--bench", "flyout"])),
+            LaunchCommand::BenchFlyout
+        );
+        for bad in [&["--bench"][..], &["--bench", "Flyout"], &["--bench", "x"]] {
+            assert_eq!(parse_args(&args(bad)), LaunchCommand::None, "{bad:?}");
+        }
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--bench"])),
             LaunchCommand::None
         );
     }

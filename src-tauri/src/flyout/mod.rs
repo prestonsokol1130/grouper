@@ -4,11 +4,13 @@
 //!
 //! [`layout`] sizes it, [`origin`] finds where it animates from and [`toggle`] decides whether a request shows or
 //! hides it; both are pure. [`window`] does the Tauri and Win32 work and [`hide`]
-//! hides it.
+//! hides it. [`bench`] is the hidden `--bench flyout` measurement.
 
+pub mod bench;
 pub mod hide;
 pub mod layout;
 pub mod origin;
+mod present;
 pub mod toggle;
 pub mod window;
 
