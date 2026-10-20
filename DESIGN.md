@@ -49,7 +49,7 @@ Accent shades (`--accent`, `--accent-hover`, `--accent-pressed`, `--text-on-acce
 
 ## 4. Materials
 
-**Setting:** "Window background" with Mica, Acrylic or Solid. The default is the mix below. The setting overrides all surfaces at once.
+**Setting:** "Window background" with Mixed (default), Mica, Acrylic or Solid. Mixed is the per-surface default in the table below. Mica, Acrylic or Solid override every surface at once, and choosing Mixed again goes back to the per-surface default.
 
 | Surface   | Default | Notes                                                                                          |
 | --------- | ------- | ---------------------------------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ Folder tile recipe (used by the Launchpad folder tile and the 2x2 taskbar `.ico`
 
 ## 6. Typography
 
-**Segoe UI Variable** (the Windows 11 system font; nothing bundled). Use the "Text" optical size at 14px and below and "Display" above. Fallback stack: `"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`.
+**Segoe UI Variable** (the Windows 11 system font; nothing bundled). Styles at 14px and below use the Text optical size: `"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`. Styles above 14px (Subtitle, Title, Title Large) use the Display optical size: `"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif`.
 
 Fluent type ramp:
 
@@ -113,7 +113,7 @@ Fluent type ramp:
 ### Flyout
 
 - 3 apps across with names, grows downward in rows; no pointer arrow.
-- Sits 12px above the taskbar, horizontally centered on the group's taskbar icon, clamped to the screen edge.
+- Sits 12px off the taskbar edge: above a bottom taskbar, below a top one, to the right of a left one and to the left of a right one. It is centered on the group's taskbar icon along the taskbar and kept inside the work area.
 - Padding 12px, gap 8px, group name in Subtitle at the top.
 
 ### Manager
@@ -123,16 +123,16 @@ Fluent type ramp:
 
 ## 9. Settings (from the interview)
 
-| Setting            | Options                                         | Default                       |
-| ------------------ | ----------------------------------------------- | ----------------------------- |
-| Accent color       | Windows accent, custom color                    | Windows accent                |
-| Window background  | Mica, Acrylic, Solid (default mix in section 4) | mix                           |
-| Folder shape       | Windows square, iPhone squircle                 | Windows square                |
-| Icon size          | Small, Medium, Large                            | Medium                        |
-| Launchpad grid     | columns x rows                                  | 7 x 5                         |
-| Animation style    | Genie, Scale, Windows smooth                    | Genie                         |
-| Launchpad shortcut | any key combo                                   | Alt + `                       |
-| Hot corners        | top-left, top-right (each on/off)               | _not decided_, see section 12 |
+| Setting            | Options                                 | Default                       |
+| ------------------ | --------------------------------------- | ----------------------------- |
+| Accent color       | Windows accent, custom color            | Windows accent                |
+| Window background  | Mixed (section 4), Mica, Acrylic, Solid | Mixed                         |
+| Folder shape       | Windows square, iPhone squircle         | Windows square                |
+| Icon size          | Small, Medium, Large                    | Medium                        |
+| Launchpad grid     | columns x rows                          | 7 x 5                         |
+| Animation style    | Genie, Scale, Windows smooth            | Genie                         |
+| Launchpad shortcut | any key combo                           | Alt + `                       |
+| Hot corners        | top-left, top-right (each on/off)       | _not decided_, see section 12 |
 
 Light/dark is not a Grouper setting; it follows Windows.
 
@@ -177,31 +177,12 @@ Toasts appear at the bottom-right above the taskbar, Fluent InfoBar style, and c
 
 ---
 
-## 14. App icon brief (for Claude Design)
+## 14. App icon
 
-Grouper's own icon is still the stock Tauri logo. This is the brief for designing a real one.
+**Chosen: the Diamond Tile** (Preston approved it on 2026-10-20). Three blue tiles in a 2x2 grid, with the fourth tile orange and turned 45° into a diamond in its own slot. The files are in `src-tauri/icons/`.
 
-**What Grouper does:** groups apps into folders on the Windows taskbar. Click a folder icon and its apps pop up above the taskbar. It also has a fullscreen Launchpad of every app.
+Grouper's own icon uses fixed brand colours and the diamond, while a user's group icon shows the group's real app icons, so the two stay easy to tell apart.
 
-**Must:**
-
-- Read clearly at **16x16** in the tray and the taskbar, and look good at 256x256 and in the Start menu.
-- Work on both light and dark taskbars.
-- Look native to Windows 11 Fluent: simple shapes, soft gradient and gentle depth, no text, no thin details that vanish at small sizes.
-- Be clearly different from a _group_ folder icon, because every group already shows a 2x2 grid of real app icons on the taskbar. Grouper's own icon must not be mistaken for one of the user's groups.
-- Use the same corner style as section 5 (Windows square) if the icon is tile-shaped.
-
-**Ideas to explore (pick 3 directions to show Preston):**
-
-1. Abstract 2x2 grid of plain rounded tiles in accent-blue tones, one tile slightly lifted (grouping plus the lift-and-grow feel).
-2. A folder or stack shape with tiles peeking out, Fluent 3D-ish style like the Windows 11 File Explorer icon.
-3. Tiles gathering into one shape (a "group" mark) as a simple monogram-like symbol.
-
-**Deliverables:**
-
-- Master artwork as SVG and a 1024x1024 PNG.
-- Windows `.ico` containing 16, 20, 24, 32, 40, 48, 64 and 256px, hand-tuned at 16 and 24.
-- A tray variant at 16 and 32px that stays legible on light and dark taskbars (a full-color version is fine if it reads on both; otherwise light and dark monochrome versions).
-- Files land in `src-tauri/icons/` replacing the Tauri defaults (`32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.ico`, `icon.icns`).
-
-**Colors available:** accent blue `#0067C0` / `#4CC2FF`, neutrals from section 3. Avoid the Tauri yellow and cyan.
+- `icon.ico` has 16, 20, 24, 32, 40, 48, 64 and 256px frames; 16, 20 and 24 are hand-tuned on the pixel grid.
+- Colours: blue `#5ACBFF`→`#0E6DD2`, deep blue `#3A9CF2`→`#0A55B3`, sky `#A8E2FF`→`#3FA7F0`, orange `#FFC766`→`#F7682A`.
+- Changing the icon needs Preston's approval, like every other choice in this file.
