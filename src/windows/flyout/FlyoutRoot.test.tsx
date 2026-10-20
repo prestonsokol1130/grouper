@@ -173,4 +173,15 @@ describe("FlyoutRoot", () => {
     await flush();
     expect(screen.getByRole("heading").textContent).toBe("Work");
   });
+
+  it("shows every app of a 50-app group in a panel that scrolls", async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `app${i}`);
+    useAppStore.getState().applyState({
+      apps: ids.map((id) => ({ id, name: `${id} ${"long name ".repeat(20)}` })),
+      groups: [{ id: "big", name: "Big", appIds: ids }],
+    });
+    const view = await renderShown(payload("big", ids));
+    expect(screen.getAllByTestId("tile-label")).toHaveLength(50);
+    expect(panel(view)?.className).toContain("overflow-y-auto");
+  });
 });

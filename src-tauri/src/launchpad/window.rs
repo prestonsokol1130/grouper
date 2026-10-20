@@ -38,11 +38,15 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
         log::error!("could not style the Launchpad window: {error}");
     }
     let handle = app.clone();
+    // A plain integer, so the blur watch can take it to its thread.
+    let hwnd = raw_hwnd(&window).map(|hwnd| hwnd as isize);
     window.on_window_event(move |event| {
         if let WindowEvent::Focused(false) = event {
             if launchpad_visible(&handle) {
-                log::debug!("Launchpad lost focus; hiding");
-                hide_or_log(&handle);
+                match hwnd {
+                    Ok(hwnd) => super::blur::on_blur(&handle, hwnd),
+                    Err(_) => hide_or_log(&handle),
+                }
             }
         }
     });
@@ -70,7 +74,7 @@ pub fn toggle<R: Runtime>(app: &AppHandle<R>, opener: Opener) {
     }
 }
 
-fn launchpad_visible<R: Runtime>(app: &AppHandle<R>) -> bool {
+pub(super) fn launchpad_visible<R: Runtime>(app: &AppHandle<R>) -> bool {
     app.try_state::<LaunchpadState>()
         .is_some_and(|state| state.visible())
 }
@@ -170,7 +174,7 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     Ok(())
 }
 
-fn hide_or_log<R: Runtime>(app: &AppHandle<R>) {
+pub(super) fn hide_or_log<R: Runtime>(app: &AppHandle<R>) {
     if let Err(error) = hide(app) {
         log::warn!("{error}");
     }

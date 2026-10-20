@@ -58,7 +58,7 @@ export function GroupDetail({ groupId, renaming, onRenameStart, onRenameEnd }: P
       allIds.filter((id) => id !== appId),
     );
   const open = (appId: string) =>
-    void openApp(appId, apps.find((app) => app.id === appId)?.name ?? "");
+    void openApp(appId, apps.find((app) => app.id === appId)?.name ?? "", () => remove(appId));
 
   return (
     <section aria-label={name} className="flex flex-col">

@@ -49,12 +49,20 @@ export async function revealShortcut(id: string): Promise<boolean> {
   return false;
 }
 
-/** Opens app `appId` from the Manager; a failure says so in a toast. */
-export async function openApp(appId: string, name: string): Promise<void> {
+/**
+ * Opens app `appId` from the Manager; a failure says so in a toast. With
+ * `remove`, the toast offers to take the app out of the group.
+ */
+export async function openApp(appId: string, name: string, remove?: () => void): Promise<void> {
   const result = await api.launchApp(appId);
   if (result.ok) return;
-  const title = name ? `Couldn't open ${name}.` : "Couldn't open the app.";
-  fail(`launch ${appId}`, result.error, title, "It may have been moved or uninstalled.");
+  console.error(`manager: launch ${appId}: ${result.error}`);
+  showToast({
+    kind: "error",
+    title: name ? `Couldn't open ${name}.` : "Couldn't open the app.",
+    message: "It may have been moved or uninstalled.",
+    action: remove && { label: "Remove from group", run: remove },
+  });
 }
 
 /** Scans the Start Menu again. Returns whether it worked. */

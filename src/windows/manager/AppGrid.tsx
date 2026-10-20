@@ -82,6 +82,7 @@ export function AppGrid({ groupName, apps, onOpen, onReorder, onRemove }: Props)
             key={id}
             data-app-id={id}
             data-dragging={drag.draggingId === id}
+            data-missing={app.missing === true}
             className="app-cell relative touch-none select-none"
             style={moved ? { translate: `${shift.x}px ${shift.y}px` } : undefined}
             onKeyDown={(event) => onTileKey(event, id)}

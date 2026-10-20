@@ -62,8 +62,10 @@
   transition: opacity var(--transition-duration-hover) var(--ease-hover);
 }
 
+/* A missing app always shows Remove: it can't be opened any more. */
 .app-cell:hover .app-remove,
-.app-cell:focus-within .app-remove {
+.app-cell:focus-within .app-remove,
+.app-cell[data-missing="true"] .app-remove {
   opacity: 1;
 }
 

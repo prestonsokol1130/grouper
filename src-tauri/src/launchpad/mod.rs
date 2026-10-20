@@ -5,6 +5,7 @@
 //! animation starts; both are pure. [`window`] does the Tauri and Win32
 //! work.
 
+pub mod blur;
 pub mod layout;
 pub mod origin;
 pub mod window;

@@ -49,10 +49,15 @@ export function TaskbarSection({
               <p className="mb-3 type-body text-secondary">
                 The icon shows the group's first four apps and updates when they change.
               </p>
-              <Button onClick={() => void revealShortcut(groupId)}>
-                <FluentIcon glyph="folderOpen" />
-                Show in Explorer
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => void revealShortcut(groupId)}>
+                  <FluentIcon glyph="folderOpen" />
+                  Show in Explorer
+                </Button>
+                <Button onClick={create} disabled={creating}>
+                  {creating ? "Recreating…" : "Recreate shortcut"}
+                </Button>
+              </div>
               <PinSteps name={name} />
             </>
           ) : (

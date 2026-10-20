@@ -58,6 +58,36 @@ describe("taskbar section", () => {
     expect(text).toContain("Choose Pin to taskbar.");
   });
 
+  it("recreates a shortcut the user deleted", async () => {
+    useAppStore.getState().applyState({
+      ...STATE,
+      groups: [{ id: "g1", name: "Coding", appIds: ["a"], hasShortcut: true }],
+    });
+    render(<ManagerRoot />);
+    await act(async () => {
+      fireEvent.click(within(card()).getByRole("button", { name: "Recreate shortcut" }));
+    });
+    expect(calls("create_group_shortcut")).toEqual([{ groupId: "g1" }]);
+    expect(within(card()).getByRole("button", { name: "Recreate shortcut" })).toBeTruthy();
+  });
+
+  it("offers to remove a missing app that would not open", async () => {
+    invokeMock.mockImplementation((command: string) =>
+      command === "launch_app" ? Promise.reject("Gamma can't be found") : Promise.resolve(null),
+    );
+    render(<ManagerRoot />);
+    const tile = screen.getByRole("list", { name: "Apps in Coding" });
+    expect(tile.querySelector('[data-app-id="c"]')?.getAttribute("data-missing")).toBe("true");
+    await act(async () => {
+      fireEvent.click(tile.querySelector('[data-app-id="c"] .tile') as HTMLElement);
+    });
+    const toast = useToastStore.getState().toasts[0];
+    expect(toast?.title).toBe("Couldn't open Gamma.");
+    expect(toast?.action?.label).toBe("Remove from group");
+    await act(async () => toast?.action?.run());
+    expect(calls("set_group_apps")).toEqual([{ id: "g1", appIds: ["a", "b"] }]);
+  });
+
   it("says so when the shortcut can't be made", async () => {
     invokeMock.mockRejectedValue("icon build failed");
     render(<ManagerRoot />);

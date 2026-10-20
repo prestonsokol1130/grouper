@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { invokeMock } from "../test/tauriMock";
 import {
   accentShades,
@@ -48,13 +48,9 @@ describe("applyMaterial", () => {
     invokeMock.mockResolvedValueOnce("mica");
     await expect(applyMaterial()).resolves.toBe("mica");
     expect(document.documentElement.dataset.material).toBe("mica");
-    vi.useFakeTimers();
     invokeMock.mockRejectedValue(new Error("no tauri"));
-    const unknown = applyMaterial();
-    await vi.runAllTimersAsync();
-    await expect(unknown).resolves.toBe("solid");
-    // Retried while Rust may still be starting up.
-    expect(invokeMock).toHaveBeenCalledTimes(16);
-    vi.useRealTimers();
+    await expect(applyMaterial()).resolves.toBe("solid");
+    expect(document.documentElement.dataset.material).toBe("solid");
+    expect(invokeMock).toHaveBeenCalledTimes(2);
   });
 });

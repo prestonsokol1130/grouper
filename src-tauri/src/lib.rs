@@ -22,6 +22,9 @@ pub mod util;
 pub mod win32;
 pub mod windows;
 
+#[cfg(test)]
+mod resilience_tests;
+
 use std::sync::Arc;
 
 use tauri::{Manager, RunEvent};

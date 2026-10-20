@@ -12,6 +12,7 @@ pub mod cursor;
 pub mod env;
 pub mod file_dialog;
 pub mod flyout_window;
+pub mod foreground;
 #[cfg(windows)]
 pub mod gdi;
 pub mod launch;

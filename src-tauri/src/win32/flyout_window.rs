@@ -64,8 +64,9 @@ mod imp {
     use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::{
         AllowSetForegroundWindow, GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW,
-        SetWindowPos, ASFW_ANY, GWL_EXSTYLE, HWND_TOPMOST, STYLESTRUCT, SWP_FRAMECHANGED,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WM_NCDESTROY, WM_STYLECHANGING,
+        SetWindowPos, ShowWindow, ASFW_ANY, GWL_EXSTYLE, HWND_TOPMOST, STYLESTRUCT,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, WM_DISPLAYCHANGE,
+        WM_NCDESTROY, WM_STYLECHANGING,
     };
 
     use super::flyout_ex_style;
@@ -73,7 +74,10 @@ mod imp {
     /// This module's id for its subclass of the flyout window.
     const SUBCLASS_ID: usize = 0x6772_6f75;
 
-    /// Keeps the flyout's extended style through tao's rewrites.
+    /// Keeps the flyout's extended style through tao's rewrites, and hides
+    /// the window when the monitors change: it was placed for the old
+    /// layout (a monitor it covered may be gone). The blur that follows
+    /// tells Rust it is hidden.
     unsafe extern "system" fn keep_flyout_style(
         hwnd: HWND,
         msg: u32,
@@ -89,6 +93,11 @@ mod imp {
             if let Some(change) = unsafe { change.as_mut() } {
                 change.styleNew = flyout_ex_style(change.styleNew);
             }
+        }
+        if msg == WM_DISPLAYCHANGE {
+            // SAFETY: hwnd is the live window this proc subclasses, and
+            // this runs on its own thread. Hiding a hidden window is a no-op.
+            let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
         }
         if msg == WM_NCDESTROY {
             // SAFETY: removes this proc's own subclass from hwnd on the
