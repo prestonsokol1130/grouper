@@ -45,6 +45,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Registry",
   # VT_LPWSTR and the PROPVARIANT layout (needed by StructuredStorage).
   "Win32_System_Variant",
+  # GetDpiForMonitor (flyout placement) and the per-thread awareness in tests.
+  "Win32_UI_HiDpi",
   "Win32_UI_Shell",
   # COMDLG_FILTERSPEC, for IFileDialog::SetFileTypes.
   "Win32_UI_Shell_Common",

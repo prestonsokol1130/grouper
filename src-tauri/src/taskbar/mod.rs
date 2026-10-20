@@ -12,6 +12,7 @@
 pub mod compose;
 pub mod group_icon;
 pub mod ico;
+pub mod placement;
 pub mod shortcut;
 pub mod shortcut_write;
 pub mod squircle;
@@ -21,5 +22,7 @@ pub mod style;
 mod compose_tests;
 #[cfg(test)]
 mod group_icon_tests;
+#[cfg(test)]
+mod placement_tests;
 #[cfg(test)]
 mod shortcut_tests;
