@@ -39,9 +39,8 @@ type Drag = { id: string; start: number; startY: number; step: number; dy: numbe
 /**
  * Pointer drag-to-reorder for a vertical list (plain pointer events, so it
  * also works where the webview's HTML5 drag and drop is taken by Tauri's
- * file drop). Spread `rowProps(id)` on each row. While a row is dragged,
- * `order` is the order it would drop into and `offset` keeps the dragged
- * row under the pointer. A drop that changes the order calls `onReorder`.
+ * file drop). Spread `rowProps(id)` on each row and shift it by
+ * `shift(id)` px. A drop that changes the order calls `onReorder`.
  */
 export function useDragReorder(ids: string[], onReorder: (ids: string[]) => void) {
   const [drag, setDragState] = useState<Drag | null>(null);
@@ -55,7 +54,17 @@ export function useDragReorder(ids: string[], onReorder: (ids: string[]) => void
   };
   const target = drag ? dropIndex(drag.start, drag.dy, drag.step, ids.length) : 0;
   const active = drag !== null && drag.moved && ids[drag.start] === drag.id;
-  const order = active ? moveItem(ids, drag.start, target) : ids;
+
+  // Rows are only shifted, never moved in the DOM: moving the dragged
+  // row's element would drop its pointer capture and end the drag.
+  const shift = (id: string): number => {
+    if (!active) return 0;
+    const index = ids.indexOf(id);
+    if (index === drag.start) return drag.dy;
+    if (drag.start < target && index > drag.start && index <= target) return -drag.step;
+    if (target < drag.start && index >= target && index < drag.start) return drag.step;
+    return 0;
+  };
 
   const finish = (commit: boolean) => {
     const current = dragRef.current;
@@ -86,7 +95,7 @@ export function useDragReorder(ids: string[], onReorder: (ids: string[]) => void
     },
     onPointerUp: () => finish(true),
     onPointerCancel: () => finish(false),
-    onLostPointerCapture: () => finish(true),
+    onLostPointerCapture: () => finish(false),
     onClickCapture: (event: MouseEvent<HTMLElement>) => {
       if (!swallowClick.current) return;
       swallowClick.current = false;
@@ -96,10 +105,10 @@ export function useDragReorder(ids: string[], onReorder: (ids: string[]) => void
   });
 
   return {
-    order,
     draggingId: active ? drag.id : null,
-    /** px to shift the dragged row so it stays under the pointer. */
-    offset: active ? drag.dy - (target - drag.start) * drag.step : 0,
+    /** px to shift row `id`: the dragged row follows the pointer and the
+        rows it passes make room. */
+    shift,
     rowProps,
     /** Drops the drag without reordering (Escape). */
     cancel: () => finish(false),

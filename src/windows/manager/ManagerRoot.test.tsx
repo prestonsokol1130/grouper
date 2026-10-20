@@ -178,6 +178,10 @@ describe("reorder", () => {
     fireEvent.pointerDown(first, { button: 0, clientY: 10, pointerId: 1 });
     fireEvent.pointerMove(first, { clientY: 110, pointerId: 1 });
     expect(first.getAttribute("data-dragging")).toBe("true");
+    // Rows only shift while dragging; the DOM order (and capture) stays.
+    expect(rows()[0]).toBe(first);
+    expect(first.style.translate).toBe("0 100px");
+    expect((rows()[2] as HTMLElement).style.translate).toBe("0 -48px");
     fireEvent.pointerUp(first, { clientY: 110, pointerId: 1 });
     fireEvent.click(first);
     expect(calls("reorder_groups")).toEqual([{ ids: ["g2", "g3", "g1"] }]);

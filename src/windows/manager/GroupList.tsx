@@ -83,9 +83,14 @@ export function GroupList({ ids, page, onSelect, onNewGroup, onRename, onReorder
         </Button>
       </div>
       <nav aria-label="Groups" className="min-h-0 flex-1 overflow-y-auto">
-        <ul ref={list} className="flex flex-col gap-1 p-1">
-          {drag.order.map((id) => {
+        <ul
+          ref={list}
+          className="flex flex-col gap-1 p-1"
+          data-reordering={drag.draggingId !== null}
+        >
+          {ids.map((id) => {
             const dragging = drag.draggingId === id;
+            const shift = drag.shift(id);
             return (
               <li key={id}>
                 <button
@@ -95,7 +100,7 @@ export function GroupList({ ids, page, onSelect, onNewGroup, onRename, onReorder
                   aria-current={selectedId === id ? "page" : undefined}
                   aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown F2"
                   className={`${ROW} h-11 touch-none select-none`}
-                  style={dragging ? { translate: `0 ${drag.offset}px` } : undefined}
+                  style={shift !== 0 ? { translate: `0 ${shift}px` } : undefined}
                   onClick={() => onSelect({ kind: "group", id })}
                   onKeyDown={(event) => onRowKey(event, id)}
                   {...drag.rowProps(id)}

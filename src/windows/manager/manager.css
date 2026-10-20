@@ -8,6 +8,14 @@
   transition-duration: var(--transition-duration-press);
 }
 
+/* While a row is dragged, the rows it passes slide out of its way. The
+   slide is off otherwise, so the drop itself lands without a jump. */
+[data-reordering="true"] .nav-item {
+  transition-property: background-color, translate;
+  transition-duration: var(--transition-duration-press), var(--transition-duration-hover);
+  transition-timing-function: var(--ease-hover);
+}
+
 .nav-item:hover,
 .nav-item[aria-current="page"] {
   background-color: var(--fill-subtle-hover);
