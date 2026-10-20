@@ -60,6 +60,7 @@ mod tests {
                 name: "G".into(),
                 app_ids: vec!["m".into(), "s".into()],
                 icon_version: 0,
+                ..Group::default()
             }],
             ..AppState::default()
         };

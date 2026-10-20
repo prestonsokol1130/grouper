@@ -2,11 +2,13 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use image::{ImageFormat, RgbaImage};
 
-use super::compose::{compose_folder, MAX_FOLDER_ICONS};
+use super::compose::compose_folder;
 use super::ico::encode_ico;
+use super::icon_inputs::group_icon_inputs;
 use super::style::FOLDER_STYLE;
 use crate::icons::cache::{check_id, icon_path, ICON_SIZE};
 use crate::icons::fallback::fallback_icon;
@@ -14,41 +16,28 @@ use crate::state::disk_write::{reject_symlink, write_atomic};
 use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
 use crate::state::AppState;
 
-/// The app ids whose icons a group's folder shows: the first four of the
-/// group's apps that exist and are neither missing nor hidden. Empty for
-/// an unknown group.
-pub fn group_icon_inputs(state: &AppState, group_id: &str) -> Vec<String> {
-    let Some(group) = state.group_by_id(group_id) else {
-        return Vec::new();
-    };
-    group
-        .app_ids
-        .iter()
-        .filter(|id| {
-            state
-                .app_by_id(id)
-                .is_some_and(|app| !app.missing && !app.hidden)
-        })
-        .take(MAX_FOLDER_ICONS)
-        .cloned()
-        .collect()
-}
+/// How often a write over an `.ico` that another process (usually
+/// Explorer reading the icon) briefly holds open is tried.
+const WRITE_TRIES: u32 = 3;
 
-/// `{groups_dir}/{group_id}-v{version}.ico`.
-pub fn group_icon_path(groups_dir: &Path, group_id: &str, version: u32) -> PathBuf {
-    groups_dir.join(format!("{group_id}-v{version}.ico"))
+/// The pause between those tries.
+const RETRY_PAUSE: Duration = Duration::from_millis(150);
+
+/// `{groups_dir}/{group_id}.ico`. The path never changes, so a taskbar pin
+/// (a copy of the group's shortcut) always points at a file that exists.
+pub fn group_icon_path(groups_dir: &Path, group_id: &str) -> PathBuf {
+    groups_dir.join(format!("{group_id}.ico"))
 }
 
 /// Builds the `.ico` for `group_id` and returns its path,
-/// `{cache_dir}/groups/{group_id}-v{icon_version}.ico`.
+/// `{cache_dir}/groups/{group_id}.ico`.
 ///
 /// `cache_dir` is `{app_data_dir}/cache` (see
 /// [`cache_dir`](crate::state::paths::cache_dir)). Each app's icon is read
 /// from `{cache_dir}/icons/{app_id}.png`; one that is missing or unreadable
-/// is replaced by the fallback icon. The version in the file name makes
-/// Windows' icon cache pick up a changed group. The file is written
-/// atomically (temp file plus rename, never through a symlink), and only
-/// then are the group's other versions deleted.
+/// is replaced by the fallback icon. The file is written atomically over
+/// the previous one (temp file plus rename, never through a symlink), so
+/// the path stays valid the whole time; nothing is deleted.
 ///
 /// Returns `Err` for an unknown group, a group id that is not a safe file
 /// name, or a failed encode or write.
@@ -58,9 +47,9 @@ pub fn build_group_icon(
     cache_dir: &Path,
 ) -> Result<PathBuf, String> {
     check_id(group_id).map_err(|_| format!("group id {group_id:?} is not a safe file name"))?;
-    let group = state
-        .group_by_id(group_id)
-        .ok_or_else(|| format!("no group with id {group_id}"))?;
+    if state.group_by_id(group_id).is_none() {
+        return Err(format!("no group with id {group_id}"));
+    }
     let icons_dir = cache_dir.join(ICONS_DIR);
     let icons: Vec<RgbaImage> = group_icon_inputs(state, group_id)
         .iter()
@@ -71,10 +60,16 @@ pub fn build_group_icon(
     let groups_dir = cache_dir.join(GROUPS_DIR);
     reject_symlink(&groups_dir)?;
     fs::create_dir_all(&groups_dir).map_err(|e| format!("create {}: {e}", groups_dir.display()))?;
-    let dest = group_icon_path(&groups_dir, group_id, group.icon_version);
-    write_atomic(&groups_dir, &dest, &bytes)?;
-    remove_other_versions(&groups_dir, group_id, group.icon_version);
-    Ok(dest)
+    let dest = group_icon_path(&groups_dir, group_id);
+    let mut result = write_atomic(&groups_dir, &dest, &bytes);
+    for _ in 1..WRITE_TRIES {
+        if result.is_ok() {
+            break;
+        }
+        std::thread::sleep(RETRY_PAUSE);
+        result = write_atomic(&groups_dir, &dest, &bytes);
+    }
+    result.map(|()| dest)
 }
 
 /// The cached PNG for `app_id`, or the fallback icon if there is none or it
@@ -100,30 +95,52 @@ fn load_icon(icons_dir: &Path, app_id: &str) -> RgbaImage {
     }
 }
 
-/// Deletes every `{group_id}-v{N}.ico` in `groups_dir` other than version
-/// `keep`. Only regular files are removed; failures are logged.
-fn remove_other_versions(groups_dir: &Path, group_id: &str, keep: u32) {
-    let entries = match fs::read_dir(groups_dir) {
+/// Deletes every cached `.ico` of group `group_id`: `{group_id}.ico` and
+/// any legacy `{group_id}-v{N}.ico` in `{cache_dir}/groups`. Called only
+/// when the group is deleted: until then an old taskbar pin may still
+/// show a legacy file, so nothing else removes them. Only regular files
+/// are removed; failures are logged, never returned.
+pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
+    if remove_legacy_icons(cache_dir, group_id) {
+        let path = group_icon_path(&cache_dir.join(GROUPS_DIR), group_id);
+        if path.is_file() {
+            if let Err(error) = fs::remove_file(&path) {
+                log::warn!("could not remove {}: {error}", path.display());
+            }
+        }
+    }
+}
+
+/// Deletes group `group_id`'s legacy `{group_id}-v{N}.ico` files (named
+/// by version before the icon path became stable). Only regular files are
+/// removed; failures are logged. False for an unsafe group id or a missing
+/// folder, where nothing is touched.
+fn remove_legacy_icons(cache_dir: &Path, group_id: &str) -> bool {
+    if let Err(error) = check_id(group_id) {
+        log::warn!("not removing icons: {error}");
+        return false;
+    }
+    let groups_dir = cache_dir.join(GROUPS_DIR);
+    let entries = match fs::read_dir(&groups_dir) {
         Ok(entries) => entries,
         Err(error) => {
-            log::warn!("could not list {}: {error}", groups_dir.display());
-            return;
+            log::debug!("could not list {}: {error}", groups_dir.display());
+            return false;
         }
     };
     let prefix = format!("{group_id}-v");
     for entry in entries.flatten() {
         let name = entry.file_name();
-        let version = name
+        let legacy = name
             .to_str()
             .and_then(|name| name.strip_prefix(&prefix))
             .and_then(|rest| rest.strip_suffix(".ico"))
-            .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
-            .and_then(|digits| digits.parse::<u32>().ok());
-        let stale = version.is_some_and(|version| version != keep);
-        if stale && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            .is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()));
+        if legacy && entry.file_type().is_ok_and(|kind| kind.is_file()) {
             if let Err(error) = fs::remove_file(entry.path()) {
                 log::warn!("could not remove {}: {error}", entry.path().display());
             }
         }
     }
+    true
 }

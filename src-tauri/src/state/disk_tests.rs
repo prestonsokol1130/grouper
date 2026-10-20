@@ -23,6 +23,7 @@ fn sample() -> AppState {
             name: "Tools".into(),
             app_ids: vec!["a1".into()],
             icon_version: 0,
+            ..Group::default()
         }],
         ..AppState::default()
     }

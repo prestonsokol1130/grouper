@@ -20,6 +20,7 @@ fn sample() -> AppState {
             name: "Tools".into(),
             app_ids: vec!["a1".into()],
             icon_version: 0,
+            ..Group::default()
         }],
         ..AppState::default()
     }
@@ -128,9 +129,9 @@ fn load_validates_dangling_ids() {
         serde_json::to_string(&state).unwrap(),
     )
     .unwrap();
-    let mut expected = sample();
-    expected.groups[0].icon_version = 1;
-    assert_eq!(Store::load(dir.path()).unwrap().snapshot(), expected);
+    // The dangling id is dropped. It was never shown in the folder icon,
+    // so the icon version stays as it was.
+    assert_eq!(Store::load(dir.path()).unwrap().snapshot(), sample());
 }
 
 #[test]

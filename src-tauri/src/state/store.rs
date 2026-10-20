@@ -31,7 +31,12 @@ pub struct Store {
     /// Always taken before `state`.
     publish_lock: Mutex<()>,
     wake: Mutex<Option<Sender<()>>>,
+    icon_listener: Mutex<Option<IconListener>>,
 }
+
+/// Told the ids of the groups whose icon version a committed change bumped
+/// (a change to their first four visible apps).
+pub type IconListener = Box<dyn Fn(&[String]) + Send + Sync>;
 
 /// Locks a mutex, recovering the data if a panicking thread poisoned it.
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -49,6 +54,7 @@ impl Store {
             save_lock: Mutex::new(()),
             publish_lock: Mutex::new(()),
             wake: Mutex::new(None),
+            icon_listener: Mutex::new(None),
         }
     }
 
@@ -100,9 +106,13 @@ impl Store {
         lock(&self.state).clone()
     }
 
-    /// Applies `change`, validates, marks the store dirty and returns the
-    /// change's value plus the new state. A failed change is rolled back, and
-    /// a read-only store refuses every change.
+    /// Applies `change`, validates, bumps the icon version of each group
+    /// whose folder icon now shows other apps (once; see
+    /// [`AppState::bump_icon_versions`]), marks the store dirty and returns
+    /// the change's value plus the new state. Then, with the state lock
+    /// released, the icon listener hears which groups' icon versions
+    /// changed. A failed change is rolled back, and a read-only store
+    /// refuses every change.
     pub fn update<T>(
         &self,
         change: impl FnOnce(&mut AppState) -> Result<T, String>,
@@ -114,10 +124,22 @@ impl Store {
         let mut next = guard.clone();
         let value = change(&mut next)?;
         next.validate();
+        let icons_changed = next.bump_icon_versions(&guard);
         *guard = next.clone();
         drop(guard);
         self.mark_dirty();
+        if !icons_changed.is_empty() {
+            if let Some(listener) = lock(&self.icon_listener).as_ref() {
+                listener(&icons_changed);
+            }
+        }
         Ok((value, next))
+    }
+
+    /// Sets the function told, after each committed change (with the state
+    /// lock released), which groups' icon versions it changed.
+    pub fn set_icon_listener(&self, listener: IconListener) {
+        *lock(&self.icon_listener) = Some(listener);
     }
 
     /// Like [`Store::update`], then calls `publish` with the new state while

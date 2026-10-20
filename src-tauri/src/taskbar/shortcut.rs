@@ -152,10 +152,15 @@ pub fn shortcut_file_name(groups: &[Group], group_id: &str) -> Option<String> {
 /// it is missing. The app scanner skips this folder, so these shortcuts
 /// never come back as apps. `Err` when it is a symlink or cannot be made.
 pub fn shortcut_dir() -> Result<PathBuf, String> {
-    let dir = programs_dir()?.join(OWN_FOLDER);
+    let dir = shortcut_dir_path()?;
     reject_symlink(&dir)?;
     fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
     Ok(dir)
+}
+
+/// Where [`shortcut_dir`] is, without creating it.
+pub fn shortcut_dir_path() -> Result<PathBuf, String> {
+    Ok(programs_dir()?.join(OWN_FOLDER))
 }
 
 /// The shortcut's description: the group name, cut to fit `INFOTIPSIZE`.
