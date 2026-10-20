@@ -7,23 +7,11 @@
  * itself (and its Acrylic) is shown by Rust at once.
  */
 
-/* Registered so the keyframes can animate them. */
-@property --genie-sx {
+/* Genie progress, 0 to 1. Registered so a keyframe can animate it. */
+@property --genie-t {
   syntax: "<number>";
   inherits: false;
   initial-value: 1;
-}
-
-@property --genie-sy {
-  syntax: "<number>";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --genie-pinch {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
 }
 
 .flyout-panel {
@@ -31,6 +19,17 @@
   animation-duration: var(--motion-duration);
   animation-timing-function: var(--motion-easing);
   animation-fill-mode: both;
+}
+
+/* With the Solid material the panel, not the page, paints the background,
+   so the whole flyout animates (Acrylic is drawn by Windows and appears
+   with the window). */
+html[data-material="solid"] body:has(.flyout-panel) {
+  background: transparent;
+}
+
+html[data-material="solid"] .flyout-panel {
+  background: var(--solid-bg);
 }
 
 .flyout-panel.is-closing {
@@ -41,42 +40,37 @@
   visibility: hidden;
 }
 
-/* Genie (approximation of the Mac minimize, reversed): the content pours
-   out of the origin as a thin sliver, stretches away from the taskbar,
-   then widens. --genie-sy is the stretch away from the taskbar and
-   --genie-sx the width along it; the clip pinches the taskbar side into a
-   funnel that opens up as it lands. */
+/* Genie (approximation of the Mac minimize, reversed). One progress
+   value, --genie-t, runs 0 to 1 on the motion.ts curve, and everything is
+   derived from it so the motion has no hitch: the content pours out of
+   the origin as a thin sliver, stretches away from the taskbar (--sy,
+   linear in t), widens along it later (--sx, t squared), fades in over
+   the first fifth, and the taskbar side is pinched into a funnel that
+   opens as it lands. */
 @keyframes flyout-genie {
-  0% {
-    --genie-sx: 0.06;
-    --genie-sy: 0.02;
-    --genie-pinch: 45%;
-    opacity: 0;
+  from {
+    --genie-t: 0;
   }
-  20% {
-    opacity: 1;
+  to {
+    --genie-t: 1;
   }
-  55% {
-    --genie-sx: 0.4;
-    --genie-sy: 0.85;
-    --genie-pinch: 30%;
-  }
-  100% {
-    --genie-sx: 1;
-    --genie-sy: 1;
-    --genie-pinch: 0%;
-    opacity: 1;
-  }
+}
+
+.flyout-panel[data-motion="genie"] {
+  --sx: calc(0.06 + 0.94 * var(--genie-t) * var(--genie-t));
+  --sy: calc(0.02 + 0.98 * var(--genie-t));
+  --genie-pinch: calc(45% * (1 - var(--genie-t)));
 }
 
 .flyout-panel[data-motion="genie"]:is(.is-opening, .is-closing) {
   animation-name: flyout-genie;
-  transform: scale(var(--genie-sx), var(--genie-sy));
+  opacity: min(1, calc(5 * var(--genie-t)));
+  transform: scale(var(--sx), var(--sy));
 }
 
 .flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing),
 .flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
-  transform: scale(var(--genie-sy), var(--genie-sx));
+  transform: scale(var(--sy), var(--sx));
 }
 
 .flyout-panel[data-motion="genie"][data-edge="bottom"]:is(.is-opening, .is-closing) {

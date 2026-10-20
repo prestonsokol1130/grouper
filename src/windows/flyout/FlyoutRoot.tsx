@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { AppTile } from "../../components/AppTile";
 import { api } from "../../lib/api";
+import { onEvent } from "../../lib/events";
 import { openCloseTiming, usePrefersReducedMotion } from "../../lib/motion";
 import { useAppStore } from "../../store/appStore";
 import { useGroup } from "../../store/hooks";
@@ -65,15 +66,15 @@ export function FlyoutRoot() {
     tilesIn(element)[0]?.focus();
   }, [seq]);
 
-  // Rust hides the window on blur without waiting; start the next show
-  // from nothing rather than from this group's last frame.
-  useEffect(() => {
-    const onBlur = () => {
-      if (panel.current) resetHidden(panel.current);
-    };
-    window.addEventListener("blur", onBlur);
-    return () => window.removeEventListener("blur", onBlur);
-  }, []);
+  // Rust hides the window on blur (or a launch) without waiting for an
+  // animation; start the next show from nothing rather than this frame.
+  useEffect(
+    () =>
+      onEvent("flyout:hide", () => {
+        if (panel.current) resetHidden(panel.current);
+      }),
+    [],
+  );
 
   const close = useCallback(() => {
     const element = panel.current;

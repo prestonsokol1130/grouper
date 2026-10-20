@@ -25,6 +25,9 @@ pub const FLYOUT_LABEL: &str = "flyout";
 /// Sent to the flyout window, before it is shown, with what to display.
 pub const FLYOUT_SHOW_EVENT: &str = "flyout:show";
 
+/// Sent to the flyout window, with no payload, whenever it is hidden.
+pub const FLYOUT_HIDE_EVENT: &str = "flyout:hide";
+
 /// What the flyout shows: the [`FLYOUT_SHOW_EVENT`] payload.
 #[derive(Debug, Clone, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]

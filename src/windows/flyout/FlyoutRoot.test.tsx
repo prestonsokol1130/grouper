@@ -124,10 +124,20 @@ describe("FlyoutRoot", () => {
     expect(invoked("hide_flyout")).toHaveLength(0);
   });
 
-  it("hides its content on blur so the next show starts fresh", async () => {
+  it("hides its content when the window is hidden so the next show starts fresh", async () => {
     const view = await renderShown();
-    fireEvent.blur(window);
+    act(() => emitMock("flyout:hide", null));
     expect(panel(view)?.classList.contains("is-hidden")).toBe(true);
+  });
+
+  it("uses the 120ms fade when Windows animation effects are off", async () => {
+    const real = window.matchMedia;
+    window.matchMedia = (query: string) =>
+      ({ ...real(query), matches: query.includes("reduced-motion") }) as MediaQueryList;
+    const view = await renderShown();
+    expect(panel(view)?.dataset.motion).toBe("reduced");
+    expect(panel(view)?.style.getPropertyValue("--motion-duration")).toBe("120ms");
+    window.matchMedia = real;
   });
 
   it("says what to do for an empty group", async () => {

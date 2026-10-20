@@ -12,7 +12,7 @@ use tauri::{
 use super::layout::{fit_height, flyout_size, to_physical, LAYOUT};
 use super::origin::origin;
 use super::toggle::Decision;
-use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
+use super::{FlyoutShow, FlyoutState, FLYOUT_HIDE_EVENT, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
 use crate::taskbar::placement::{place, taskbar_edge};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
@@ -180,6 +180,7 @@ fn either_focused(
     }
 }
 
+/// Hides the window and tells the page, so its next show starts empty.
 fn hide_window<R: Runtime>(app: &AppHandle<R>) {
     match flyout_window(app) {
         Ok(window) => {
@@ -188,6 +189,10 @@ fn hide_window<R: Runtime>(app: &AppHandle<R>) {
             }
         }
         Err(error) => log::warn!("{error}"),
+    }
+    let target = EventTarget::webview_window(FLYOUT_LABEL);
+    if let Err(error) = app.emit_to(target, FLYOUT_HIDE_EVENT, ()) {
+        log::warn!("could not emit {FLYOUT_HIDE_EVENT}: {error}");
     }
 }
 

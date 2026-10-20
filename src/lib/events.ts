@@ -4,13 +4,14 @@ import type { AccentColors, AppState, FlyoutShow } from "../bindings";
 /**
  * Backend events and their payloads. The names match the Rust constants
  * `STATE_CHANGED_EVENT`, `ICONS_UPDATED_EVENT`, `ACCENT_CHANGED_EVENT`
- * and `FLYOUT_SHOW_EVENT`.
+ * `FLYOUT_SHOW_EVENT` and `FLYOUT_HIDE_EVENT`.
  */
 type Events = {
   "state:changed": AppState;
   "icons:updated": string[];
   "accent:changed": AccentColors | null;
   "flyout:show": FlyoutShow;
+  "flyout:hide": null;
 };
 
 /**
