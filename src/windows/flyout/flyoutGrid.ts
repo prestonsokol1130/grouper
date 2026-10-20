@@ -1,16 +1,8 @@
 /**
- * The flyout grid's shape and keyboard movement. The numbers mirror
- * `LAYOUT` in `src-tauri/src/flyout/layout.rs`, which sizes the window.
+ * Keyboard movement in the flyout's paged grid. The page shape comes from
+ * Rust (`flyout:show` carries the columns and rows of one page, see
+ * `src-tauri/src/flyout/layout.rs`).
  */
-
-/** DESIGN.md section 8: three apps across. */
-const FLYOUT_MAX_COLUMNS = 3;
-
-/** Columns for `apps` apps: up to three; an empty group uses all three. */
-export function flyoutColumns(apps: number): number {
-  if (apps <= 0) return FLYOUT_MAX_COLUMNS;
-  return Math.min(FLYOUT_MAX_COLUMNS, apps);
-}
 
 /**
  * Where focus goes from tile `index` when `key` is pressed, in a grid of
@@ -44,4 +36,42 @@ export function nextIndex(
     default:
       return null;
   }
+}
+
+/** A move in the paged grid: turn `step` pages, then focus tile `index`. */
+export type PagedMove = { step: number; index: number };
+
+/**
+ * The move for `key` on tile `index` of page `page` (of `pages`), whose
+ * `count` tiles sit in `columns` columns. Inside the page the arrows move
+ * focus as {@link nextIndex}. Right from the last column (or the last
+ * tile) goes to the next page, to the first column of the same row; Left
+ * from the first column goes to the previous page, to the last column of
+ * the same row. Page Up and Page Down turn a page, keeping the slot. The
+ * caller clamps `index` to the tiles on the page it lands on. `null` when
+ * nothing moves (an edge with no page beyond it, or another key).
+ */
+export function pagedMove(
+  key: string,
+  index: number,
+  count: number,
+  columns: number,
+  page: number,
+  pages: number,
+): PagedMove | null {
+  if (count <= 0 || columns <= 0) return null;
+  const column = index % columns;
+  const rowStart = index - column;
+  const hasNext = page < pages - 1;
+  const hasPrevious = page > 0;
+  if (key === "PageDown") return hasNext ? { step: 1, index } : null;
+  if (key === "PageUp") return hasPrevious ? { step: -1, index } : null;
+  if (key === "ArrowRight" && (column === columns - 1 || index === count - 1)) {
+    return hasNext ? { step: 1, index: rowStart } : null;
+  }
+  if (key === "ArrowLeft" && column === 0) {
+    return hasPrevious ? { step: -1, index: rowStart + columns - 1 } : null;
+  }
+  const next = nextIndex(key, index, count, columns);
+  return next === null || next === index ? null : { step: 0, index: next };
 }

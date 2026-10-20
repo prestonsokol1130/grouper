@@ -3,22 +3,27 @@
  * sets data-motion (genie, scale, smooth or reduced), data-edge (the
  * taskbar side), the timing variables from motion.ts and the origin point,
  * then toggles .is-opening / .is-closing / .is-hidden. Closing plays the
- * opening keyframes in reverse. Only the page content animates: the window
- * itself (and its Acrylic) is shown by Rust at once.
+ * opening keyframes in reverse, quicker and on the mirrored Fluent
+ * accelerate curve. Only the page content animates: the window itself
+ * (and its Acrylic) is shown by Rust at once.
+ *
+ * Every keyframe animates transform, scale, translate or opacity only, so
+ * the GPU compositor runs it without repainting the page (changed per
+ * Preston's feedback, 2026-10-20: the old Genie animated clip-path through
+ * a custom property, which repainted all 20 icons every frame and dropped
+ * frames at 300% on 4K).
  */
-
-/* Genie progress, 0 to 1. Registered so a keyframe can animate it. */
-@property --genie-t {
-  syntax: "<number>";
-  inherits: false;
-  initial-value: 1;
-}
 
 .flyout-panel {
   transform-origin: var(--origin-x) var(--origin-y);
   animation-duration: var(--motion-duration);
   animation-timing-function: var(--motion-easing);
   animation-fill-mode: both;
+}
+
+/* Promoted to its own layer only while it moves. */
+.flyout-panel:is(.is-opening, .is-closing) {
+  will-change: transform, opacity;
 }
 
 /* With the Solid material the panel, not the page, paints the background,
@@ -34,59 +39,63 @@ html[data-material="solid"] .flyout-panel {
 
 .flyout-panel.is-closing {
   animation-direction: reverse;
+  animation-duration: var(--motion-close-duration);
+  animation-timing-function: var(--motion-close-easing);
 }
 
 .flyout-panel.is-hidden {
   visibility: hidden;
 }
 
-/* Genie (approximation of the Mac minimize, reversed). One progress
-   value, --genie-t, runs 0 to 1 on the motion.ts curve, and everything is
-   derived from it so the motion has no hitch: the content pours out of
-   the origin as a thin sliver, stretches away from the taskbar (--sy,
-   linear in t), widens along it later (--sx, t squared), fades in over
-   the first fifth, and the taskbar side is pinched into a funnel that
-   opens as it lands. */
-@keyframes flyout-genie {
+/* Genie: three compositor-only animations at once. The panel pours out
+   of the origin tall and narrow: it stretches away from the taskbar on
+   the Fluent decelerate curve (--genie-main) while its width along the
+   taskbar starts later and catches up (--genie-lag), so it widens into
+   shape as it lands. It fades in over the first 40%. Closing reverses
+   all three, fading out over the last 40%. */
+@keyframes flyout-genie-main {
   from {
-    --genie-t: 0;
+    transform: var(--genie-main-from);
   }
-  to {
-    --genie-t: 1;
+}
+
+@keyframes flyout-genie-lag {
+  from {
+    scale: var(--genie-lag-from);
+  }
+}
+
+@keyframes flyout-genie-fade {
+  from {
+    opacity: 0;
   }
 }
 
 .flyout-panel[data-motion="genie"] {
-  --sx: calc(0.06 + 0.94 * var(--genie-t) * var(--genie-t));
-  --sy: calc(0.02 + 0.98 * var(--genie-t));
-  --genie-pinch: calc(45% * (1 - var(--genie-t)));
+  --genie-main-from: scaleY(0.04);
+  --genie-lag-from: 0.16 1;
+  --genie-lag-easing: cubic-bezier(0.5, 0, 0.15, 1);
 }
 
-.flyout-panel[data-motion="genie"]:is(.is-opening, .is-closing) {
-  animation-name: flyout-genie;
-  opacity: min(1, calc(5 * var(--genie-t)));
-  transform: scale(var(--sx), var(--sy));
+.flyout-panel[data-motion="genie"]:is([data-edge="left"], [data-edge="right"]) {
+  --genie-main-from: scaleX(0.04);
+  --genie-lag-from: 1 0.16;
 }
 
-.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing),
-.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
-  transform: scale(var(--sy), var(--sx));
+.flyout-panel[data-motion="genie"].is-opening {
+  animation-name: flyout-genie-main, flyout-genie-lag, flyout-genie-fade;
+  animation-duration:
+    var(--motion-duration), var(--motion-duration), calc(var(--motion-duration) * 0.4);
+  animation-timing-function: var(--motion-easing), var(--genie-lag-easing), linear;
 }
 
-.flyout-panel[data-motion="genie"][data-edge="bottom"]:is(.is-opening, .is-closing) {
-  clip-path: polygon(0 0, 100% 0, calc(100% - var(--genie-pinch)) 100%, var(--genie-pinch) 100%);
-}
-
-.flyout-panel[data-motion="genie"][data-edge="top"]:is(.is-opening, .is-closing) {
-  clip-path: polygon(var(--genie-pinch) 0, calc(100% - var(--genie-pinch)) 0, 100% 100%, 0 100%);
-}
-
-.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing) {
-  clip-path: polygon(0 var(--genie-pinch), 100% 0, 100% 100%, 0 calc(100% - var(--genie-pinch)));
-}
-
-.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
-  clip-path: polygon(0 0, 100% var(--genie-pinch), 100% calc(100% - var(--genie-pinch)), 0 100%);
+.flyout-panel[data-motion="genie"].is-closing {
+  animation-name: flyout-genie-main, flyout-genie-lag, flyout-genie-fade;
+  animation-duration:
+    var(--motion-close-duration), var(--motion-close-duration),
+    calc(var(--motion-close-duration) * 0.4);
+  animation-delay: 0ms, 0ms, calc(var(--motion-close-duration) * 0.6);
+  animation-timing-function: var(--motion-close-easing), var(--motion-close-easing), linear;
 }
 
 /* Scale: grows from the origin while fading in. */
@@ -138,4 +147,18 @@ html[data-material="solid"] .flyout-panel {
 
 .flyout-panel[data-motion="reduced"]:is(.is-opening, .is-closing) {
   animation-name: flyout-fade;
+}
+
+/* The flyout's pages: the Launchpad's paged grid, without its side
+   padding (the panel has its own 12px). */
+.flyout-pages .launchpad-page {
+  padding-inline: 0;
+}
+
+/* Clipped, never scrollable (focusing a tile must not scroll the track
+   sideways), with room for the focus ring and hover lift of the edge
+   tiles. */
+.flyout-pages .launchpad-pages {
+  overflow: clip;
+  overflow-clip-margin: 4px;
 }

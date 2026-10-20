@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { Edge } from "../../../bindings";
-import { openCloseTiming, type OpenCloseStyle } from "../../../lib/motion";
+import { closeTiming, type OpenCloseStyle } from "../../../lib/motion";
 import { playClose, playOpen } from "../../flyout/flyoutMotion";
 
 /** A point in client (viewport) px. */
@@ -60,7 +60,7 @@ export function useFolderMotion(
     if (closing.current) return;
     closing.current = true;
     const element = panel.current;
-    const timing = openCloseTiming(style, reduced);
+    const timing = closeTiming(style, reduced);
     const played = element ? playClose(element, timing.durationMs) : Promise.resolve();
     void played.then(() => latest.current());
   }, [style, reduced]);

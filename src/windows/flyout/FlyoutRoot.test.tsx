@@ -24,6 +24,9 @@ const payload = (groupId: string, apps: string[]): FlyoutShow => ({
   apps,
   size: { width: 232, height: 236 },
   origin: { edge: "bottom", x: 116, y: 236 },
+  columns: 3,
+  rows: 3,
+  iconPx: 48,
 });
 
 const FIVE = payload("g1", ["alpha", "beta", "gamma", "delta", "epsilon"]);
@@ -59,24 +62,61 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("FlyoutRoot", () => {
-  it("shows the group name and its apps three across, focusing the first", async () => {
+  it("shows the group name and a 3 x 3 page of its apps, focusing the first", async () => {
     const view = await renderShown();
     expect(screen.getByRole("heading").textContent).toBe("Work");
-    const grid = screen.getByRole("group", { name: "Work" });
-    expect(grid.style.gridTemplateColumns).toBe("repeat(3, max-content)");
+    const grid = screen.getByRole("group", { name: "Apps" });
+    // 48px icons in 64 x 84 cells, three across and three down.
+    expect(grid.style.gridTemplateColumns).toBe("repeat(3, 64px)");
+    expect(grid.style.gridTemplateRows).toBe("repeat(3, 84px)");
     expect(grid.querySelectorAll(".tile")).toHaveLength(5);
     expect(document.activeElement).toBe(tile("Alpha"));
+    expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull();
     expect(panel(view)?.classList.contains("is-opening")).toBe(true);
     expect(panel(view)?.dataset.motion).toBe("genie");
     expect(panel(view)?.style.getPropertyValue("--origin-x")).toBe("116px");
-    expect(panel(view)?.style.getPropertyValue("--motion-duration")).toBe("500ms");
+    expect(panel(view)?.style.getPropertyValue("--motion-duration")).toBe("300ms");
+    expect(panel(view)?.style.getPropertyValue("--motion-close-duration")).toBe("180ms");
   });
 
-  it("swaps to another group on the next show", async () => {
+  it("swaps to another group, layout and icon size on the next show", async () => {
     await renderShown();
-    act(() => emitMock("flyout:show", payload("g1", ["beta", "gamma"])));
-    expect(screen.getByRole("group").style.gridTemplateColumns).toBe("repeat(2, max-content)");
+    act(() =>
+      emitMock("flyout:show", {
+        ...payload("g1", ["beta", "gamma"]),
+        columns: 4,
+        rows: 2,
+        iconPx: 64,
+      }),
+    );
+    const grid = screen.getByRole("group", { name: "Apps" });
+    expect(grid.style.gridTemplateColumns).toBe("repeat(4, 80px)");
+    expect(grid.style.gridTemplateRows).toBe("repeat(2, 100px)");
     expect(document.activeElement).toBe(tile("Beta"));
+  });
+
+  it("hides the focus ring it opens with until a key is pressed", async () => {
+    await renderShown();
+    const root = document.documentElement;
+    expect(document.activeElement).toBe(tile("Alpha"));
+    expect(root.dataset.focusQuiet).toBe("");
+    fireEvent.keyDown(tile("Alpha"), { key: "ArrowRight" });
+    expect(root.dataset.focusQuiet).toBeUndefined();
+    // Every show is quiet again.
+    act(() => emitMock("flyout:show", FIVE));
+    expect(root.dataset.focusQuiet).toBe("");
+  });
+
+  it("shows the focus ring on open with Always show keyboard focus", async () => {
+    useAppStore.getState().applyState({ ...STATE, settings: { alwaysShowFocus: true } });
+    await renderShown();
+    const root = document.documentElement;
+    expect(root.dataset.focusQuiet).toBeUndefined();
+    expect(root.dataset.focusAlways).toBe("");
+    expect(document.activeElement).toBe(tile("Alpha"));
+    useAppStore.getState().applyState(STATE);
+    act(() => emitMock("flyout:show", FIVE));
+    expect(root.dataset.focusAlways).toBeUndefined();
   });
 
   it("moves focus with the arrow keys and launches with Enter", async () => {
@@ -174,14 +214,14 @@ describe("FlyoutRoot", () => {
     expect(screen.getByRole("heading").textContent).toBe("Work");
   });
 
-  it("shows every app of a 50-app group in a panel that scrolls", async () => {
+  it("puts a 50-app group on six 3 x 3 pages that never scroll", async () => {
     const ids = Array.from({ length: 50 }, (_, i) => `app${i}`);
     useAppStore.getState().applyState({
       apps: ids.map((id) => ({ id, name: `${id} ${"long name ".repeat(20)}` })),
       groups: [{ id: "big", name: "Big", appIds: ids }],
     });
     const view = await renderShown(payload("big", ids));
-    expect(screen.getAllByTestId("tile-label")).toHaveLength(50);
-    expect(panel(view)?.className).toContain("overflow-y-auto");
+    expect(screen.getAllByRole("button", { name: /^Page \d of 6$/ })).toHaveLength(6);
+    expect(panel(view)?.className).toContain("overflow-hidden");
   });
 });

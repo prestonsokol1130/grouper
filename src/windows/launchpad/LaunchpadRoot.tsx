@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import type { LaunchpadItem } from "../../bindings";
 import type { TileButtonProps } from "../../components/activation";
 import { AppTile } from "../../components/AppTile";
@@ -6,7 +14,9 @@ import { FolderTile } from "../../components/FolderTile";
 import { reflowPages } from "../../lib/grid";
 import { usePrefersReducedMotion } from "../../lib/motion";
 import { rank } from "../../lib/search";
+import { quietFocusUntilKey } from "../../lib/focusRing";
 import { useAppStore } from "../../store/appStore";
+import { useSetting } from "../../store/settings";
 import { motionName, motionVars, useOpenCloseStyle } from "../flyout/flyoutMotion";
 import { FolderOverlay } from "./folder/FolderOverlay";
 import { useOpenFolder } from "./folder/useOpenFolder";
@@ -45,6 +55,8 @@ export function LaunchpadRoot() {
   const state = useAppStore((store) => store.state);
   const grid = useViewportGrid();
   const iconPx = useLaunchpadDensity().iconPx;
+  const showArrows = useSetting("showPageArrows");
+  const alwaysFocus = useSetting("alwaysShowFocus");
   const [query, setQuery] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -76,6 +88,10 @@ export function LaunchpadRoot() {
   });
   // Every show starts on the grid, with no folder open.
   useEffect(() => resetFolder(), [seq, resetFolder]);
+  // No focus ring from opening it until a key is pressed (focusRing.ts).
+  useLayoutEffect(() => {
+    if (seq > 0) quietFocusUntilKey(alwaysFocus);
+  }, [seq, alwaysFocus]);
   useLaunchpadKeys({
     query,
     setQuery,
@@ -176,7 +192,12 @@ export function LaunchpadRoot() {
         {searching ? (
           <div aria-hidden="true" className="h-12 shrink-0" />
         ) : (
-          <PageDots count={pages.length} page={pager.page} onSelect={pager.jump} />
+          <PageDots
+            count={pages.length}
+            page={pager.page}
+            onSelect={pager.jump}
+            arrows={showArrows}
+          />
         )}
       </div>
       {folder !== null && (

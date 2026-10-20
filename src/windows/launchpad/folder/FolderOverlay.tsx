@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import type { LaunchpadItem } from "../../../bindings";
 import { AppTile } from "../../../components/AppTile";
 import type { GridLayout } from "../../../lib/grid";
-import { openCloseTiming, type OpenCloseStyle } from "../../../lib/motion";
+import { closeTiming, type OpenCloseStyle } from "../../../lib/motion";
 import { useAppStore } from "../../../store/appStore";
 import { useGroup } from "../../../store/hooks";
 import { groupApps } from "../../../store/selectors";
@@ -75,7 +75,7 @@ export function FolderOverlay(props: Props) {
     mainGrid,
     mainPager,
     onOut: () => {
-      if (panel.current) void playClose(panel.current, openCloseTiming(style, reduced).durationMs);
+      if (panel.current) void playClose(panel.current, closeTiming(style, reduced).durationMs);
       props.onDragOut();
     },
     onDone: props.onClosed,

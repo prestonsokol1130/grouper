@@ -12,6 +12,7 @@
 }
 
 .focus-ring:focus-visible::after,
+html[data-focus-always] .focus-ring:focus::after,
 .focus-ring[data-preview="focus"]::after {
   content: "";
   position: absolute;
@@ -21,6 +22,13 @@
     0 0 0 2px var(--focus-outer),
     inset 0 0 0 1px var(--focus-inner);
   pointer-events: none;
+}
+
+/* After the flyout or Launchpad opens, the focus it puts on its first
+   control shows no ring until a key is pressed (lib/focusRing.ts), unless
+   "Always show keyboard focus" is on. */
+html[data-focus-quiet]:not([data-focus-always]) .focus-ring:not([data-preview])::after {
+  content: none;
 }
 
 /* App and folder tiles: the icon lifts and grows on hover, shrinks when

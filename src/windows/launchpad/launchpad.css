@@ -14,6 +14,9 @@
 /* Drags page the grid, so nothing inside starts a native drag or a text
    selection, and touch swipes reach the page instead of scrolling. */
 .launchpad-pages {
+  /* In a row (a folder's or the flyout's fixed-size box) the pages must
+     not stretch the box to fit every page side by side. */
+  min-width: 0;
   touch-action: none;
   user-select: none;
 }
@@ -48,6 +51,16 @@
 
 .page-dot[aria-current="page"] .page-dot-mark {
   background-color: var(--accent);
+}
+
+/* The optional ‹ › page arrows beside the dots ("Show page arrows"). */
+.page-arrow {
+  color: var(--text-secondary);
+}
+
+.page-arrow:disabled {
+  color: var(--text-disabled);
+  background-color: transparent;
 }
 
 /* Drag to reorder. The dragged tile's cell keeps its place in the grid

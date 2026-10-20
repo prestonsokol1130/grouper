@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 import type { FlyoutOrigin } from "../../bindings";
-import { OPEN_CLOSE, openCloseTiming, type OpenCloseStyle } from "../../lib/motion";
+import {
+  closeTiming,
+  OPEN_CLOSE,
+  openCloseTiming,
+  reversedEasing,
+  type OpenCloseStyle,
+} from "../../lib/motion";
 import { useSetting } from "../../store/settings";
 
 /**
@@ -24,16 +30,24 @@ export function motionName(style: OpenCloseStyle, reduced: boolean): string {
   return reduced ? "reduced" : style;
 }
 
-/** CSS variables for the keyframes: timing, origin and slide distance. */
+/**
+ * CSS variables for the keyframes: open and close timing, origin and
+ * slide distance. The close plays the open keyframes in reverse, so its
+ * curve is mirrored ({@link reversedEasing}) to move like the Fluent
+ * accelerate curve.
+ */
 export function motionVars(
   style: OpenCloseStyle,
   reduced: boolean,
   origin: FlyoutOrigin | undefined,
 ): CSSProperties {
   const timing = openCloseTiming(style, reduced);
+  const closing = closeTiming(style, reduced);
   return {
     "--motion-duration": `${timing.durationMs}ms`,
     "--motion-easing": timing.easing,
+    "--motion-close-duration": `${closing.durationMs}ms`,
+    "--motion-close-easing": reversedEasing(closing.easing),
     "--motion-slide": `${OPEN_CLOSE.smooth.slidePx ?? 0}px`,
     "--origin-x": `${origin?.x ?? 0}px`,
     "--origin-y": `${origin?.y ?? 0}px`,

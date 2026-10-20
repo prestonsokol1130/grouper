@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
-import { AppTile } from "../../components/AppTile";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "../../lib/api";
 import { onEvent } from "../../lib/events";
-import { openCloseTiming, usePrefersReducedMotion } from "../../lib/motion";
+import { quietFocusUntilKey } from "../../lib/focusRing";
+import { closeTiming, usePrefersReducedMotion } from "../../lib/motion";
 import { useAppStore } from "../../store/appStore";
 import { useGroup } from "../../store/hooks";
 import { appsById } from "../../store/selectors";
 import { showToast } from "../../store/toastStore";
-import { ICON_PX, useSetting } from "../../store/settings";
-import { flyoutColumns, nextIndex } from "./flyoutGrid";
+import { useSetting } from "../../store/settings";
 import {
   motionName,
   motionVars,
@@ -17,6 +16,7 @@ import {
   resetHidden,
   useOpenCloseStyle,
 } from "./flyoutMotion";
+import { currentTiles, FlyoutPages } from "./FlyoutPages";
 import { useFlyoutShow } from "./useFlyoutShow";
 
 /** DESIGN.md section 13. */
@@ -36,28 +36,26 @@ async function launch(appId: string): Promise<void> {
   });
 }
 
-/** The tiles in `panel`, in grid order. */
-function tilesIn(panel: HTMLElement | null): HTMLElement[] {
-  return panel ? [...panel.querySelectorAll<HTMLElement>(".tile")] : [];
-}
-
 /**
  * The taskbar flyout. Mounted once and kept forever: each `flyout:show`
  * swaps in the group's data and replays the open animation. Shows the
- * group name and its apps three across; arrows move between tiles, Enter
- * or a click launches, Escape plays the close animation and hides.
+ * group name and its apps in pages (FlyoutPages) of the "Flyout layout"
+ * at the size Rust picked ("Flyout icon size"). Keyboard focus moves to
+ * the first tile so the arrows and Enter work at once, without a focus
+ * ring until a key is pressed (focusRing.ts). Enter or a click launches,
+ * Escape plays the close animation and hides.
  */
 export function FlyoutRoot() {
   const { show, seq } = useFlyoutShow();
   const style = useOpenCloseStyle();
-  const iconPx = ICON_PX[useSetting("iconSize")].flyout;
+  const showArrows = useSetting("showPageArrows");
+  const alwaysFocus = useSetting("alwaysShowFocus");
   const reduced = usePrefersReducedMotion();
   const group = useGroup(show?.groupId ?? "");
   const panel = useRef<HTMLDivElement>(null);
   const seqRef = useRef(seq);
   const closing = useRef(false);
   const apps = show?.apps ?? [];
-  const columns = flyoutColumns(apps.length);
 
   useLayoutEffect(() => {
     seqRef.current = seq;
@@ -65,7 +63,10 @@ export function FlyoutRoot() {
     const element = panel.current;
     if (seq === 0 || element === null) return;
     playOpen(element);
-    tilesIn(element)[0]?.focus();
+    quietFocusUntilKey(alwaysFocus);
+    currentTiles(element)[0]?.focus({ preventScroll: true });
+    // Only a new show moves focus; a settings change does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seq]);
 
   // Rust hides the window on blur (or a launch) without waiting for an
@@ -83,7 +84,7 @@ export function FlyoutRoot() {
     if (closing.current) return;
     closing.current = true;
     const started = seqRef.current;
-    const timing = openCloseTiming(style, reduced);
+    const timing = closeTiming(style, reduced);
     const played = element ? playClose(element, timing.durationMs) : Promise.resolve();
     void played.then(async () => {
       // A show that arrived during the animation wins.
@@ -107,22 +108,12 @@ export function FlyoutRoot() {
     return () => window.removeEventListener("keydown", onKey);
   }, [close]);
 
-  const onGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const tiles = tilesIn(panel.current);
-    const index = tiles.findIndex((tile) => tile === document.activeElement);
-    if (index < 0) return;
-    const next = nextIndex(event.key, index, tiles.length, columns);
-    if (next === null) return;
-    event.preventDefault();
-    tiles[next]?.focus();
-  };
-
   // The outer edge (DESIGN.md section 3) is an inset 1px ring so it takes
   // no space from the 12px padding the Rust size formula counts on.
   return (
     <div
       ref={panel}
-      className="flyout-panel flex h-screen flex-col overflow-x-hidden overflow-y-auto rounded-card p-3 text-primary ring-1 ring-stroke-surface ring-inset"
+      className="flyout-panel flex h-screen flex-col overflow-hidden rounded-card p-3 text-primary ring-1 ring-stroke-surface ring-inset"
       data-motion={motionName(style, reduced)}
       data-edge={show?.origin.edge ?? "bottom"}
       style={motionVars(style, reduced, show?.origin)}
@@ -135,22 +126,16 @@ export function FlyoutRoot() {
           {apps.length === 0 ? (
             <p className="type-body text-secondary">{EMPTY_MESSAGE}</p>
           ) : (
-            <div
-              role="group"
-              aria-label={group?.name}
-              className="grid gap-2"
-              style={{ gridTemplateColumns: `repeat(${columns}, max-content)` }}
-              onKeyDown={onGridKey}
-            >
-              {apps.map((appId) => (
-                <AppTile
-                  key={appId}
-                  appId={appId}
-                  size={iconPx}
-                  onActivate={(id) => void launch(id)}
-                />
-              ))}
-            </div>
+            <FlyoutPages
+              apps={apps}
+              columns={show.columns}
+              rows={show.rows}
+              iconPx={show.iconPx}
+              seq={seq}
+              reduced={reduced}
+              showArrows={showArrows}
+              onLaunch={(id) => void launch(id)}
+            />
           )}
         </>
       )}

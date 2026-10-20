@@ -3,6 +3,7 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { LaunchpadItem } from "../../../bindings";
 import { AppTile } from "../../../components/AppTile";
 import type { GridLayout } from "../../../lib/grid";
+import { useSetting } from "../../../store/settings";
 import { nextIndex } from "../../flyout/flyoutGrid";
 import { PageDots } from "../PageDots";
 import { PagedGrid } from "../PagedGrid";
@@ -63,6 +64,7 @@ const PAGE_KEYS: Readonly<Record<string, number>> = { PageUp: -1, PageDown: 1 };
  * Down, and focus follows onto the new page.
  */
 export function FolderGrid({ pages, grid, pager, reduced, iconPx, launch }: Props) {
+  const showArrows = useSetting("showPageArrows");
   const area = useRef<HTMLDivElement>(null);
   const focusNext = useRef<"first" | "last" | null>(null);
   const size = gridSize(grid);
@@ -72,7 +74,9 @@ export function FolderGrid({ pages, grid, pager, reduced, iconPx, launch }: Prop
     focusNext.current = null;
     if (which === null || area.current === null) return;
     const tiles = area.current.querySelectorAll<HTMLElement>(".launchpad-page:not([inert]) .tile");
-    (which === "first" ? tiles.item(0) : tiles.item(tiles.length - 1))?.focus();
+    (which === "first" ? tiles.item(0) : tiles.item(tiles.length - 1))?.focus({
+      preventScroll: true,
+    });
   }, [pager.page]);
 
   const turn = (step: number) => {
@@ -131,7 +135,12 @@ export function FolderGrid({ pages, grid, pager, reduced, iconPx, launch }: Prop
         />
       </div>
       {pages.length > 1 && (
-        <PageDots count={pages.length} page={pager.page} onSelect={pager.jump} />
+        <PageDots
+          count={pages.length}
+          page={pager.page}
+          onSelect={pager.jump}
+          arrows={showArrows}
+        />
       )}
     </div>
   );

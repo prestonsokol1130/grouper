@@ -75,6 +75,10 @@ describe("LaunchpadRoot", () => {
     expect(root().dataset.motion).toBe("genie");
     expect(root().dataset.edge).toBe("top");
     expect(root().style.getPropertyValue("--origin-x")).toBe("0px");
+    // Opened by hotkey or mouse: no focus ring until a key is pressed.
+    expect(document.documentElement.dataset.focusQuiet).toBe("");
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.documentElement.dataset.focusQuiet).toBeUndefined();
   });
 
   it("hides when the background is clicked, after the close animation", async () => {

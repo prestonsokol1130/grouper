@@ -142,10 +142,15 @@
   --font-sans: var(--font-text);
 
   /* Section 10: open/close durations. `open` is the default style (Genie). */
-  --transition-duration-open: 500ms;
-  --transition-duration-genie: 500ms;
-  --transition-duration-scale: 300ms;
+  --transition-duration-open: 300ms;
+  --transition-duration-genie: 300ms;
+  --transition-duration-scale: 250ms;
   --transition-duration-smooth: 200ms;
+  --transition-duration-close-genie: 180ms;
+  --transition-duration-close-scale: 160ms;
+  --transition-duration-close-smooth: 150ms;
+  --ease-decelerate: cubic-bezier(0.1, 0.9, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.7, 0, 1, 0.5);
   --transition-duration-reduced: 120ms;
   /* Section 10 and 11: other motion. */
   --transition-duration-hover: 150ms;

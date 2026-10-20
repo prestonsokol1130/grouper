@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { api } from "../../lib/api";
 import { onEvent } from "../../lib/events";
-import { openCloseTiming, type OpenCloseStyle } from "../../lib/motion";
+import { closeTiming, type OpenCloseStyle } from "../../lib/motion";
 import { useAppStore } from "../../store/appStore";
 import { appsById } from "../../store/selectors";
 import { showToast } from "../../store/toastStore";
@@ -67,7 +67,7 @@ export function useLaunchpadClose({ panel, seq, style, reduced, onHidden }: Opti
     setLaunchpadVisible(false);
     const started = seqRef.current;
     const element = panel.current;
-    const timing = openCloseTiming(style, reduced);
+    const timing = closeTiming(style, reduced);
     const played = element ? playClose(element, timing.durationMs) : Promise.resolve();
     void played.then(async () => {
       // A show that arrived during the animation wins.
