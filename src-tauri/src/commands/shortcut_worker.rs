@@ -130,6 +130,7 @@ pub fn queue_icon_updates(app: &AppHandle, group_ids: &[String]) {
 /// Without a worker the work runs on the calling thread. Blocks.
 pub fn create_and_wait(app: &AppHandle, group_id: String) -> Result<PathBuf, String> {
     let Some(worker) = app.try_state::<ShortcutWorker>() else {
+        let _com = ComGuard::new()?;
         return create(app, &group_id);
     };
     let (reply, answer) = mpsc::channel();

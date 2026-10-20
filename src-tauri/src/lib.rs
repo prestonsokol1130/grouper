@@ -32,6 +32,11 @@ pub fn run() {
     // Before the single-instance check: a second launch from a taskbar
     // click passes its foreground right on to the running instance.
     win32::flyout_window::allow_any_foreground();
+    // The main thread runs the tray, the Launchpad and the flyout, which
+    // call the Shell; it stays in an STA for the life of the process.
+    let _com = win32::com::ComGuard::new()
+        .map_err(|error| eprintln!("grouper: COM on the main thread: {error}"))
+        .ok();
     if let Err(error) = start() {
         // stderr too: a failure before the log plugin starts has no logger.
         eprintln!("grouper: startup failed: {error}");
@@ -63,7 +68,16 @@ fn start() -> Result<(), String> {
                 Err(error) => log::warn!("could not resolve log dir: {error}"),
             }
             let store = open_store(handle)?;
+            // Every state a page asks for on load is managed before any
+            // window exists (they are "create": false in tauri.conf.json),
+            // so no first command can find it missing.
             app.manage(Arc::clone(&store));
+            flyout::window::manage(handle);
+            launchpad::window::manage(handle);
+            appearance::material::manage(handle);
+            appearance::accent::init(handle);
+            // Before the icon worker starts: nothing else writes the cache.
+            commands::icon_cmds::collect_cache_garbage(handle, &store.snapshot());
             // Icons are cached in the background; a failure only leaves
             // them uncached.
             match commands::icon_cmds::start_icon_worker(handle) {
@@ -76,18 +90,19 @@ fn start() -> Result<(), String> {
             // Shortcuts are kept in sync in the background; at startup any
             // tracked shortcut whose .lnk or .ico is missing is rebuilt.
             commands::shortcut_worker::start_shortcut_sync(handle, &store);
+            commands::icon_cmds::start_cache_watch(handle, &store);
             // A failed first scan is logged; the app still starts.
             if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
                 log::error!("could not start the first app scan: {error}");
             }
             tray::create(handle)?;
-            flyout::window::init(handle);
-            launchpad::window::init(handle);
             let settings = store.snapshot().settings;
             hotkey::register_at_startup(handle, &settings.hotkey);
+            windows::create_all(handle)?;
+            flyout::window::init(handle);
+            launchpad::window::init(handle);
             hot_corners::start(handle, settings.hot_corners);
             appearance::material::init(handle, settings.background);
-            appearance::accent::init(handle);
             // args_os: std::env::args panics on non-Unicode arguments.
             let args: Vec<String> = std::env::args_os()
                 .map(|arg| arg.to_string_lossy().into_owned())

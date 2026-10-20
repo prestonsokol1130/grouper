@@ -5,6 +5,7 @@
 pub mod cache;
 pub mod extract;
 pub mod fallback;
+pub mod gc;
 pub mod pixels;
 pub mod worker;
 

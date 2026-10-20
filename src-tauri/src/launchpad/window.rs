@@ -20,10 +20,16 @@ use crate::state::Store;
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
 use crate::win32::monitor::current_monitor_info;
 
-/// Sets up the Launchpad at startup: its managed state, the flyout's
-/// tool-window styles (no taskbar button, topmost) and hide-on-blur.
-pub fn init<R: Runtime>(app: &AppHandle<R>) {
+/// Manages the Launchpad's state. Call at startup before any window
+/// exists.
+pub fn manage<R: Runtime>(app: &AppHandle<R>) {
     app.manage(LaunchpadState::default());
+}
+
+/// Sets up the Launchpad window at startup, after [`manage`]: the
+/// flyout's tool-window styles (no taskbar button, topmost) and
+/// hide-on-blur.
+pub fn init<R: Runtime>(app: &AppHandle<R>) {
     let Some(window) = app.get_webview_window(LAUNCHPAD_LABEL) else {
         log::error!("window {LAUNCHPAD_LABEL:?} not found; the Launchpad will not open");
         return;

@@ -73,10 +73,16 @@ fn sharpen(image: &mut RgbaImage) {
 fn blur_at(image: &RgbaImage, width: u32, height: u32, x: u32, y: u32, channel: usize) -> f32 {
     const WEIGHTS: [f32; 3] = [1.0, 2.0, 1.0];
     let mut sum = 0.0;
-    for (dy, wy) in WEIGHTS.iter().enumerate() {
-        for (dx, wx) in WEIGHTS.iter().enumerate() {
-            let sx = (x + dx as u32).saturating_sub(1).min(width - 1);
-            let sy = (y + dy as u32).saturating_sub(1).min(height - 1);
+    for (dy, wy) in (0_u32..).zip(WEIGHTS.iter()) {
+        for (dx, wx) in (0_u32..).zip(WEIGHTS.iter()) {
+            let sx = x
+                .saturating_add(dx)
+                .saturating_sub(1)
+                .min(width.saturating_sub(1));
+            let sy = y
+                .saturating_add(dy)
+                .saturating_sub(1)
+                .min(height.saturating_sub(1));
             sum += wx * wy * f32::from(image.get_pixel(sx, sy)[channel]);
         }
     }

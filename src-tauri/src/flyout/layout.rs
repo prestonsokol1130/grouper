@@ -72,7 +72,8 @@ pub fn columns(apps: usize, layout: &FlyoutLayout) -> u32 {
 /// Grid rows for `apps` apps laid out in [`columns`] columns; at least 1.
 pub fn rows(apps: usize, layout: &FlyoutLayout) -> u32 {
     let cols = u64::from(columns(apps, layout));
-    let rows = (apps as u64).div_ceil(cols).max(1);
+    let apps = u64::try_from(apps).unwrap_or(u64::MAX);
+    let rows = apps.div_ceil(cols).max(1);
     u32::try_from(rows).unwrap_or(u32::MAX)
 }
 
@@ -134,7 +135,7 @@ pub fn to_physical(logical: u32, scale: f64) -> u32 {
         return 1;
     }
     // `as` saturates for floats; the bound keeps it inside i32 for Win32.
-    (physical as u32).min(i32::MAX as u32)
+    (physical as u32).min(i32::MAX.unsigned_abs())
 }
 
 #[cfg(test)]

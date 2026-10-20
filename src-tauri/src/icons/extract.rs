@@ -144,9 +144,14 @@ mod imp {
     /// Copies the bitmap out as top-down 32-bit BGRA rows.
     fn read_pixels(bitmap: &OwnedHBitmap, width: u32, height: u32) -> Result<Vec<u8>, String> {
         // Both sides are at most MAX_BITMAP_SIDE (4096), so these conversions
-        // and the buffer length cannot overflow.
-        let (w, h) = (width as i32, height as i32);
-        let mut buf = vec![0u8; width as usize * height as usize * 4];
+        // and the buffer length cannot overflow; they are checked anyway.
+        let too_big = |_| format!("bitmap {width} x {height} is too large");
+        let (w, h) = (
+            i32::try_from(width).map_err(too_big)?,
+            i32::try_from(height).map_err(too_big)?,
+        );
+        let len = u64::from(width) * u64::from(height) * 4;
+        let mut buf = vec![0u8; usize::try_from(len).map_err(too_big)?];
         let mut info = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,

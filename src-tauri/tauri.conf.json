@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "manager",
+        "create": false,
         "title": "Grouper",
         "url": "index.html?window=manager",
         "width": 960,
@@ -23,6 +24,7 @@
       },
       {
         "label": "launchpad",
+        "create": false,
         "title": "Grouper",
         "url": "index.html?window=launchpad",
         "decorations": false,
@@ -36,6 +38,7 @@
       },
       {
         "label": "flyout",
+        "create": false,
         "title": "Grouper",
         "url": "index.html?window=flyout",
         "width": 360,

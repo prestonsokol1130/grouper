@@ -2,6 +2,22 @@
 
 use tauri::{AppHandle, Manager, Runtime, Window, WindowEvent};
 
+/// Builds every window in `tauri.conf.json`. They are all `"create":
+/// false`, because Tauri would otherwise build them before `setup` runs,
+/// and a page could then call a command before its state is managed.
+/// Setup calls this once that state is in place.
+pub fn create_all<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    for config in &app.config().app.windows {
+        if app.get_webview_window(&config.label).is_some() {
+            continue;
+        }
+        tauri::WebviewWindowBuilder::from_config(app, config)
+            .and_then(|builder| builder.build())
+            .map_err(|e| format!("create window {:?}: {e}", config.label))?;
+    }
+    Ok(())
+}
+
 /// Shows, unminimizes and focuses the window `label`. Failures are logged.
 pub fn show_window<R: Runtime>(app: &AppHandle<R>, label: &str) -> Result<(), String> {
     let result = app

@@ -85,8 +85,9 @@ impl Store {
         if dropped > 0 {
             log::warn!("dropped {dropped} dangling id(s) from app state");
         }
-        // Rewrite a file that migrate or validate had to change.
-        dirty |= dropped > 0 || state.schema_version != version;
+        let placed = state.place_missing_on_launchpad();
+        // Rewrite a file that migrate, validate or placing had to change.
+        dirty |= dropped > 0 || placed > 0 || state.schema_version != version;
         Ok(Self::new(dir, state, dirty, main_good, None))
     }
 
@@ -107,7 +108,9 @@ impl Store {
         lock(&self.state).clone()
     }
 
-    /// Applies `change`, validates, bumps the icon version of each group
+    /// Applies `change`, validates, gives any visible app or group missing
+    /// from the Launchpad a slot at its end
+    /// ([`AppState::place_missing_on_launchpad`]), bumps the icon version of each group
     /// whose folder icon now shows other apps (once; see
     /// [`AppState::bump_icon_versions`]), marks the store dirty and returns
     /// the change's value plus the new state. Then, with the state lock
@@ -125,6 +128,7 @@ impl Store {
         let mut next = guard.clone();
         let value = change(&mut next)?;
         next.validate();
+        next.place_missing_on_launchpad();
         let icons_changed = next.bump_icon_versions(&guard);
         *guard = next.clone();
         drop(guard);
@@ -163,6 +167,13 @@ impl Store {
         }
         let _writer = lock(&self.save_lock);
         self.dirty.store(false, Ordering::SeqCst);
+        // The folder may have been deleted while Grouper runs.
+        if let Some(dir) = self.paths.main.parent() {
+            if let Err(error) = fs::create_dir_all(dir) {
+                self.dirty.store(true, Ordering::SeqCst);
+                return Err(format!("create {}: {error}", dir.display()));
+            }
+        }
         let state = self.snapshot();
         let backup_current = self.main_is_good.load(Ordering::SeqCst);
         match write_state(&self.paths, &state, backup_current) {

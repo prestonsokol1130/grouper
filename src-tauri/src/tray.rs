@@ -90,6 +90,8 @@ pub fn notify_hotkey_failed<R: Runtime>(app: &AppHandle<R>, hotkey: &str) {
         crate::hotkey_rules::display(hotkey)
     );
     let spawned = spawn_logged("hotkey-balloon", move || {
+        // Shell_NotifyIconW is a Shell call.
+        let _com = crate::win32::com::ComGuard::new()?;
         let hwnd = tray_window(&tray)?;
         show_balloon(hwnd, "Grouper", &text)
     });

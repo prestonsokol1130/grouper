@@ -229,6 +229,7 @@ fn to_physical(logical: f64, scale: f64) -> i64 {
 }
 
 fn saturate(value: i64) -> i32 {
-    // Lossless after the clamp.
-    value.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+    let clamped = value.clamp(i64::from(i32::MIN), i64::from(i32::MAX));
+    // Always fits after the clamp; the fallback is never used.
+    i32::try_from(clamped).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
 }

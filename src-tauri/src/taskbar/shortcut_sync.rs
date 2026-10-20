@@ -137,9 +137,9 @@ fn match_name_case(lnk: PathBuf, base: &str) -> PathBuf {
     let Some(name) = lnk.file_name().and_then(|name| name.to_str()) else {
         return lnk;
     };
-    let fixed = match name.get(..base.len()) {
-        Some(head) if head != base && head.to_lowercase() == base.to_lowercase() => {
-            format!("{base}{}", &name[base.len()..])
+    let fixed = match (name.get(..base.len()), name.get(base.len()..)) {
+        (Some(head), Some(tail)) if head != base && head.to_lowercase() == base.to_lowercase() => {
+            format!("{base}{tail}")
         }
         _ => return lnk,
     };

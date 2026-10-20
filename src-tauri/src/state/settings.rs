@@ -162,9 +162,9 @@ pub struct SettingsPatch {
 /// True for `"windows"` or a `#RRGGBB` colour.
 pub fn is_valid_accent(accent: &str) -> bool {
     accent == WINDOWS_ACCENT
-        || (accent.len() == 7
-            && accent.starts_with('#')
-            && accent[1..].bytes().all(|b| b.is_ascii_hexdigit()))
+        || accent
+            .strip_prefix('#')
+            .is_some_and(|hex| hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
 impl Settings {

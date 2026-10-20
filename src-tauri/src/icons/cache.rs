@@ -159,6 +159,8 @@ fn regular_file_mtime(path: &Path) -> Option<SystemTime> {
 /// same folder plus a rename. Never writes through a symlinked cache folder
 /// or PNG.
 fn write_png(cache_dir: &Path, dest: &Path, image: &RgbaImage) -> Result<(), String> {
+    // The folder may have been deleted while Grouper runs.
+    fs::create_dir_all(cache_dir).map_err(|e| format!("create {}: {e}", cache_dir.display()))?;
     let mut bytes = Vec::new();
     image
         .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)

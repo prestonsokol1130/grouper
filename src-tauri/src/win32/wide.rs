@@ -13,8 +13,8 @@ pub fn to_wide(s: &str) -> Vec<u16> {
 /// the end of the slice if there is none). Invalid UTF-16, such as a lone
 /// surrogate, becomes U+FFFD instead of failing.
 pub fn from_wide(buf: &[u16]) -> String {
-    let end = buf.iter().position(|&unit| unit == 0).unwrap_or(buf.len());
-    String::from_utf16_lossy(&buf[..end])
+    let text = buf.split(|&unit| unit == 0).next().unwrap_or(buf);
+    String::from_utf16_lossy(text)
 }
 
 #[cfg(test)]

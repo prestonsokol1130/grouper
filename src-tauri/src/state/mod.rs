@@ -5,6 +5,7 @@ pub mod disk_write;
 pub mod folder_name;
 pub mod folders;
 pub mod ids;
+pub mod layout_fill;
 pub mod migrate;
 pub mod model;
 pub mod ops;

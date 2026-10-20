@@ -12,6 +12,7 @@ use super::shortcut_worker::create_and_wait;
 use crate::state::Store;
 use crate::taskbar::shortcut::shortcut_dir;
 use crate::taskbar::shortcut_write::find_group_shortcut;
+use crate::win32::com::ComGuard;
 use crate::win32::reveal::reveal_in_explorer;
 
 /// The loaded store, or an error when setup has not managed one.
@@ -45,6 +46,8 @@ pub async fn create_group_shortcut(app: AppHandle, group_id: String) -> Result<S
 #[specta::specta]
 pub async fn reveal_group_shortcut(app: AppHandle, group_id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
+        // shortcut_dir asks the Shell for the Start Menu folder.
+        let _com = ComGuard::new()?;
         let state = store(&app)?.snapshot();
         let lnk = find_group_shortcut(&state, &group_id, &shortcut_dir()?)?
             .ok_or_else(|| format!("No shortcut for group {group_id} yet"))?;

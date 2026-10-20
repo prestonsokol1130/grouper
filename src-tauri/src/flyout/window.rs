@@ -19,10 +19,15 @@ use crate::taskbar::placement::{place, taskbar_edge, usable_height};
 use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
 use crate::win32::monitor::current_monitor_info;
 
-/// Sets up the flyout at startup: its managed state, its tool-window
-/// styles and hide-on-blur. Call before the first [`request`].
-pub fn init<R: Runtime>(app: &AppHandle<R>) {
+/// Manages the flyout's state. Call at startup before any window exists,
+/// so the page's first `get_flyout` always finds it.
+pub fn manage<R: Runtime>(app: &AppHandle<R>) {
     app.manage(FlyoutState::default());
+}
+
+/// Sets up the flyout window at startup, after [`manage`]: its
+/// tool-window styles and hide-on-blur. Call before the first [`request`].
+pub fn init<R: Runtime>(app: &AppHandle<R>) {
     let Some(window) = app.get_webview_window(FLYOUT_LABEL) else {
         log::error!("flyout window {FLYOUT_LABEL:?} not found; flyouts will not open");
         return;

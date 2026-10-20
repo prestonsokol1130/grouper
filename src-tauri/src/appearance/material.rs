@@ -108,11 +108,21 @@ impl MaterialState {
 /// page then asks for its own again (`get_window_material`).
 pub const MATERIAL_CHANGED_EVENT: &str = "material:changed";
 
-/// Applies each window's material under `setting` and records the result.
-/// Call once at startup, on the main thread, after the windows exist.
-pub fn init<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting) {
+/// Manages the (still empty) [`MaterialState`]. Call at startup before
+/// any window is created, so `get_window_material` always finds it.
+pub fn manage<R: Runtime>(app: &AppHandle<R>) {
     app.manage(MaterialState::default());
+}
+
+/// Applies each window's material under `setting`, records the result and
+/// emits [`MATERIAL_CHANGED_EVENT`], so a page that asked before this ran
+/// asks again. Call once at startup, on the main thread, after
+/// [`manage`] and after the windows exist.
+pub fn init<R: Runtime>(app: &AppHandle<R>, setting: BackgroundSetting) {
     apply_all(app, setting, false);
+    if let Err(error) = app.emit(MATERIAL_CHANGED_EVENT, ()) {
+        log::warn!("could not emit {MATERIAL_CHANGED_EVENT}: {error}");
+    }
 }
 
 /// Applies `setting` to every window again after the "Window background"
