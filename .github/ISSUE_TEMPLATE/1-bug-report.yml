@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **For agents:** check the [Specs](https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c) for intended behavior and the [Build Log](https://app.notion.com/p/a606963ead3646718f1d74ead7b7ecce) for when the area last changed. Agent rules are in `AGENTS.md`.
+        **For agents:** open the spec link and build log entry in this issue before you start. Agent rules are in `AGENTS.md`.
   - type: checkboxes
     id: duplicates
     attributes:
@@ -92,3 +92,15 @@ body:
       label: Screenshot, recording and log file
       description: |
         Drag files in here. The log is `%LOCALAPPDATA%\com.grouper.app\logs\grouper.log` (paste that path into Explorer's address bar).
+  - type: input
+    id: spec-link
+    attributes:
+      label: Spec link
+      description: Link to the exact Notion spec page or section this is about. Find it under [Specs](https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c).
+      placeholder: https://app.notion.com/p/...
+  - type: input
+    id: build-log-link
+    attributes:
+      label: Build log entry
+      description: Link to the Notion Build Log row for the build or PR this relates to. Find it in the [Build Log](https://app.notion.com/p/a606963ead3646718f1d74ead7b7ecce).
+      placeholder: https://app.notion.com/p/...
