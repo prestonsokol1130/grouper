@@ -34,12 +34,17 @@ pub struct FolderStyle {
     pub gap_ratio: f32,
     /// Corner radius of each inner icon, as a fraction of its cell's side.
     pub inner_icon_corner_ratio: f32,
+    /// An empty folder's outlined 2 x 2 slots: straight-alpha RGBA colour
+    /// and stroke width as a fraction of `canvas`.
+    pub empty_mark: ([u8; 4], f32),
 }
 
 /// DESIGN.md section 5: the Windows square (corner radius 18% of the
 /// tile) on the neutral `rgba(235,235,240,0.92)` the taskbar `.ico` uses,
 /// with a 1px `rgba(0,0,0,0.12)` inner border so it reads on light and
-/// dark taskbars. Padding 14%, gap 6%, mini icon corners 22%.
+/// dark taskbars. Padding 14%, gap 6%, mini icon corners 22%. An empty
+/// folder outlines its four slots in the light `--text-secondary` grey,
+/// `rgba(0,0,0,0.606)`, which reads on the fixed light tile.
 pub const FOLDER_STYLE: FolderStyle = FolderStyle {
     canvas: 256,
     outline: Outline::RoundedSquare(0.18),
@@ -48,6 +53,7 @@ pub const FOLDER_STYLE: FolderStyle = FolderStyle {
     padding_ratio: 0.14,
     gap_ratio: 0.06,
     inner_icon_corner_ratio: 0.22,
+    empty_mark: ([0, 0, 0, 155], 0.04),
 };
 
 /// The iPhone squircle exponent (DESIGN.md section 5).

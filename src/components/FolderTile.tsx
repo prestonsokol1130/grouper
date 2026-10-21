@@ -22,6 +22,9 @@ type Props = {
 /** Space around the tile art inside the button, as in AppTile. */
 const INSET = 8;
 
+/** An empty folder's slot outline, as a fraction of the tile side (Rust `empty_mark`). */
+const EMPTY_STROKE = 0.04;
+
 /**
  * A group as a folder: the DESIGN.md section 5 background with a mini
  * grid of its first four visible apps (the same rule and layout as the
@@ -70,8 +73,10 @@ export const FolderTile = memo(function FolderTile({
 
 /**
  * Just the folder picture: the section 5 background and the mini grid of
- * the group's first four visible apps. Decorative; for places such as the
- * Manager sidebar, where the row around it is the control.
+ * the group's first four visible apps; with none, the 2x2 grid as outlined
+ * empty slots in the secondary text grey, like the taskbar `.ico`.
+ * Decorative; for places such as the Manager sidebar, where the row around
+ * it is the control.
  */
 export function FolderArt({
   groupId,
@@ -91,6 +96,7 @@ export function FolderArt({
       style={{ width: size, height: size, ...shapeStyle(shape ?? setting) }}
       data-testid="folder-art"
     >
+      {apps.length === 0 && <EmptySlots size={size} />}
       {miniLayout(apps.length).map((cell, index) => {
         const appId = apps[index]?.id ?? "";
         return (
@@ -109,4 +115,24 @@ export function FolderArt({
       })}
     </span>
   );
+}
+
+/** The empty folder's four outlined slots, drawn where the mini icons would be. */
+function EmptySlots({ size }: { size: number }) {
+  return miniLayout(4).map((cell) => (
+    <span
+      key={`${cell.x}-${cell.y}`}
+      className="absolute border-secondary"
+      data-testid="empty-slot"
+      style={{
+        left: `${cell.x * 100}%`,
+        top: `${cell.y * 100}%`,
+        width: `${cell.size * 100}%`,
+        height: `${cell.size * 100}%`,
+        borderStyle: "solid",
+        borderWidth: Math.max(1, Math.round(EMPTY_STROKE * size)),
+        borderRadius: "var(--radius-mini-icon)",
+      }}
+    />
+  ));
 }

@@ -9,15 +9,12 @@ pub enum LaunchCommand {
     Launchpad,
     /// Open the Manager window.
     Manager,
-    /// Started by Windows at sign-in (`--background`): open no window,
-    /// not even the first-run welcome.
+    /// Windows sign-in (`--background`): no window, not even the welcome.
     Background,
-    /// Run by the uninstaller (`--cleanup`): remove Grouper's Start Menu
-    /// folder and sign-in entry, and with `--delete-data` its app data,
-    /// then exit. Handled before the app starts; see [`crate::cleanup`].
+    /// The uninstaller (`--cleanup`, optionally `--delete-data`); handled
+    /// before the app starts, see [`crate::cleanup`].
     Cleanup { delete_data: bool },
-    /// Hidden, for measuring (`--bench flyout`): show and hide the flyout
-    /// 100 times and log the timings. Never launches anything.
+    /// Hidden `--bench flyout`: show and hide the flyout 100 times, timed.
     BenchFlyout,
     /// Nothing to do; stay in the tray.
     None,
@@ -61,11 +58,11 @@ pub const CLEANUP_FLAG: &str = "--cleanup";
 
 /// With [`CLEANUP_FLAG`]: the user ticked "Delete the application data".
 pub const DELETE_DATA_FLAG: &str = "--delete-data";
+
 /// The hidden measuring flag; see [`LaunchCommand::BenchFlyout`].
 const BENCH_FLAG: &str = "--bench";
 
-/// The flags [`parse_args`] knows. One of them after `--flyout` is a
-/// missing id, not an id.
+/// The flags [`parse_args`] knows; one after `--flyout` is a missing id.
 const KNOWN_FLAGS: [&str; 6] = [
     "--flyout",
     "--launchpad",

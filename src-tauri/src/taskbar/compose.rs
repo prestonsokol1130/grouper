@@ -1,7 +1,7 @@
 //! Composes a folder image: up to four app icons on the folder background.
 
 use image::imageops;
-use image::{GrayImage, Rgba, RgbaImage};
+use image::{GrayImage, Luma, Rgba, RgbaImage};
 
 use super::squircle::{
     apply_mask, inset_rounded_square_mask, inset_squircle_mask, rounded_square_mask,
@@ -26,7 +26,8 @@ pub struct Cell {
 /// Draws a `style.canvas` x `style.canvas` folder image.
 ///
 /// The layout depends on the number of icons ([`layout`]): none gives the
-/// empty folder background; only the first four are used. Each icon is
+/// empty folder, the background with the outlined 2 x 2 slots of
+/// [`draw_empty_slots`]; only the first four are used. Each icon is
 /// fitted to its cell with Lanczos3 (on premultiplied pixels), its corners
 /// rounded by `style.inner_icon_corner_ratio`, and drawn source-over
 /// (straight alpha) on the background. The whole canvas is then masked by
@@ -36,6 +37,9 @@ pub fn compose_folder(icons: &[RgbaImage], style: &FolderStyle) -> RgbaImage {
     let mut canvas = RgbaImage::from_pixel(size, size, Rgba(style.background));
     if let Some((colour, width)) = style.border {
         draw_border(&mut canvas, style.outline, colour, width);
+    }
+    if icons.is_empty() {
+        draw_empty_slots(&mut canvas, style);
     }
     let shown = &icons[..icons.len().min(MAX_FOLDER_ICONS)];
     for (icon, cell) in shown.iter().zip(layout(shown.len(), style)) {
@@ -107,12 +111,35 @@ fn draw_border(canvas: &mut RgbaImage, outline: Outline, colour: [u8; 4], width:
     } else {
         0.0
     };
+    let outer = GrayImage::from_pixel(size, size, Luma([255]));
     let inner = outline_mask(size, outline, inset);
-    let ring = RgbaImage::from_fn(size, size, |x, y| {
-        let outside_inner = 255 - u32::from(inner.get_pixel(x, y)[0]);
-        let alpha = (u32::from(colour[3]) * outside_inner + 127) / 255;
+    imageops::overlay(canvas, &ring(&outer, &inner, colour), 0, 0);
+}
+
+/// The empty folder's mark: each cell of the 2 x 2 grid drawn as an
+/// outlined rounded slot (corners as the mini icons'), in
+/// `style.empty_mark`'s colour with its stroke as a fraction of the canvas.
+fn draw_empty_slots(canvas: &mut RgbaImage, style: &FolderStyle) {
+    let (colour, stroke_ratio) = style.empty_mark;
+    let stroke = stroke_ratio * style.canvas as f32;
+    for cell in layout(MAX_FOLDER_ICONS, style) {
+        let radius = style.inner_icon_corner_ratio * cell.size as f32;
+        let outer = rounded_square_mask(cell.size, radius);
+        let inner = inset_rounded_square_mask(cell.size, radius, stroke);
+        imageops::overlay(canvas, &ring(&outer, &inner, colour), cell.x, cell.y);
+    }
+}
+
+/// `colour` wherever `outer` covers and `inner` does not (the two masks
+/// are the same size), clear elsewhere.
+fn ring(outer: &GrayImage, inner: &GrayImage, colour: [u8; 4]) -> RgbaImage {
+    let (width, height) = outer.dimensions();
+    RgbaImage::from_fn(width, height, |x, y| {
+        let covered = u32::from(outer.get_pixel(x, y)[0]);
+        let inside = u32::from(inner.get_pixel(x, y)[0]);
+        let coverage = covered.saturating_sub(inside);
+        let alpha = (u32::from(colour[3]) * coverage + 127) / 255;
         let [r, g, b, _] = colour;
         Rgba([r, g, b, u8::try_from(alpha).unwrap_or(u8::MAX)])
-    });
-    imageops::overlay(canvas, &ring, 0, 0);
+    })
 }

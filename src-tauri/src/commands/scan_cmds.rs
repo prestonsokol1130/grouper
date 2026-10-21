@@ -1,4 +1,4 @@
-//! Start Menu scans: the `rescan_apps` command and the first-run scan.
+//! Start Menu scans: the `rescan_apps` command and the startup scan.
 
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -6,6 +6,7 @@ use tauri::{AppHandle, State};
 
 use super::icon_cmds::queue_icons;
 use super::state_cmds::emit_state_changed;
+use crate::cli::LaunchCommand;
 use crate::scanner::{self, merge::merge_scan, ScanOutcome};
 use crate::state::Store;
 use crate::util::spawn::spawn_logged;
@@ -61,11 +62,42 @@ pub async fn rescan_apps(app: AppHandle, store: State<'_, Arc<Store>>) -> Result
         .map_err(|e| format!("app scan did not finish: {e}"))?
 }
 
-/// On startup, scans in the background if the app list is still empty.
-pub fn scan_if_empty(app: &AppHandle, store: &Arc<Store>) -> Result<(), String> {
-    if !store.snapshot().apps.is_empty() {
-        return Ok(());
+/// Why a startup scan runs, or `None` when the launch must not scan.
+///
+/// Every normal start scans once (a sign-in `--background` launch too), so
+/// apps installed since the last run show up without a manual Rescan; an
+/// empty app list is the first run. The uninstaller's `--cleanup` never
+/// scans (it exits before the app starts; this is a second guard). A second
+/// launch that only forwards to the running Grouper never gets here.
+/// `--bench flyout` never scans either: a scan and its icon extraction in
+/// the background would skew the timings it measures.
+pub fn startup_scan_reason(command: &LaunchCommand, known_apps: usize) -> Option<&'static str> {
+    match command {
+        LaunchCommand::Cleanup { .. } | LaunchCommand::BenchFlyout => None,
+        LaunchCommand::Flyout { .. }
+        | LaunchCommand::Launchpad
+        | LaunchCommand::Manager
+        | LaunchCommand::Background
+        | LaunchCommand::None => Some(if known_apps == 0 {
+            "the app list is empty"
+        } else {
+            "refreshing the app list"
+        }),
     }
+}
+
+/// On startup, scans once in the background (see [`startup_scan_reason`])
+/// with the same lock, merge, `state:changed` and icon caching as
+/// `rescan_apps`. A failed scan is logged and the known apps are kept.
+pub fn scan_at_startup(
+    app: &AppHandle,
+    store: &Arc<Store>,
+    command: &LaunchCommand,
+) -> Result<(), String> {
+    let Some(reason) = startup_scan_reason(command, store.snapshot().apps.len()) else {
+        return Ok(());
+    };
+    log::info!("startup app scan: {reason}");
     let app = app.clone();
     let store = Arc::clone(store);
     spawn_logged("startup-scan", move || {
@@ -76,7 +108,44 @@ pub fn scan_if_empty(app: &AppHandle, store: &Arc<Store>) -> Result<(), String> 
 
 #[cfg(test)]
 mod tests {
-    use super::scan_lock;
+    use super::{scan_lock, startup_scan_reason};
+    use crate::cli::LaunchCommand;
+
+    #[test]
+    fn every_normal_start_scans_once() {
+        let starts = [
+            LaunchCommand::None,
+            LaunchCommand::Background,
+            LaunchCommand::Launchpad,
+            LaunchCommand::Manager,
+            LaunchCommand::Flyout {
+                group_id: "g1".into(),
+            },
+        ];
+        for command in &starts {
+            assert!(startup_scan_reason(command, 12).is_some(), "{command:?}");
+            assert!(startup_scan_reason(command, 0).is_some(), "{command:?}");
+        }
+        assert_ne!(
+            startup_scan_reason(&LaunchCommand::None, 0),
+            startup_scan_reason(&LaunchCommand::None, 12)
+        );
+    }
+
+    #[test]
+    fn cleanup_never_scans() {
+        for delete_data in [false, true] {
+            let command = LaunchCommand::Cleanup { delete_data };
+            assert_eq!(startup_scan_reason(&command, 0), None);
+            assert_eq!(startup_scan_reason(&command, 12), None);
+        }
+    }
+
+    #[test]
+    fn the_flyout_bench_never_scans() {
+        assert_eq!(startup_scan_reason(&LaunchCommand::BenchFlyout, 0), None);
+        assert_eq!(startup_scan_reason(&LaunchCommand::BenchFlyout, 12), None);
+    }
 
     #[test]
     fn a_held_scan_lock_blocks_other_scans() {

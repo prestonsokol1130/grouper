@@ -104,9 +104,15 @@ fn start() -> Result<(), String> {
             // tracked shortcut whose .lnk or .ico is missing is rebuilt.
             commands::shortcut_worker::start_shortcut_sync(handle, &store);
             commands::cache_watch::start_cache_watch(handle, &store);
-            // A failed first scan is logged; the app still starts.
-            if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
-                log::error!("could not start the first app scan: {error}");
+            // args_os: std::env::args panics on non-Unicode arguments.
+            let args: Vec<String> = std::env::args_os()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect();
+            let command = cli::parse_args(&args);
+            // Every start rescans once in the background so new apps show
+            // up; a failed scan is logged and the app still starts.
+            if let Err(error) = commands::scan_cmds::scan_at_startup(handle, &store, &command) {
+                log::error!("could not start the startup app scan: {error}");
             }
             tray::create(handle)?;
             let settings = store.snapshot().settings;
@@ -116,12 +122,7 @@ fn start() -> Result<(), String> {
             launchpad::window::init(handle);
             hot_corners::start(handle, settings.hot_corners);
             appearance::material::init(handle, settings.background);
-            // args_os: std::env::args panics on non-Unicode arguments.
-            let args: Vec<String> = std::env::args_os()
-                .map(|arg| arg.to_string_lossy().into_owned())
-                .collect();
             autostart::sync_setting(&autostart::PluginLauncher(handle), &store);
-            let command = cli::parse_args(&args);
             // The first run opens the welcome; a sign-in launch never does.
             if !settings.first_run_done && command == cli::LaunchCommand::None {
                 router::route(handle, cli::LaunchCommand::Manager);

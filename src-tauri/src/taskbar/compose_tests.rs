@@ -46,9 +46,26 @@ fn output_is_canvas_sized_with_clear_corners_for_every_count() {
 }
 
 #[test]
-fn zero_icons_is_the_empty_folder_background() {
+fn zero_icons_outline_four_empty_slots() {
     let image = compose_folder(&[], &FOLDER_STYLE);
-    assert_eq!(*image.get_pixel(128, 128), Rgba(FOLDER_STYLE.background));
+    let background = Rgba(FOLDER_STYLE.background);
+    // The gap between the slots and each slot's middle stay background.
+    assert_eq!(*image.get_pixel(128, 128), background);
+    for cell in layout(4, &FOLDER_STYLE) {
+        let (x, y) = centre(cell);
+        assert_eq!(*image.get_pixel(x, y), background, "slot middle");
+        // The stroke (4% of 256 = 10 px) on the slot's left edge is grey.
+        let edge = image.get_pixel(u32::try_from(cell.x + 4).unwrap(), y);
+        assert!(edge[0] < 120 && edge[0] == edge[1], "slot edge {edge:?}");
+        assert!(edge[3] > background[3], "slot edge {edge:?}");
+    }
+}
+
+#[test]
+fn folders_with_icons_have_no_empty_slots() {
+    let one = compose_folder(&icons(&[RED]), &FOLDER_STYLE);
+    // Where the top-left empty slot's edge would be, outside the one icon.
+    assert_eq!(*one.get_pixel(40, 78), Rgba(FOLDER_STYLE.background));
 }
 
 #[test]
