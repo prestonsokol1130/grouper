@@ -7,6 +7,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use crate::scanner::walk::OWN_FOLDER;
+use crate::taskbar::group_icon_files::GROUP_ICONS_FOLDER;
 
 /// What a removal did.
 #[derive(Debug, PartialEq, Eq)]
@@ -21,7 +22,7 @@ pub enum Outcome {
 }
 
 /// True when `path` is a symlink or a junction (a reparse point).
-fn is_link(meta: &fs::Metadata) -> bool {
+pub(crate) fn is_link(meta: &fs::Metadata) -> bool {
     if meta.file_type().is_symlink() {
         return true;
     }
@@ -111,5 +112,37 @@ pub fn remove_app_data(app_data_dir: &Path, identifier: &str) -> Result<Outcome,
     }
     fs::remove_dir_all(app_data_dir)
         .map_err(|e| format!("delete {}: {e}", app_data_dir.display()))?;
+    Ok(Outcome::Removed)
+}
+
+/// Deletes the group icon folder with everything in it, then its parent
+/// (`Programs\Grouper`) if that is left empty. Refuses a folder not named
+/// [`GROUP_ICONS_FOLDER`], and one that is itself a link.
+pub fn remove_group_icons(dir: &Path) -> Result<Outcome, String> {
+    let named_right = dir
+        .file_name()
+        .is_some_and(|name| name.eq_ignore_ascii_case(GROUP_ICONS_FOLDER));
+    if !named_right {
+        return Err(format!(
+            "refusing to delete {}: not Grouper's group icon folder",
+            dir.display()
+        ));
+    }
+    let Some(meta) = metadata(dir)? else {
+        return Ok(Outcome::NotFound);
+    };
+    if is_link(&meta) || !meta.is_dir() {
+        return Err(format!(
+            "refusing to delete {}: not a folder",
+            dir.display()
+        ));
+    }
+    fs::remove_dir_all(dir).map_err(|e| format!("delete {}: {e}", dir.display()))?;
+    // Only removes the parent when it is empty; the install folder never is.
+    if let Some(parent) = dir.parent() {
+        if fs::remove_dir(parent).is_ok() {
+            log::info!("cleanup: removed empty {}", parent.display());
+        }
+    }
     Ok(Outcome::Removed)
 }

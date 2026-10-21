@@ -6,7 +6,10 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 
-use super::group_icon::{build_group_icon, group_icon_path, remove_group_icons};
+use super::group_icon::build_group_icon;
+use super::group_icon_files::{
+    current_icon, group_icon_path, icon_version, latest_group_icon, remove_group_icons,
+};
 use super::ico::ICO_SIZES;
 use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
 use crate::state::{AppEntry, AppState, Group};
@@ -63,15 +66,16 @@ fn names(dir: &Path) -> Vec<String> {
 }
 
 #[test]
-fn builds_every_size_at_the_stable_path() {
+fn builds_every_size_at_the_first_version() {
     let dir = tempfile::tempdir().unwrap();
     write_png(dir.path(), "a", [220, 40, 40, 255]);
     let mut state = state(&["a"]);
     state.groups[0].icon_version = 7;
     let path = build_group_icon(&state, "grp", dir.path()).unwrap();
     let groups = dir.path().join(GROUPS_DIR);
-    assert_eq!(path, group_icon_path(&groups, "grp"));
-    assert!(path.ends_with("grp.ico"));
+    assert_eq!(path, group_icon_path(&groups, "grp", 1));
+    assert!(path.ends_with("grp-v1.ico"));
+    assert_eq!(current_icon(dir.path(), "grp"), Some(path.clone()));
 
     let mut sizes: Vec<u32> = decode(&path).entries().iter().map(|e| e.width()).collect();
     sizes.sort_unstable();
@@ -79,24 +83,49 @@ fn builds_every_size_at_the_stable_path() {
     // The single icon covers the middle of the folder, in the app's colour.
     assert_eq!(middle_colour(&path), [220, 40, 40, 255]);
     // No temp files are left behind.
-    assert_eq!(names(&groups), ["grp.ico"]);
+    assert_eq!(names(&groups), ["grp-v1.ico"]);
 }
 
 #[test]
-fn a_rebuild_overwrites_the_same_file_and_deletes_nothing() {
+fn each_rebuild_writes_a_new_version_and_keeps_the_old_ones() {
     let dir = tempfile::tempdir().unwrap();
     let groups = dir.path().join(GROUPS_DIR);
     fs::create_dir_all(&groups).unwrap();
-    for name in ["grp-v1.ico", "other.ico"] {
+    for name in ["grp.ico", "grp-v9.ico", "other.ico"] {
         fs::write(groups.join(name), b"old").unwrap();
     }
     write_png(dir.path(), "a", [220, 40, 40, 255]);
     write_png(dir.path(), "d", [40, 40, 220, 255]);
     let first = build_group_icon(&state(&["a"]), "grp", dir.path()).unwrap();
     let second = build_group_icon(&state(&["d"]), "grp", dir.path()).unwrap();
-    assert_eq!(first, second);
+    assert_eq!(first, group_icon_path(&groups, "grp", 10));
+    assert_eq!(second, group_icon_path(&groups, "grp", 11));
+    assert_eq!(middle_colour(&first), [220, 40, 40, 255]);
     assert_eq!(middle_colour(&second), [40, 40, 220, 255]);
-    assert_eq!(names(&groups), ["grp-v1.ico", "grp.ico", "other.ico"]);
+    assert_eq!(latest_group_icon(&groups, "grp"), Some((11, second)));
+    let expected = [
+        "grp-v10.ico",
+        "grp-v11.ico",
+        "grp-v9.ico",
+        "grp.ico",
+        "other.ico",
+    ];
+    assert_eq!(names(&groups), expected);
+}
+
+#[test]
+fn version_numbers_are_read_only_from_the_groups_own_names() {
+    assert_eq!(icon_version("grp-v3.ico", "grp"), Some(3));
+    assert_eq!(icon_version("grp-v12.ico", "grp"), Some(12));
+    for name in [
+        "grp.ico",
+        "grp-v.ico",
+        "grp-vx.ico",
+        "grp2-v1.ico",
+        "grp-v1.png",
+    ] {
+        assert_eq!(icon_version(name, "grp"), None, "{name}");
+    }
 }
 
 #[test]

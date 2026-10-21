@@ -13,7 +13,9 @@ use super::cache::{check_id, FALLBACK_STEM};
 use crate::state::disk_write::write_atomic;
 
 /// The format this build writes. 2: icons normalised to a 5% padding.
-pub const ICON_FORMAT: u32 = 2;
+/// 3: a shortcut's own `.ico` file read from disk (Chrome web apps were
+/// cached as blank white pages before).
+pub const ICON_FORMAT: u32 = 3;
 
 /// `{cache_dir}/format.txt`.
 fn marker_path(cache_dir: &Path) -> PathBuf {

@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::path::Path;
 
-use super::files::{remove_app_data, remove_start_menu_folder, Outcome};
+use super::files::{remove_app_data, remove_group_icons, remove_start_menu_folder, Outcome};
 use super::tests::{not_pinned, touch};
 use super::APP_IDENTIFIER;
 #[test]
@@ -107,4 +107,36 @@ fn app_data_is_deleted_only_under_its_own_name() {
         remove_app_data(&data, APP_IDENTIFIER),
         Ok(Outcome::NotFound)
     );
+}
+
+#[test]
+fn group_icons_go_and_an_empty_parent_with_them() {
+    let local = tempfile::tempdir().unwrap();
+    let parent = local.path().join("Programs").join("Grouper");
+    let icons = parent.join("group-icons");
+    fs::create_dir_all(&icons).unwrap();
+    touch(&icons.join("g1-v1.ico"));
+    touch(&icons.join("kKrYnc4mNw-20261020204616.ico"));
+    assert_eq!(remove_group_icons(&icons), Ok(Outcome::Removed));
+    assert!(!parent.exists());
+    assert_eq!(remove_group_icons(&icons), Ok(Outcome::NotFound));
+}
+
+#[test]
+fn group_icons_keep_a_parent_with_other_files() {
+    let local = tempfile::tempdir().unwrap();
+    let parent = local.path().join("Grouper");
+    let icons = parent.join("group-icons");
+    fs::create_dir_all(&icons).unwrap();
+    touch(&parent.join("grouper.exe"));
+    assert_eq!(remove_group_icons(&icons), Ok(Outcome::Removed));
+    assert!(parent.join("grouper.exe").exists());
+}
+
+#[test]
+fn group_icons_refuse_another_folder() {
+    let other = tempfile::tempdir().unwrap();
+    touch(&other.path().join("keep.ico"));
+    assert!(remove_group_icons(other.path()).is_err());
+    assert!(other.path().join("keep.ico").exists());
 }

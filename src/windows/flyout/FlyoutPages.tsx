@@ -36,19 +36,23 @@ export function currentTiles(area: HTMLElement | null): HTMLElement[] {
 /** The keys that turn pages when focus is not on a tile. */
 const PAGE_KEYS: Readonly<Record<string, number>> = {
   ArrowLeft: -1,
+  ArrowUp: -1,
   PageUp: -1,
   ArrowRight: 1,
+  ArrowDown: 1,
   PageDown: 1,
 };
 
 /**
  * The flyout's apps in fixed pages of `columns` x `rows`, like an iPhone
- * folder (DESIGN.md section 8). Pages turn with a horizontal swipe or
- * drag, the mouse wheel (one notch, one page), the dots, the optional
- * ‹ › arrows and the keyboard: inside the grid the arrows move focus and
+ * folder (DESIGN.md section 8), with the page dots in a column on the
+ * right, so the flyout stays close to square (per Preston, 2026-10-21).
+ * Pages turn with a horizontal swipe or drag, the mouse wheel (one notch,
+ * one page), the dots, the optional up and down arrows above and below
+ * the dots, and the keyboard: inside the grid the arrows move focus and
  * carry on to the next or previous page past its edge (see pagedMove);
- * with focus elsewhere Left/Right and Page Up/Down turn pages. The slide
- * is the Launchpad's (PagedGrid: transform only, 250ms).
+ * with focus elsewhere the arrow keys and Page Up/Down turn pages. The
+ * slide is the Launchpad's (PagedGrid: transform only, 250ms).
  */
 export function FlyoutPages(props: Props) {
   const { apps, columns, rows, iconPx, seq, reduced, showArrows, onLaunch } = props;
@@ -115,7 +119,7 @@ export function FlyoutPages(props: Props) {
   };
 
   return (
-    <div ref={area} className="flyout-pages flex shrink-0 flex-col" onKeyDown={onKeyDown}>
+    <div ref={area} className="flyout-pages flex shrink-0" onKeyDown={onKeyDown}>
       <div className="flex" style={{ width: size.width, height: size.height }}>
         <PagedGrid
           pages={pages}
@@ -140,7 +144,7 @@ export function FlyoutPages(props: Props) {
           page={page}
           onSelect={pager.jump}
           arrows={showArrows}
-          height="h-8"
+          vertical
         />
       )}
     </div>

@@ -44,6 +44,9 @@ pub fn run() {
     // Before the single-instance check: a second launch from a taskbar
     // click passes its foreground right on to the running instance.
     win32::flyout_window::allow_any_foreground();
+    // Before any window: a launch from a group pin would otherwise put
+    // Grouper's windows on the taskbar as that group.
+    win32::app_id::set_process_app_id(cleanup::APP_IDENTIFIER);
     // The main thread runs the tray, the Launchpad and the flyout, which
     // call the Shell; it stays in an STA for the life of the process.
     let _com = win32::com::ComGuard::new()
@@ -164,6 +167,14 @@ fn open_store(app: &tauri::AppHandle) -> Result<Arc<state::Store>, String> {
         .app_data_dir()
         .map_err(|e| format!("resolve app data dir: {e}"))?;
     state::paths::ensure_dirs(&dir)?;
+    // Windows draws no icon from an .ico kept under AppData\Roaming, so
+    // group icons go to a folder it does draw from.
+    match win32::known_folder::local_app_data() {
+        Ok(local) => taskbar::group_icon_files::set_group_icons_dir(
+            taskbar::group_icon_files::local_group_icons_dir(&local),
+        ),
+        Err(error) => log::warn!("group icons stay in the cache folder: {error}"),
+    }
     // A state file that cannot be loaded safely is left untouched on disk;
     // Grouper still starts, keeping changes in memory only.
     let store = Arc::new(

@@ -6,20 +6,21 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, Manager};
 
+use super::shortcut_cleanup::{remove_deleted_group, sweep_at_startup};
 use super::shortcut_worker::{Job, ShortcutUpdated, SHORTCUT_UPDATED_EVENT};
 use super::state_cmds::emit_state_changed;
 use crate::state::paths::cache_dir;
 use crate::state::Store;
-use crate::taskbar::shortcut::{shortcut_dir, shortcut_dir_path};
-use crate::taskbar::shortcut_sync::{
-    icon_file, remove_group_files, repair_group_shortcut, update_group_shortcut, Change, Repair,
-};
+use crate::taskbar::group_icon_files::current_icon;
+use crate::taskbar::shortcut::shortcut_dir;
+use crate::taskbar::shortcut_sync::{repair_group_shortcut, update_group_shortcut, Change, Repair};
 use crate::taskbar::shortcut_write::write_group_shortcut;
 use crate::win32::shell_notify::notify_shortcut_changed;
 
 /// What a job needs from the app.
 struct Ctx {
     store: Arc<Store>,
+    data: PathBuf,
     cache_dir: PathBuf,
     exe: PathBuf,
 }
@@ -37,6 +38,7 @@ fn ctx(app: &AppHandle) -> Result<Ctx, String> {
     Ok(Ctx {
         store,
         cache_dir: cache_dir(&data),
+        data,
         exe,
     })
 }
@@ -67,7 +69,7 @@ pub(super) fn create(app: &AppHandle, group_id: &str) -> Result<PathBuf, String>
     let dir = shortcut_dir()?;
     let lnk = write_group_shortcut(&state, group_id, &ctx.cache_dir, &dir, &ctx.exe)?;
     log::info!("wrote shortcut for group {group_id}: {}", lnk.display());
-    notify_shortcut_changed(&lnk, &icon_file(&ctx.cache_dir, group_id));
+    notify(&ctx, group_id, &lnk);
     record(app, &ctx.store, group_id, &lnk)?;
     let now = ctx.store.snapshot();
     let (Some(written), Some(latest)) = (state.group_by_id(group_id), now.group_by_id(group_id))
@@ -105,17 +107,16 @@ fn remove(app: &AppHandle, group_id: &str) -> Result<(), String> {
         // The id is in use again; its files are not stale.
         return Ok(());
     }
-    let dir = shortcut_dir_path()
-        .map_err(|error| log::warn!("no Start Menu folder to clean: {error}"))
-        .ok();
-    remove_group_files(group_id, &ctx.cache_dir, dir.as_deref());
+    remove_deleted_group(group_id, &ctx.cache_dir);
     Ok(())
 }
 
-/// Repairs every tracked group's shortcut, one group at a time; one
-/// group's failure is logged and the rest still run.
+/// Cleans up after deleted groups ([`sweep_at_startup`]), then repairs
+/// every tracked group's shortcut, one group at a time; one group's
+/// failure is logged and the rest still run.
 fn repair_all(app: &AppHandle) -> Result<(), String> {
     let ctx = ctx(app)?;
+    sweep_at_startup(&ctx.store.snapshot(), &ctx.data);
     let tracked: Vec<String> = ctx
         .store
         .snapshot()
@@ -137,9 +138,9 @@ fn repair_all(app: &AppHandle) -> Result<(), String> {
 }
 
 /// Repairs group `group_id`'s shortcut from the latest state, skipping a
-/// group that is gone or no longer has a shortcut. Legacy versioned
-/// `.ico` files are kept: an old taskbar pin may still show one. They go
-/// only when the group is deleted.
+/// group that is gone or no longer has a shortcut. Older `.ico` versions
+/// are kept: an old taskbar pin may still show one. They go only when the
+/// group is deleted.
 fn repair_one(app: &AppHandle, ctx: &Ctx, dir: &Path, group_id: &str) -> Result<(), String> {
     let state = ctx.store.snapshot();
     if !state.group_by_id(group_id).is_some_and(|g| g.has_shortcut) {
@@ -158,7 +159,7 @@ fn repair_one(app: &AppHandle, ctx: &Ctx, dir: &Path, group_id: &str) -> Result<
 /// After a rewrite: refreshes the Shell, records the path, and emits
 /// [`SHORTCUT_UPDATED_EVENT`].
 fn finish(app: &AppHandle, ctx: &Ctx, group_id: &str, lnk: &Path) -> Result<(), String> {
-    notify_shortcut_changed(lnk, &icon_file(&ctx.cache_dir, group_id));
+    notify(ctx, group_id, lnk);
     record(app, &ctx.store, group_id, lnk)?;
     let payload = ShortcutUpdated {
         group_id: group_id.to_owned(),
@@ -168,6 +169,12 @@ fn finish(app: &AppHandle, ctx: &Ctx, group_id: &str, lnk: &Path) -> Result<(), 
         log::warn!("could not emit {SHORTCUT_UPDATED_EVENT}: {error}");
     }
     Ok(())
+}
+
+/// Tells the Shell that `lnk` and the `.ico` it now shows changed.
+fn notify(ctx: &Ctx, group_id: &str, lnk: &Path) {
+    let icon = current_icon(&ctx.cache_dir, group_id);
+    notify_shortcut_changed(lnk, icon.as_deref().unwrap_or(lnk));
 }
 
 /// Marks group `group_id` as having its shortcut at `lnk`. Nothing is

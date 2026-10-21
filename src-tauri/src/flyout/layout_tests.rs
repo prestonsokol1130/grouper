@@ -24,23 +24,23 @@ fn the_window_is_one_full_page() {
     assert_eq!(size(1), (232, 328));
     assert_eq!(size(0), (232, 328));
     assert_eq!(size(9), (232, 328));
-    // A second page adds the 32px dots row, nothing else.
-    assert_eq!(size(10), (232, 360));
-    assert_eq!(size(20), (232, 360));
+    // A second page adds the 32px dots column, nothing else.
+    assert_eq!(size(10), (264, 328));
+    assert_eq!(size(20), (264, 328));
 }
 
 #[test]
 fn every_layout_option_sizes_the_window() {
     // (option, icon) -> (columns, rows, width, height) for 30 apps.
     let cases = [
-        (FlyoutGrid::G3x3, 48, (3, 3, 232, 360)),
-        (FlyoutGrid::G4x4, 48, (4, 4, 304, 452)),
-        (FlyoutGrid::G5x5, 48, (5, 5, 376, 544)),
-        (FlyoutGrid::G4x2, 48, (4, 2, 304, 268)),
-        (FlyoutGrid::G3x2, 48, (3, 2, 232, 268)),
-        (FlyoutGrid::G2x2, 48, (2, 2, 160, 268)),
-        (FlyoutGrid::G3x3, 40, (3, 3, 208, 336)),
-        (FlyoutGrid::G3x3, 64, (3, 3, 280, 408)),
+        (FlyoutGrid::G3x3, 48, (3, 3, 264, 328)),
+        (FlyoutGrid::G4x4, 48, (4, 4, 336, 420)),
+        (FlyoutGrid::G5x5, 48, (5, 5, 408, 512)),
+        (FlyoutGrid::G4x2, 48, (4, 2, 336, 236)),
+        (FlyoutGrid::G3x2, 48, (3, 2, 264, 236)),
+        (FlyoutGrid::G2x2, 48, (2, 2, 192, 236)),
+        (FlyoutGrid::G3x3, 40, (3, 3, 240, 304)),
+        (FlyoutGrid::G3x3, 64, (3, 3, 312, 376)),
     ];
     for (grid, icon, want) in cases {
         let layout = layout_for(grid, icon);
@@ -62,12 +62,13 @@ fn huge_values_do_not_overflow() {
 #[test]
 fn rows_shrink_to_fit_the_work_area() {
     let five = layout_for(FlyoutGrid::G5x5, 64);
-    // Five rows of 100 plus chrome is 12 + 36 + 532 + 32 + 12 = 624 tall.
-    assert_eq!(flyout_size(60, &five).height, 624);
+    // Five rows of 100 plus chrome is 12 + 36 + 532 + 12 = 592 tall (the
+    // dots column takes width, not height).
+    assert_eq!(flyout_size(60, &five).height, 592);
     assert_eq!(fit_rows(five, 60, 2000, 1.0), five);
     // 1032 physical at 1.5 is 688 logical, minus 2 * 12: still fits.
     assert_eq!(fit_rows(five, 60, 1032, 1.5).rows, 5);
-    // 600 logical minus 24 = 576 leaves room for four rows (516).
+    // 600 logical minus 24 = 576 leaves room for four rows (484).
     assert_eq!(fit_rows(five, 60, 600, 1.0).rows, 4);
     // A tiny or broken work area still leaves one row.
     assert_eq!(fit_rows(five, 60, 10, 1.0).rows, 1);
@@ -95,13 +96,17 @@ fn an_auto_hide_bottom_bar_shrinks_the_room_and_a_side_bar_does_not() {
     let bottom = auto_hide(rect(0, 2088, 3840, 2160));
     assert_eq!(usable_height(&bottom), 2088);
     // floor(2088 / 2.0) - 2 * 12 = 1020 fits all five rows; at 4.0 only
-    // floor(2088 / 4.0) - 24 = 498 is left: three rows (408).
+    // floor(2088 / 4.0) - 24 = 498 is left: four rows (484).
     assert_eq!(fit_rows(tall, 99, usable_height(&bottom), 2.0).rows, 5);
-    assert_eq!(fit_rows(tall, 99, usable_height(&bottom), 4.0).rows, 3);
+    assert_eq!(fit_rows(tall, 99, usable_height(&bottom), 4.0).rows, 4);
     let side = auto_hide(rect(0, 0, 72, 2160));
     assert_eq!(usable_height(&side), 2160);
-    // floor(2160 / 4.0) - 24 = 516: exactly four rows.
+    // floor(2160 / 4.0) - 24 = 516: four rows, not five (592).
     assert_eq!(fit_rows(tall, 99, usable_height(&side), 4.0).rows, 4);
+    // At 3.5 the side bar leaves floor(2160 / 3.5) - 24 = 593: all five
+    // rows; the bottom bar leaves floor(2088 / 3.5) - 24 = 572: four.
+    assert_eq!(fit_rows(tall, 99, usable_height(&side), 3.5).rows, 5);
+    assert_eq!(fit_rows(tall, 99, usable_height(&bottom), 3.5).rows, 4);
 }
 
 #[test]

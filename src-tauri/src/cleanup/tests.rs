@@ -12,6 +12,7 @@ use super::autostart_entry::{
 };
 
 use super::{run, Targets, APP_IDENTIFIER};
+use crate::taskbar::group_icon_files::local_group_icons_dir;
 
 /// A registry in a map of `(key, name) -> data`.
 #[derive(Default)]
@@ -104,8 +105,9 @@ pub(super) fn not_pinned(_shortcut: &Path) -> Result<(), String> {
     Err("not pinned".into())
 }
 
-/// A programs folder with `Grouper\Work.lnk` and an app data folder with
-/// `app_state.json`, under one temp root.
+/// A programs folder with `Grouper\Work.lnk`, an app data folder with
+/// `app_state.json` and a group icon folder with one `.ico`, under one
+/// temp root.
 fn installed() -> (tempfile::TempDir, Targets) {
     let root = tempfile::tempdir().unwrap();
     let programs = root.path().join("Programs");
@@ -114,9 +116,13 @@ fn installed() -> (tempfile::TempDir, Targets) {
     let data = root.path().join(APP_IDENTIFIER);
     fs::create_dir_all(&data).unwrap();
     touch(&data.join("app_state.json"));
+    let icons = local_group_icons_dir(&root.path().join("Local"));
+    fs::create_dir_all(&icons).unwrap();
+    touch(&icons.join("g1-v1.ico"));
     let targets = Targets {
         programs_dir: Ok(programs),
         app_data_dir: Ok(data),
+        group_icons_dir: Ok(icons),
     };
     (root, targets)
 }
@@ -129,6 +135,7 @@ fn run_keeps_app_data_unless_asked() {
     let programs = targets.programs_dir.as_ref().unwrap();
     let data = targets.app_data_dir.as_ref().unwrap();
     assert!(!programs.join("Grouper").exists());
+    assert!(!targets.group_icons_dir.as_ref().unwrap().exists());
     assert!(!fake.has(RUN_KEY, RUN_VALUE_NAME));
     assert!(data.join("app_state.json").exists());
     assert!(run(&targets, &fake, &not_pinned, true).is_empty());
@@ -139,12 +146,13 @@ fn run_keeps_app_data_unless_asked() {
 fn run_goes_on_after_a_failed_step() {
     let (_root, mut targets) = installed();
     targets.programs_dir = Err("no Start Menu".into());
+    targets.group_icons_dir = Err("no Local AppData".into());
     let fake = FakeRegistry {
         broken: true,
         ..FakeRegistry::default()
     };
     let errors = run(&targets, &fake, &not_pinned, true);
-    assert_eq!(errors.len(), 2, "{errors:?}");
+    assert_eq!(errors.len(), 3, "{errors:?}");
     assert!(!targets.app_data_dir.as_ref().unwrap().exists());
 }
 

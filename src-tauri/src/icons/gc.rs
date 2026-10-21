@@ -13,8 +13,9 @@ use std::path::Path;
 
 use super::cache::check_id;
 use crate::state::ids::GROUP_ID_LEN;
-use crate::state::paths::{group_cache_dir, icon_cache_dir};
+use crate::state::paths::{cache_dir, group_cache_dir, icon_cache_dir};
 use crate::state::AppState;
+use crate::taskbar::group_icon_files::group_icons_dir;
 
 /// How many files [`collect`] deleted from each folder.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -26,14 +27,34 @@ pub struct Collected {
 /// Deletes stale cache files under `{app_data_dir}/cache`, keeping
 /// everything `state` still uses. Failures are logged and skipped.
 pub fn collect(app_data_dir: &Path, state: &AppState) -> Collected {
-    let apps: HashSet<&str> = state.apps.iter().map(|app| app.id.as_str()).collect();
-    let groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
     Collected {
-        pngs: sweep(&icon_cache_dir(app_data_dir), |name| stale_png(name, &apps)),
-        icos: sweep(&group_cache_dir(app_data_dir), |name| {
-            stale_ico(name, &groups)
-        }),
+        pngs: collect_pngs(app_data_dir, state),
+        icos: collect_icos(app_data_dir, state, &HashSet::new()),
     }
+}
+
+/// The PNG half of [`collect`]: app icons of apps no longer in `state`.
+pub fn collect_pngs(app_data_dir: &Path, state: &AppState) -> usize {
+    let apps: HashSet<&str> = state.apps.iter().map(|app| app.id.as_str()).collect();
+    sweep(&icon_cache_dir(app_data_dir), |name| stale_png(name, &apps))
+}
+
+/// The `.ico` half of [`collect`]: every `{group_id}.ico` and
+/// `{group_id}-v{N}.ico` of groups no longer in `state`. Run after their
+/// leftover shortcuts were unpinned, so a pin keeps its icon until then.
+/// Both the group icon folder and the old `{app_data_dir}/cache/groups`
+/// are swept. Deleted groups in `keep` (a shortcut or pin of theirs is
+/// still on disk) keep their files too.
+pub fn collect_icos(app_data_dir: &Path, state: &AppState, keep: &HashSet<&str>) -> usize {
+    let mut groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
+    groups.extend(keep);
+    let legacy = group_cache_dir(app_data_dir);
+    let current = group_icons_dir(&cache_dir(app_data_dir));
+    let mut removed = sweep(&legacy, |name| stale_ico(name, &groups));
+    if current != legacy {
+        removed += sweep(&current, |name| stale_ico(name, &groups));
+    }
+    removed
 }
 
 /// True for `{app_id}.png` (an id as [`crate::state::ids::app_id`] makes

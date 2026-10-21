@@ -6,6 +6,7 @@
 //! Win32 handle types and so exists on Windows only.
 
 pub mod accent;
+pub mod app_id;
 pub mod apps_folder;
 pub mod balloon;
 pub mod com;
@@ -13,6 +14,7 @@ pub mod cursor;
 pub mod dir_watch;
 pub mod env;
 pub mod file_dialog;
+pub mod file_replace;
 pub mod flyout_window;
 pub mod foreground;
 #[cfg(windows)]
@@ -33,6 +35,10 @@ pub mod wide;
 pub mod window_rect;
 
 #[cfg(all(test, windows))]
+pub(crate) mod dir_watch_tests;
+#[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;
+#[cfg(all(test, windows))]
+mod lnk_replace_tests;
 #[cfg(all(test, windows))]
 mod lnk_write_tests;

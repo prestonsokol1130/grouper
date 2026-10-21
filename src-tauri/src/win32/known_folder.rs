@@ -26,6 +26,18 @@ pub fn local_app_data() -> Result<PathBuf, String> {
     imp::local_app_data()
 }
 
+/// `%APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned`
+/// (`FOLDERID_UserPinned`). Its `TaskBar` folder holds copies of the
+/// shortcuts the user pinned to the taskbar.
+pub fn user_pinned() -> Result<PathBuf, String> {
+    imp::user_pinned()
+}
+
+/// The Windows folder, usually `C:\Windows` (`FOLDERID_Windows`).
+pub fn windows_dir() -> Result<PathBuf, String> {
+    imp::windows_dir()
+}
+
 #[cfg(windows)]
 mod imp {
     use std::ffi::OsString;
@@ -36,7 +48,7 @@ mod imp {
     use windows::Win32::System::Com::CoTaskMemFree;
     use windows::Win32::UI::Shell::{
         FOLDERID_CommonPrograms, FOLDERID_LocalAppData, FOLDERID_Programs, FOLDERID_RoamingAppData,
-        SHGetKnownFolderPath, KF_FLAG_DEFAULT,
+        FOLDERID_UserPinned, FOLDERID_Windows, SHGetKnownFolderPath, KF_FLAG_DEFAULT,
     };
 
     pub(super) fn programs() -> Result<PathBuf, String> {
@@ -53,6 +65,14 @@ mod imp {
 
     pub(super) fn local_app_data() -> Result<PathBuf, String> {
         known_folder(&FOLDERID_LocalAppData)
+    }
+
+    pub(super) fn user_pinned() -> Result<PathBuf, String> {
+        known_folder(&FOLDERID_UserPinned)
+    }
+
+    pub(super) fn windows_dir() -> Result<PathBuf, String> {
+        known_folder(&FOLDERID_Windows)
     }
 
     /// The path of known folder `id` for the current user.
@@ -98,6 +118,14 @@ mod imp {
     }
 
     pub(super) fn local_app_data() -> Result<PathBuf, String> {
+        unsupported()
+    }
+
+    pub(super) fn user_pinned() -> Result<PathBuf, String> {
+        unsupported()
+    }
+
+    pub(super) fn windows_dir() -> Result<PathBuf, String> {
         unsupported()
     }
 }

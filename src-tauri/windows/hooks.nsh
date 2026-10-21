@@ -5,7 +5,9 @@
 ; Grouper after this hook, so the hook closes it first (the same prompt
 ; the template shows), then runs `grouper.exe --cleanup`. Cleanup unpins
 ; and deletes the group shortcuts in Start Menu\Programs\Grouper, deletes
-; that folder and removes the "Start with Windows" entry.
+; that folder, deletes the group icons in
+; %LOCALAPPDATA%\Programs\Grouper\group-icons and removes the "Start with
+; Windows" entry.
 ;
 ; When the user ticks the template's own "Delete the application data"
 ; box ($DeleteAppDataCheckboxState), the hook also passes --delete-data,

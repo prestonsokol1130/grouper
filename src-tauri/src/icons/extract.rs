@@ -21,6 +21,10 @@ use image::RgbaImage;
 ///
 /// This can read the disk and be slow, so call it off the UI thread.
 ///
+/// A `.lnk` whose icon location names an `.ico` file gets that file's
+/// image, read from disk ([`super::ico_file`]); the Shell is asked only
+/// when that fails.
+///
 /// Returns `Err` if `size` is 0 or above
 /// [`MAX_ICON_SIZE`](super::MAX_ICON_SIZE), if the item cannot be found, or
 /// if the Shell gives no usable bitmap, including a fully blank one. On
@@ -32,6 +36,23 @@ pub fn extract_icon(path: &Path, size: u32) -> Result<RgbaImage, String> {
             super::MAX_ICON_SIZE
         ));
     }
+    let is_lnk = path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("lnk"));
+    if is_lnk {
+        match super::ico_file::shortcut_ico(path, size) {
+            Some(Ok(image)) => return Ok(image),
+            Some(Err(error)) => log::debug!("shortcut .ico unusable, asking the Shell: {error}"),
+            None => {}
+        }
+    }
+    imp::extract_icon(path, size)
+}
+
+/// [`extract_icon`] through the Shell only, never a shortcut's `.ico`
+/// read from disk: what Explorer itself shows. For tests of the Shell.
+#[cfg(all(test, windows))]
+pub(crate) fn shell_icon(path: &Path, size: u32) -> Result<RgbaImage, String> {
     imp::extract_icon(path, size)
 }
 

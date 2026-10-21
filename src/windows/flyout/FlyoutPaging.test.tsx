@@ -18,8 +18,8 @@ const state = (settings: AppState["settings"] = {}): AppState => ({
 const SHOW: FlyoutShow = {
   groupId: "ides",
   apps: IDS,
-  size: { width: 232, height: 360 },
-  origin: { edge: "bottom", x: 116, y: 360 },
+  size: { width: 264, height: 328 },
+  origin: { edge: "bottom", x: 132, y: 328 },
   columns: 3,
   rows: 3,
   iconPx: 48,
@@ -78,6 +78,10 @@ describe("flyout paging", () => {
     expect(page(view)).toBe("2");
     fireEvent.keyDown(document.body, { key: "ArrowRight" });
     expect(page(view)).toBe("2");
+    fireEvent.keyDown(document.body, { key: "ArrowUp" });
+    expect(page(view)).toBe("1");
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    expect(page(view)).toBe("2");
   });
 
   it("turns one page per wheel notch", async () => {
@@ -103,6 +107,12 @@ describe("flyout paging", () => {
     expect(screen.getByRole("button", { name: "Next page" })).toHaveProperty("disabled", true);
     fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
     expect(page(view)).toBe("1");
+    // The dots stand in a column beside the grid, arrows above and below.
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    expect(nav.getAttribute("aria-orientation")).toBe("vertical");
+    const buttons = [...nav.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
+    expect(buttons[0]).toBe("Previous page");
+    expect(buttons.at(-1)).toBe("Next page");
   });
 
   it("starts every show on the first page", async () => {
