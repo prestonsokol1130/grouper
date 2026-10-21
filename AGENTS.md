@@ -31,15 +31,17 @@ Every `.rs`, `.ts`, and `.tsx` file must stay under **250 lines** (blank lines a
 
 ## Persistence paths
 
-All under the app data directory (`{app_data_dir}`):
+All under the app data directory (`{app_data_dir}`), except the group icons:
 
-| Path                                              | Purpose                                                                                                                  |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `{app_data_dir}/app_state.json`                   | App state; write atomically (temp file + rename)                                                                         |
-| `{app_data_dir}/cache/icons/{app_id}.png`         | Cached app icons                                                                                                         |
-| `{app_data_dir}/cache/groups/{group_id}-v{n}.ico` | Cached group composite icons; every rebuild writes a new `n`, never rewrites a path, and the group's `.lnk` is repointed |
+| Path                                                              | Purpose                                                                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `{app_data_dir}/app_state.json`                                   | App state; write atomically (temp file + rename)                                                                  |
+| `{app_data_dir}/cache/icons/{app_id}.png`                         | Cached app icons                                                                                                  |
+| `%LOCALAPPDATA%\Programs\Grouper\group-icons\{group_id}-v{n}.ico` | Group composite icons; every rebuild writes a new `n`, never rewrites a path, and the group's `.lnk` is repointed |
 
 Explorer and the taskbar cache a shortcut's icon by its path, so an `.ico` rewritten in place kept showing a stale blank icon. Versioned paths replace the stable `{group_id}.ico` path (per Preston, 2026-10-20). Older versions, and any old `{group_id}.ico`, are kept while the group exists because earlier taskbar pins still point at them; all of them are deleted only when the group is deleted, after its shortcut is unpinned.
+
+Group icons must never go under Roaming AppData: Explorer and the taskbar draw a blank page for an `.ico` kept in `{app_data_dir}/cache/groups`, whatever its name (tested on Windows 11, 2026-10-21). That folder is only the fallback when Local AppData cannot be found (and in tests), and it may still hold icons from older builds, which are swept like the rest.
 
 ## Group shortcuts and taskbar pinning
 

@@ -12,7 +12,7 @@ use image::RgbaImage;
 
 use super::shortcut_sync::{update_group_shortcut, Change};
 use super::shortcut_write::write_group_shortcut;
-use crate::icons::extract::extract_icon;
+use crate::icons::extract::{extract_icon, shell_icon};
 use crate::state::{AppState, Group};
 use crate::win32::com::ComGuard;
 use crate::win32::dir_watch_tests::{names_seen_while, END_MARKER};
@@ -123,8 +123,8 @@ fn a_new_shortcut_shows_the_folder_icon_at_once() {
 
     for size in [16, 32, 48, 256] {
         // Asked for straight after the write, as Explorer would.
-        let shown = extract_icon(&lnk, size).unwrap();
-        let blank = extract_icon(&blank, size).unwrap();
+        let shown = shell_icon(&lnk, size).unwrap();
+        let blank = shell_icon(&blank, size).unwrap();
         let own = extract_icon(&ico, size).unwrap();
         let from_blank = mean_diff(&shown, &blank);
         let from_own = mean_diff(&shown, &own);

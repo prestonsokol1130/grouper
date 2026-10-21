@@ -31,9 +31,51 @@ pub fn ico_path(icon_location: Option<(String, i32)>) -> Option<PathBuf> {
     (index == 0 && is_ico && path.is_file()).then_some(path)
 }
 
-/// Decodes `bytes` as an `.ico` (its largest image) into a `size` x `size`
-/// image. Rejects an image with no visible pixel.
+/// One `ICONDIRENTRY`: the 16 bytes after the 6-byte header, per image.
+const ENTRY_LEN: usize = 16;
+
+/// The `.ico` in `bytes` cut down to its one image Windows would draw at
+/// `size`: the smallest at least `size` wide (the deepest colour among
+/// equals), else the largest. `None` when the directory is malformed; the
+/// whole file is then handed to the decoder as it is.
+fn pick_entry(bytes: &[u8], size: u32) -> Option<Vec<u8>> {
+    let count = usize::from(u16::from_le_bytes([*bytes.get(4)?, *bytes.get(5)?]));
+    let entries: Vec<&[u8]> = (0..count)
+        .map(|i| bytes.get(6 + i * ENTRY_LEN..6 + (i + 1) * ENTRY_LEN))
+        .collect::<Option<_>>()?;
+    let side = |entry: &[u8]| {
+        if entry[0] == 0 {
+            256
+        } else {
+            u32::from(entry[0])
+        }
+    };
+    let depth = |entry: &[u8]| u16::from_le_bytes([entry[6], entry[7]]);
+    let key = |entry: &&&[u8]| {
+        (
+            side(entry) < size,
+            side(entry).abs_diff(size),
+            u16::MAX - depth(entry),
+        )
+    };
+    let entry = *entries.iter().min_by_key(key)?;
+    let len = u32::from_le_bytes([entry[8], entry[9], entry[10], entry[11]]);
+    let offset = u32::from_le_bytes([entry[12], entry[13], entry[14], entry[15]]);
+    let start = usize::try_from(offset).ok()?;
+    let data = bytes.get(start..start.checked_add(usize::try_from(len).ok()?)?)?;
+    let mut one = vec![0, 0, 1, 0, 1, 0];
+    one.extend_from_slice(&entry[..12]);
+    one.extend_from_slice(&22_u32.to_le_bytes());
+    one.extend_from_slice(data);
+    Some(one)
+}
+
+/// Decodes `bytes` as an `.ico` into a `size` x `size` image, from the
+/// image in it nearest `size` ([`pick_entry`]), as the Shell does. Rejects
+/// an image with no visible pixel.
 pub fn decode_ico(bytes: &[u8], size: u32) -> Result<RgbaImage, String> {
+    let one = pick_entry(bytes, size);
+    let bytes = one.as_deref().unwrap_or(bytes);
     let image = image::load_from_memory_with_format(bytes, ImageFormat::Ico)
         .map_err(|e| format!("decode .ico: {e}"))?
         .to_rgba8();

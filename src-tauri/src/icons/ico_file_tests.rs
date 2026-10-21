@@ -48,3 +48,38 @@ fn only_an_existing_ico_at_index_0_is_used() {
     assert_eq!(ico_path(None), None);
     assert_eq!(read_ico(&ico, 96).unwrap().dimensions(), (96, 96));
 }
+
+/// A two-image `.ico`: 16 px red and 64 px blue, built from two one-image
+/// files.
+fn two_size_ico() -> Vec<u8> {
+    let small = ico_bytes(16, Rgba([255, 0, 0, 255]));
+    let large = ico_bytes(64, Rgba([0, 0, 255, 255]));
+    let (small_data, large_data) = (&small[22..], &large[22..]);
+    let mut out = vec![0, 0, 1, 0, 2, 0];
+    let mut offset = 6 + 2 * 16;
+    for (file, data) in [(&small, small_data), (&large, large_data)] {
+        out.extend_from_slice(&file[6..18]);
+        out.extend_from_slice(&u32::try_from(offset).unwrap().to_le_bytes());
+        offset += data.len();
+    }
+    out.extend_from_slice(small_data);
+    out.extend_from_slice(large_data);
+    out
+}
+
+#[test]
+fn the_image_nearest_the_size_is_drawn() {
+    let ico = two_size_ico();
+    assert_eq!(
+        decode_ico(&ico, 16).unwrap().get_pixel(8, 8),
+        &Rgba([255, 0, 0, 255])
+    );
+    assert_eq!(
+        decode_ico(&ico, 32).unwrap().get_pixel(16, 16),
+        &Rgba([0, 0, 255, 255])
+    );
+    assert_eq!(
+        decode_ico(&ico, 256).unwrap().get_pixel(128, 128),
+        &Rgba([0, 0, 255, 255])
+    );
+}

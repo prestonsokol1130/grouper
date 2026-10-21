@@ -49,6 +49,13 @@ pub fn extract_icon(path: &Path, size: u32) -> Result<RgbaImage, String> {
     imp::extract_icon(path, size)
 }
 
+/// [`extract_icon`] through the Shell only, never a shortcut's `.ico`
+/// read from disk: what Explorer itself shows. For tests of the Shell.
+#[cfg(all(test, windows))]
+pub(crate) fn shell_icon(path: &Path, size: u32) -> Result<RgbaImage, String> {
+    imp::extract_icon(path, size)
+}
+
 #[cfg(windows)]
 mod imp {
     use std::os::windows::ffi::OsStrExt;
