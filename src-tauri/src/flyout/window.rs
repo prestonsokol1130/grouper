@@ -9,12 +9,13 @@ use tauri::{
     WebviewWindow, WindowEvent,
 };
 
-use super::layout::{flyout_size, to_physical, LAYOUT};
+use super::layout::{fit_height, flyout_size, to_physical, LAYOUT};
+use super::origin::origin;
 use super::toggle::Decision;
-use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
+use super::{FlyoutShow, FlyoutState, FLYOUT_HIDE_EVENT, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
-use crate::taskbar::placement::place;
-use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground};
+use crate::taskbar::placement::{place, taskbar_edge, usable_height};
+use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
 use crate::win32::monitor::current_monitor_info;
 
 /// Sets up the flyout at startup: its managed state, its tool-window
@@ -28,6 +29,11 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
     match raw_hwnd(&window).and_then(apply_flyout_styles) {
         Ok(()) => {}
         Err(error) => log::error!("could not style the flyout window: {error}"),
+    }
+    // Windows 10 has no rounded corners; the page's own border still shows.
+    match raw_hwnd(&window).and_then(round_corners) {
+        Ok(()) => log::info!("flyout corners rounded"),
+        Err(error) => log::info!("flyout corners not rounded: {error}"),
     }
     let handle = app.clone();
     window.on_window_event(move |event| {
@@ -114,12 +120,15 @@ fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> R
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
     let size = flyout_size(group.app_ids.len(), &LAYOUT);
+    let size = fit_height(size, usable_height(&monitor), monitor.scale, &LAYOUT);
     let logical = (f64::from(size.width), f64::from(size.height));
     let (x, y) = place(cursor, logical, &monitor, f64::from(LAYOUT.margin));
+    let edge = taskbar_edge(&monitor);
     let payload = FlyoutShow {
         group_id: group.id.clone(),
         apps: group.app_ids.clone(),
         size,
+        origin: origin(edge, cursor, (x, y), size, monitor.scale),
     };
     state.set_last(payload.clone());
     // Before showing, so the warm React tree swaps to this group's data.
@@ -175,6 +184,7 @@ fn either_focused(
     }
 }
 
+/// Hides the window and tells the page, so its next show starts empty.
 fn hide_window<R: Runtime>(app: &AppHandle<R>) {
     match flyout_window(app) {
         Ok(window) => {
@@ -183,6 +193,10 @@ fn hide_window<R: Runtime>(app: &AppHandle<R>) {
             }
         }
         Err(error) => log::warn!("{error}"),
+    }
+    let target = EventTarget::webview_window(FLYOUT_LABEL);
+    if let Err(error) = app.emit_to(target, FLYOUT_HIDE_EVENT, ()) {
+        log::warn!("could not emit {FLYOUT_HIDE_EVENT}: {error}");
     }
 }
 

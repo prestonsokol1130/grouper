@@ -1,4 +1,9 @@
-import { attachLogger, error as logError, LogLevel } from "@tauri-apps/plugin-log";
+import {
+  attachLogger,
+  error as logError,
+  info as logInfoRecord,
+  LogLevel,
+} from "@tauri-apps/plugin-log";
 
 /** The real console methods, captured before `console.error` is wrapped. */
 const original = {
@@ -58,4 +63,13 @@ export function installErrorForwarding(label: string): void {
   if (import.meta.env.DEV) {
     attachLogger(({ level, message }) => mirrorToConsole(level, message)).catch(() => undefined);
   }
+}
+
+/**
+ * Writes one info line to `grouper.log` (and the devtools console), for
+ * measurements such as the flyout's show-to-paint time.
+ */
+export function logInfo(label: string, message: string): void {
+  original.info(`[${label}] ${message}`);
+  logInfoRecord(`[${label}] ${message}`).catch(() => undefined);
 }

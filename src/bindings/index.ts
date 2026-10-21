@@ -86,18 +86,15 @@ export const commands = {
 	revealGroupShortcut: (groupId: string) => typedError<null, string>(__TAURI_INVOKE("reveal_group_shortcut", { groupId })),
 	/**  Hides the flyout (Escape in the flyout window). */
 	hideFlyout: () => __TAURI_INVOKE<void>("hide_flyout"),
-	/**
-	 *  What the flyout shows now: the last `flyout:show` payload, or `null`
-	 *  before any. Lets a flyout page that loaded late catch up.
-	 */
+	/**  The last `flyout:show` payload (`null` before any), for a late page. */
 	getFlyout: () => __TAURI_INVOKE<{
 	groupId: string,
 	/**  The group's app ids, in order. */
 	apps: string[],
-	/**  The window size in logical pixels. */
 	size: FlyoutSize,
+	origin: FlyoutOrigin,
 } | null>("get_flyout"),
-	/**  Hides the flyout, then launches app `app_id` like `launch_app`. */
+	/**  Launches app `app_id`, then hides the flyout; on failure it stays open. */
 	launchFromFlyout: (appId: string) => typedError<null, string>(__TAURI_INVOKE("launch_from_flyout", { appId })),
 	/**
 	 *  The Windows accent colour, or `null` when it could not be read (the
@@ -159,13 +156,23 @@ export type AppState = {
 	settings?: Settings,
 };
 
+/**  The monitor edge the taskbar is docked to. */
+export type Edge = "bottom" | "top" | "left" | "right";
+
+/**  The animation origin, in logical pixels from the flyout's top-left. */
+export type FlyoutOrigin = {
+	edge: Edge,
+	x: number,
+	y: number,
+};
+
 /**  What the flyout shows: the [`FLYOUT_SHOW_EVENT`] payload. */
 export type FlyoutShow = {
 	groupId: string,
 	/**  The group's app ids, in order. */
 	apps: string[],
-	/**  The window size in logical pixels. */
 	size: FlyoutSize,
+	origin: FlyoutOrigin,
 };
 
 /**  A flyout size in logical (CSS) pixels. */

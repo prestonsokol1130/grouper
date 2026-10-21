@@ -7,7 +7,7 @@ import { applyMaterial, applyTheme, followAccent } from "./lib/theme";
 import { installErrorForwarding } from "./logging";
 import { useAppStore } from "./store/appStore";
 import "./styles.css";
-import { FlyoutRoot } from "./windows/FlyoutRoot";
+import { FlyoutRoot } from "./windows/flyout/FlyoutRoot";
 import { LaunchpadRoot } from "./windows/LaunchpadRoot";
 import { ManagerRoot } from "./windows/ManagerRoot";
 

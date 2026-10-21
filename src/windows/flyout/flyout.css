@@ -1,0 +1,141 @@
+/*
+ * Flyout open/close animations (DESIGN.md section 10). flyoutMotion.ts
+ * sets data-motion (genie, scale, smooth or reduced), data-edge (the
+ * taskbar side), the timing variables from motion.ts and the origin point,
+ * then toggles .is-opening / .is-closing / .is-hidden. Closing plays the
+ * opening keyframes in reverse. Only the page content animates: the window
+ * itself (and its Acrylic) is shown by Rust at once.
+ */
+
+/* Genie progress, 0 to 1. Registered so a keyframe can animate it. */
+@property --genie-t {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+.flyout-panel {
+  transform-origin: var(--origin-x) var(--origin-y);
+  animation-duration: var(--motion-duration);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
+}
+
+/* With the Solid material the panel, not the page, paints the background,
+   so the whole flyout animates (Acrylic is drawn by Windows and appears
+   with the window). */
+html[data-material="solid"] body:has(.flyout-panel) {
+  background: transparent;
+}
+
+html[data-material="solid"] .flyout-panel {
+  background: var(--solid-bg);
+}
+
+.flyout-panel.is-closing {
+  animation-direction: reverse;
+}
+
+.flyout-panel.is-hidden {
+  visibility: hidden;
+}
+
+/* Genie (approximation of the Mac minimize, reversed). One progress
+   value, --genie-t, runs 0 to 1 on the motion.ts curve, and everything is
+   derived from it so the motion has no hitch: the content pours out of
+   the origin as a thin sliver, stretches away from the taskbar (--sy,
+   linear in t), widens along it later (--sx, t squared), fades in over
+   the first fifth, and the taskbar side is pinched into a funnel that
+   opens as it lands. */
+@keyframes flyout-genie {
+  from {
+    --genie-t: 0;
+  }
+  to {
+    --genie-t: 1;
+  }
+}
+
+.flyout-panel[data-motion="genie"] {
+  --sx: calc(0.06 + 0.94 * var(--genie-t) * var(--genie-t));
+  --sy: calc(0.02 + 0.98 * var(--genie-t));
+  --genie-pinch: calc(45% * (1 - var(--genie-t)));
+}
+
+.flyout-panel[data-motion="genie"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-genie;
+  opacity: min(1, calc(5 * var(--genie-t)));
+  transform: scale(var(--sx), var(--sy));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing),
+.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
+  transform: scale(var(--sy), var(--sx));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="bottom"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--genie-pinch)) 100%, var(--genie-pinch) 100%);
+}
+
+.flyout-panel[data-motion="genie"][data-edge="top"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(var(--genie-pinch) 0, calc(100% - var(--genie-pinch)) 0, 100% 100%, 0 100%);
+}
+
+.flyout-panel[data-motion="genie"][data-edge="left"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 var(--genie-pinch), 100% 0, 100% 100%, 0 calc(100% - var(--genie-pinch)));
+}
+
+.flyout-panel[data-motion="genie"][data-edge="right"]:is(.is-opening, .is-closing) {
+  clip-path: polygon(0 0, 100% var(--genie-pinch), 100% calc(100% - var(--genie-pinch)), 0 100%);
+}
+
+/* Scale: grows from the origin while fading in. */
+@keyframes flyout-scale {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="scale"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-scale;
+}
+
+/* Windows smooth: fades in and slides away from the taskbar. */
+@keyframes flyout-smooth {
+  from {
+    translate: var(--slide-x, 0) var(--slide-y, 0);
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="smooth"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-smooth;
+}
+
+.flyout-panel[data-edge="bottom"] {
+  --slide-y: var(--motion-slide);
+}
+
+.flyout-panel[data-edge="top"] {
+  --slide-y: calc(-1 * var(--motion-slide));
+}
+
+.flyout-panel[data-edge="left"] {
+  --slide-x: calc(-1 * var(--motion-slide));
+}
+
+.flyout-panel[data-edge="right"] {
+  --slide-x: var(--motion-slide);
+}
+
+/* Windows "Animation effects" off: every style is a plain fade. */
+@keyframes flyout-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.flyout-panel[data-motion="reduced"]:is(.is-opening, .is-closing) {
+  animation-name: flyout-fade;
+}

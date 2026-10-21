@@ -32,6 +32,13 @@ pub fn apply_flyout_styles(hwnd: *mut c_void) -> Result<(), String> {
     imp::apply_flyout_styles(hwnd)
 }
 
+/// Asks DWM for Windows 11's rounded corners on `hwnd` (8px,
+/// `DWMWCP_ROUND`, DESIGN.md section 5). Windows 10 has no such attribute,
+/// so callers only log an `Err`.
+pub fn round_corners(hwnd: *mut c_void) -> Result<(), String> {
+    imp::round_corners(hwnd)
+}
+
 /// Lets any process take the foreground once. Called at startup by every
 /// Grouper process, so a second launch from a taskbar click (which holds
 /// the foreground right) passes it on to the running instance it forwards
@@ -51,6 +58,9 @@ mod imp {
     use std::ffi::c_void;
 
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+    };
     use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::{
         AllowSetForegroundWindow, GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW,
@@ -134,6 +144,22 @@ mod imp {
         Ok(())
     }
 
+    pub(super) fn round_corners(hwnd: *mut c_void) -> Result<(), String> {
+        let preference = DWMWCP_ROUND;
+        // SAFETY: hwnd is a live window of this process; the pointer and
+        // size describe `preference`, a DWM_WINDOW_CORNER_PREFERENCE that
+        // outlives the call, as DWMWA_WINDOW_CORNER_PREFERENCE requires.
+        unsafe {
+            DwmSetWindowAttribute(
+                HWND(hwnd),
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                std::ptr::from_ref(&preference).cast(),
+                size_of_val(&preference) as u32,
+            )
+        }
+        .map_err(|e| format!("DwmSetWindowAttribute(corner preference): {e}"))
+    }
+
     pub(super) fn allow_any_foreground() {
         // SAFETY: plain call with no pointers. It fails harmlessly when this
         // process holds no foreground right to give away.
@@ -157,6 +183,10 @@ mod imp {
     use std::ffi::c_void;
 
     pub(super) fn apply_flyout_styles(_hwnd: *mut c_void) -> Result<(), String> {
+        Err("unsupported platform".to_owned())
+    }
+
+    pub(super) fn round_corners(_hwnd: *mut c_void) -> Result<(), String> {
         Err("unsupported platform".to_owned())
     }
 

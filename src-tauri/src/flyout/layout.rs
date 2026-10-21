@@ -1,7 +1,7 @@
 //! The flyout's size for a group: pure math, no Win32.
 //!
-//! Every number lives in [`LAYOUT`] so the design ticket (DESIGN.md, S4-04)
-//! can change them in one place.
+//! Every number lives in [`LAYOUT`], taken from DESIGN.md section 7 and 8
+//! and the frontend's `AppTile` (S4-01), so a design change is one edit.
 
 use serde::Serialize;
 use specta::Type;
@@ -11,19 +11,31 @@ use specta::Type;
 pub struct FlyoutLayout {
     /// The grid never gets wider than this many columns.
     pub max_columns: u32,
-    /// The side of one square app cell.
-    pub cell: u32,
-    /// Space between the grid and the flyout's edge, on every side.
+    /// One app cell's width: the icon plus the tile's side inset.
+    pub cell_width: u32,
+    /// One app cell's height: inset, icon, label gap, label line, inset.
+    pub cell_height: u32,
+    /// Space between cells, both ways.
+    pub gap: u32,
+    /// Space between the content and the flyout's edge, on every side.
     pub padding: u32,
+    /// The group name row above the grid, including its space below.
+    pub header: u32,
     /// Gap kept between the flyout and the taskbar or screen edge.
     pub margin: u32,
 }
 
-/// The sizing in use until DESIGN.md replaces it.
+/// DESIGN.md: 3 across, padding 12, gap 8, a Subtitle (28px line) group
+/// name, 12px off the taskbar. A cell is `AppTile` at the Medium flyout
+/// icon (48px): 48 + 2 * 8 inset wide, and 8 + 48 + 4 + 16 (Caption
+/// line) + 8 tall.
 pub const LAYOUT: FlyoutLayout = FlyoutLayout {
-    max_columns: 4,
-    cell: 88,
-    padding: 16,
+    max_columns: 3,
+    cell_width: 64,
+    cell_height: 84,
+    gap: 8,
+    padding: 12,
+    header: 28 + 8,
     margin: 12,
 };
 
@@ -34,19 +46,14 @@ pub struct FlyoutSize {
     pub height: u32,
 }
 
-/// Grid columns for `apps` apps: `min(max_columns, ceil(sqrt(apps)))`, and
-/// at least 1 so an empty group still gets a one-cell flyout.
+/// Grid columns for `apps` apps: `min(max_columns, apps)`, at least 1. An
+/// empty group gets the full width so its message has room.
 pub fn columns(apps: usize, layout: &FlyoutLayout) -> u32 {
-    let mut side: u64 = 0;
-    // Integer ceil(sqrt(n)): the smallest side with side * side >= n.
-    while side.saturating_mul(side) < apps as u64 {
-        side += 1;
-        if side >= u64::from(layout.max_columns) {
-            break;
-        }
-    }
     let max = layout.max_columns.max(1);
-    u32::try_from(side).unwrap_or(max).clamp(1, max)
+    if apps == 0 {
+        return max;
+    }
+    u32::try_from(apps).unwrap_or(max).clamp(1, max)
 }
 
 /// Grid rows for `apps` apps laid out in [`columns`] columns; at least 1.
@@ -56,29 +63,60 @@ pub fn rows(apps: usize, layout: &FlyoutLayout) -> u32 {
     u32::try_from(rows).unwrap_or(u32::MAX)
 }
 
-/// The flyout size for a group of `apps` apps: the grid plus padding.
-/// Saturates at `u32::MAX` rather than overflowing.
+/// `cells` cells of `cell` with `gap` between them. Saturates.
+fn span(cells: u32, cell: u32, gap: u32) -> u32 {
+    cells
+        .saturating_mul(cell)
+        .saturating_add(cells.saturating_sub(1).saturating_mul(gap))
+}
+
+/// The flyout size for a group of `apps` apps: header and grid plus
+/// padding. Saturates at `u32::MAX` rather than overflowing.
 pub fn flyout_size(apps: usize, layout: &FlyoutLayout) -> FlyoutSize {
-    let grid = |cells: u32| {
-        cells
-            .saturating_mul(layout.cell)
-            .saturating_add(layout.padding.saturating_mul(2))
-    };
+    let edges = layout.padding.saturating_mul(2);
+    let grid_width = span(columns(apps, layout), layout.cell_width, layout.gap);
+    let grid_height = span(rows(apps, layout), layout.cell_height, layout.gap);
     FlyoutSize {
-        width: grid(columns(apps, layout)),
-        height: grid(rows(apps, layout)),
+        width: grid_width.saturating_add(edges),
+        height: grid_height
+            .saturating_add(layout.header)
+            .saturating_add(edges),
+    }
+}
+
+/// `size` with its height capped so the flyout fits an area `work_height`
+/// physical pixels tall (placement's usable height) at `scale`, `margin`
+/// logical pixels off each end; the frontend scrolls the rest. Never below
+/// one row.
+pub fn fit_height(
+    size: FlyoutSize,
+    work_height: i32,
+    scale: f64,
+    layout: &FlyoutLayout,
+) -> FlyoutSize {
+    let scale = sane_scale(scale);
+    let work = (f64::from(work_height.max(0)) / scale).floor();
+    // `as` saturates for floats, so a huge work area cannot wrap.
+    let room = (work as u32).saturating_sub(layout.margin.saturating_mul(2));
+    let one_row = flyout_size(1, layout).height;
+    FlyoutSize {
+        width: size.width,
+        height: size.height.min(room.max(one_row)),
+    }
+}
+
+fn sane_scale(scale: f64) -> f64 {
+    if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
     }
 }
 
 /// Logical to physical pixels at `scale`, rounded, at least 1 pixel. A
 /// non-finite or non-positive scale counts as 1.0.
 pub fn to_physical(logical: u32, scale: f64) -> u32 {
-    let scale = if scale.is_finite() && scale > 0.0 {
-        scale
-    } else {
-        1.0
-    };
-    let physical = (f64::from(logical) * scale).round();
+    let physical = (f64::from(logical) * sane_scale(scale)).round();
     if !physical.is_finite() || physical < 1.0 {
         return 1;
     }
@@ -91,52 +129,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn columns_follow_ceil_sqrt_capped_at_four() {
-        let expected = [
-            (0, 1),
-            (1, 1),
-            (2, 2),
-            (4, 2),
-            (5, 3),
-            (9, 3),
-            (10, 4),
-            (16, 4),
-            (17, 4),
-            (100, 4),
-        ];
+    fn columns_are_up_to_three() {
+        let expected = [(0, 3), (1, 1), (2, 2), (3, 3), (4, 3), (5, 3), (100, 3)];
         for (apps, cols) in expected {
             assert_eq!(columns(apps, &LAYOUT), cols, "{apps} apps");
         }
     }
 
     #[test]
-    fn rows_fill_the_columns() {
-        let expected = [(0, 1), (1, 1), (2, 1), (3, 2), (5, 2), (7, 3), (17, 5)];
+    fn rows_grow_downward() {
+        let expected = [(0, 1), (1, 1), (3, 1), (4, 2), (6, 2), (7, 3), (17, 6)];
         for (apps, r) in expected {
             assert_eq!(rows(apps, &LAYOUT), r, "{apps} apps");
         }
     }
 
     #[test]
-    fn size_is_cells_plus_padding() {
-        let one = flyout_size(1, &LAYOUT);
-        assert_eq!((one.width, one.height), (120, 120));
-        let four = flyout_size(4, &LAYOUT);
-        assert_eq!((four.width, four.height), (208, 208));
-        let seven = flyout_size(7, &LAYOUT);
-        assert_eq!((seven.width, seven.height), (296, 296));
-        let ten = flyout_size(10, &LAYOUT);
-        assert_eq!((ten.width, ten.height), (384, 296));
+    fn size_is_header_grid_and_padding() {
+        let size = |apps| {
+            let s = flyout_size(apps, &LAYOUT);
+            (s.width, s.height)
+        };
+        // 12 + 64 + 12 wide; 12 + 36 + 84 + 12 tall.
+        assert_eq!(size(1), (88, 144));
+        assert_eq!(size(2), (160, 144));
+        assert_eq!(size(3), (232, 144));
+        // Two rows: 84 + 8 + 84.
+        assert_eq!(size(5), (232, 236));
+        assert_eq!(size(9), (232, 328));
+        assert_eq!(size(0), (232, 144));
     }
 
     #[test]
     fn other_layouts_are_respected() {
-        let three = FlyoutLayout {
-            max_columns: 3,
+        let four = FlyoutLayout {
+            max_columns: 4,
             ..LAYOUT
         };
-        assert_eq!(columns(16, &three), 3);
-        assert_eq!(rows(16, &three), 6);
+        assert_eq!(columns(16, &four), 4);
+        assert_eq!(rows(16, &four), 4);
         let zero = FlyoutLayout {
             max_columns: 0,
             ..LAYOUT
@@ -147,9 +178,51 @@ mod tests {
 
     #[test]
     fn huge_counts_do_not_overflow() {
-        assert_eq!(columns(usize::MAX, &LAYOUT), 4);
+        assert_eq!(columns(usize::MAX, &LAYOUT), 3);
         assert!(rows(usize::MAX, &LAYOUT) > 1);
         assert_eq!(flyout_size(usize::MAX, &LAYOUT).height, u32::MAX);
+    }
+
+    #[test]
+    fn tall_flyouts_are_capped_to_the_work_area() {
+        let tall = flyout_size(30, &LAYOUT);
+        // 1032 physical at 1.5 is 688 logical, minus 2 * 12.
+        assert_eq!(fit_height(tall, 1032, 1.5, &LAYOUT).height, 664);
+        assert_eq!(fit_height(tall, 1032, 1.5, &LAYOUT).width, tall.width);
+        let short = flyout_size(5, &LAYOUT);
+        assert_eq!(fit_height(short, 1032, 1.0, &LAYOUT), short);
+        // A tiny or broken work area still leaves one row.
+        assert_eq!(fit_height(tall, 10, 1.0, &LAYOUT).height, 144);
+        assert_eq!(fit_height(tall, -5, f64::NAN, &LAYOUT).height, 144);
+        assert_eq!(fit_height(tall, i32::MAX, 1.0, &LAYOUT), tall);
+    }
+
+    #[test]
+    fn an_auto_hide_bottom_bar_shrinks_the_cap_and_a_side_bar_does_not() {
+        use crate::taskbar::placement::{usable_height, MonitorInfo, Rect};
+        let rect = |left, top, right, bottom| Rect {
+            left,
+            top,
+            right,
+            bottom,
+        };
+        let screen = rect(0, 0, 3840, 2160);
+        let auto_hide = |taskbar| MonitorInfo {
+            monitor: screen,
+            work: screen,
+            scale: 1.5,
+            taskbar: Some(taskbar),
+        };
+        let tall = flyout_size(100, &LAYOUT);
+        let bottom = auto_hide(rect(0, 2088, 3840, 2160));
+        assert_eq!(usable_height(&bottom), 2088);
+        // floor(2088 / 1.5) - 2 * 12.
+        let capped = fit_height(tall, usable_height(&bottom), 1.5, &LAYOUT);
+        assert_eq!(capped.height, 1392 - 24);
+        let side = auto_hide(rect(0, 0, 72, 2160));
+        assert_eq!(usable_height(&side), 2160);
+        let capped = fit_height(tall, usable_height(&side), 1.5, &LAYOUT);
+        assert_eq!(capped.height, 1440 - 24);
     }
 
     #[test]
