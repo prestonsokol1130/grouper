@@ -17,7 +17,7 @@ getrandom = "0.3"
 # Multi-size .ico encoding for taskbar group icons.
 ico = "0.6"
 # PNG decoding (the embedded fallback icon) and Lanczos3 resizing (imageops).
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

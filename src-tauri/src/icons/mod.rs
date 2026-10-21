@@ -7,6 +7,7 @@ pub mod extract;
 pub mod fallback;
 pub mod format;
 pub mod gc;
+pub mod ico_file;
 pub mod pixels;
 pub mod plate;
 pub mod trim;
@@ -18,6 +19,8 @@ mod cache_lnk_tests;
 mod cache_tests;
 #[cfg(all(test, windows))]
 mod extract_tests;
+#[cfg(test)]
+mod ico_file_tests;
 #[cfg(test)]
 mod worker_tests;
 
