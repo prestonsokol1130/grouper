@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Specs (Notion)
+    url: https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c
+    about: Product, design and technical specs. Read these before filing or picking up work.
+  - name: Build Log (Notion)
+    url: https://app.notion.com/p/a606963ead3646718f1d74ead7b7ecce
+    about: What has been built, merged and tested so far.
