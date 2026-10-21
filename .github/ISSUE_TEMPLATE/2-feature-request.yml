@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **For agents:** open the spec link and build log entry in this issue before you start. Agent rules are in `AGENTS.md`.
+        **For agents:** check the [Specs](https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c) and `DESIGN.md` before building. New user-visible behavior needs Preston's decision first. If this issue has a Spec link or Build log entry, open those first. Agent rules are in `AGENTS.md`.
   - type: checkboxes
     id: duplicates
     attributes:
