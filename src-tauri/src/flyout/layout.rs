@@ -2,8 +2,9 @@
 //!
 //! The flyout shows fixed pages of columns x rows apps (the "Flyout
 //! layout" setting, 3 x 3 by default), paged like an iPhone folder. The
-//! window is one page big; page dots below the grid appear only when the
-//! group needs more than one page. Every spacing number lives in
+//! window is one page big; a column of page dots beside the grid (with
+//! the optional page arrows above and below it) appears only when the
+//! group needs more than one page, which keeps the flyout close to square. Every spacing number lives in
 //! [`LAYOUT`] (DESIGN.md section 8 and the frontend's `AppTile`), so a
 //! design change is one edit.
 
@@ -28,7 +29,8 @@ pub struct FlyoutLayout {
     pub padding: u32,
     /// The group name row above the grid, including its space below.
     pub header: u32,
-    /// The page dots row below the grid (only with more than one page).
+    /// The page dots column right of the grid (only with more than one
+    /// page).
     pub dots: u32,
     /// Gap kept between the flyout and the taskbar or screen edge.
     pub margin: u32,
@@ -41,7 +43,7 @@ const CELL_EXTRA_HEIGHT: u32 = 36;
 
 /// DESIGN.md: the default 3 x 3 page of Medium (48px) icons, padding 12,
 /// gap 8, a Subtitle (28px line) group name with 8 below it, a 32px dots
-/// row (room for the optional 24px page arrows), 12px off the taskbar.
+/// column (room for the optional 24px page arrows), 12px off the taskbar.
 pub const LAYOUT: FlyoutLayout = FlyoutLayout {
     columns: 3,
     rows: 3,
@@ -93,7 +95,7 @@ fn span(cells: u32, cell: u32, gap: u32) -> u32 {
 }
 
 /// The flyout size for a group of `apps` apps: one full page of cells,
-/// the header, padding, and the dots row when there is more than one
+/// the header, padding, and the dots column when there is more than one
 /// page. Saturates at `u32::MAX` rather than overflowing.
 pub fn flyout_size(apps: usize, layout: &FlyoutLayout) -> FlyoutSize {
     let edges = layout.padding.saturating_mul(2);
@@ -105,10 +107,9 @@ pub fn flyout_size(apps: usize, layout: &FlyoutLayout) -> FlyoutSize {
         0
     };
     FlyoutSize {
-        width: grid_width.saturating_add(edges),
+        width: grid_width.saturating_add(dots).saturating_add(edges),
         height: grid_height
             .saturating_add(layout.header)
-            .saturating_add(dots)
             .saturating_add(edges),
     }
 }
