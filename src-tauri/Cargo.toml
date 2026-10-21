@@ -49,6 +49,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Power",
   # SHELLEXECUTEINFOW has an HKEY field, so ShellExecuteExW needs Registry.
   "Win32_System_Registry",
+  # WaitForSingleObject: the icon cache watch sleeps until the folder changes.
+  "Win32_System_Threading",
   # VT_LPWSTR and the PROPVARIANT layout (needed by StructuredStorage).
   "Win32_System_Variant",
   # GetDpiForMonitor (flyout placement) and the per-thread awareness in tests.

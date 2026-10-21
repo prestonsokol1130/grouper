@@ -9,9 +9,21 @@ import { applyMaterial, applyTheme, followAccent } from "./lib/theme";
 import { installErrorForwarding } from "./logging";
 import { useAppStore } from "./store/appStore";
 import "./styles.css";
-import { FlyoutRoot } from "./windows/flyout/FlyoutRoot";
-import { LaunchpadRoot } from "./windows/launchpad/LaunchpadRoot";
-import { ManagerRoot } from "./windows/manager/ManagerRoot";
+
+/*
+ * Each window loads only its own root: the flyout and the Launchpad never
+ * parse the Manager's code, and the other way round. The chunks load once,
+ * when the hidden window is created at startup, so a show never waits.
+ */
+const FlyoutRoot = lazy(() =>
+  import("./windows/flyout/FlyoutRoot").then((m) => ({ default: m.FlyoutRoot })),
+);
+const LaunchpadRoot = lazy(() =>
+  import("./windows/launchpad/LaunchpadRoot").then((m) => ({ default: m.LaunchpadRoot })),
+);
+const ManagerRoot = lazy(() =>
+  import("./windows/manager/ManagerRoot").then((m) => ({ default: m.ManagerRoot })),
+);
 
 /** Dev only (`?window=styleguide`); the import is dropped from builds. */
 const StyleguideRoot = import.meta.env.DEV
@@ -25,22 +37,21 @@ function readWindowLabel(): string {
 
 const label = readWindowLabel();
 
-/** Renders the root for the current window label. */
-function WindowRoot() {
-  if (label === "styleguide" && StyleguideRoot !== null) {
-    return (
-      <Suspense>
-        <StyleguideRoot />
-      </Suspense>
-    );
-  }
-  if (label === "launchpad") {
-    return <LaunchpadRoot />;
-  }
-  if (label === "flyout") {
-    return <FlyoutRoot />;
-  }
+/** The root for the current window label. */
+function Root() {
+  if (label === "styleguide" && StyleguideRoot !== null) return <StyleguideRoot />;
+  if (label === "launchpad") return <LaunchpadRoot />;
+  if (label === "flyout") return <FlyoutRoot />;
   return <ManagerRoot />;
+}
+
+/** Renders the root for the current window label once its chunk loads. */
+function WindowRoot() {
+  return (
+    <Suspense>
+      <Root />
+    </Suspense>
+  );
 }
 
 installErrorForwarding(label);

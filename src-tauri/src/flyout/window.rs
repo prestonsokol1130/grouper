@@ -13,11 +13,12 @@ use super::hide::hide_or_log;
 use super::icon_size::flyout_icon_px;
 use super::layout::{fit_rows, flyout_size, layout_for, to_physical};
 use super::origin::origin;
+use super::present::{focus, place};
 use super::toggle::Decision;
 use super::{FlyoutShow, FlyoutState, FLYOUT_LABEL, FLYOUT_SHOW_EVENT};
 use crate::state::{Group, Store};
-use crate::taskbar::placement::{place, taskbar_edge, usable_height};
-use crate::win32::flyout_window::{apply_flyout_styles, bring_to_foreground, round_corners};
+use crate::taskbar::placement::{place as place_on, taskbar_edge, usable_height};
+use crate::win32::flyout_window::{apply_flyout_styles, round_corners};
 use crate::win32::monitor::current_monitor_info;
 use crate::win32::taskbar_icons::taskbar_icons;
 
@@ -55,37 +56,52 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
 /// taskbar, or hides it when this is the second click of a toggle.
 pub fn request<R: Runtime>(app: &AppHandle<R>, group_id: &str) {
     let started = Instant::now();
-    let Some(state) = app.try_state::<FlyoutState>() else {
-        log::error!("flyout requested before it was set up");
-        return;
-    };
     let Some(group) = find_group(app, group_id) else {
         log::warn!("flyout requested for unknown group {group_id:?}");
         return;
     };
+    request_group(app, &group, started);
+}
+
+/// [`request`] for `group`, timed from `started`. Returns the microseconds
+/// it took to show the flyout, or `None` when it did not show it.
+pub(super) fn request_group<R: Runtime>(
+    app: &AppHandle<R>,
+    group: &Group,
+    started: Instant,
+) -> Option<u128> {
+    let Some(state) = app.try_state::<FlyoutState>() else {
+        log::error!("flyout requested before it was set up");
+        return None;
+    };
+    let group_id = group.id.as_str();
     // The guard is dropped at the end of the statement, before any window call.
     let decision = state.toggle().request(group_id, started);
     match decision {
         Decision::Hide => {
             log::info!("flyout for {group_id:?} toggled off");
             hide_or_log(app);
+            None
         }
         Decision::StayHidden => {
             log::info!("flyout for {group_id:?} toggled off (already hidden by the click)");
+            None
         }
         Decision::Show => {
             // Marked shown first so a blur during the show still hides it.
             state.toggle().shown(group_id);
-            match show(app, &state, &group) {
-                Ok(()) => {
+            match show(app, &state, group, started) {
+                Ok(steps) => {
                     let us = started.elapsed().as_micros();
-                    log::info!("flyout_show_us={us} group={group_id}");
+                    log::info!("flyout_show_us={us} group={group_id} {steps}");
+                    Some(us)
                 }
                 Err(error) => {
                     // Never leave a visible topmost window behind a failure.
                     state.toggle().hidden();
                     hide_or_log(app);
                     log::warn!("could not show the flyout for {group_id:?}: {error}");
+                    None
                 }
             }
         }
@@ -104,23 +120,26 @@ fn on_blur<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
+/// Group `group_id`, read without copying the rest of the state.
+pub(super) fn find_group<R: Runtime>(app: &AppHandle<R>, group_id: &str) -> Option<Group> {
     let store = app.try_state::<Arc<Store>>()?;
-    store
-        .snapshot()
-        .groups
-        .into_iter()
-        .find(|group| group.id == group_id)
+    store.read(|state| state.group_by_id(group_id).cloned())
 }
 
 /// Sizes and places the flyout for `group` on the monitor under the
-/// cursor, sends it the group's data, then shows and focuses it.
-fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> Result<(), String> {
+/// cursor, sends it the group's data, then shows and focuses it. Returns
+/// how long after `started` each step ended, for the log.
+fn show<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &FlyoutState,
+    group: &Group,
+    started: Instant,
+) -> Result<String, String> {
     let window = flyout_window(app)?;
     let (cursor, monitor) = current_monitor_info()?;
     let settings = app
         .try_state::<Arc<Store>>()
-        .map(|s| s.snapshot().settings)
+        .map(|s| s.read(|state| state.settings.clone()))
         .unwrap_or_default();
     // Read on every show, so a taskbar or monitor change shows next time.
     let icon_px = flyout_icon_px(settings.flyout_icon_size, taskbar_icons, monitor.scale);
@@ -129,7 +148,7 @@ fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> R
     let layout = fit_rows(layout, apps, usable_height(&monitor), monitor.scale);
     let size = flyout_size(apps, &layout);
     let logical = (f64::from(size.width), f64::from(size.height));
-    let (x, y) = place(cursor, logical, &monitor, f64::from(layout.margin));
+    let (x, y) = place_on(cursor, logical, &monitor, f64::from(layout.margin));
     let edge = taskbar_edge(&monitor);
     let payload = FlyoutShow {
         group_id: group.id.clone(),
@@ -146,52 +165,27 @@ fn show<R: Runtime>(app: &AppHandle<R>, state: &FlyoutState, group: &Group) -> R
     if let Err(error) = app.emit_to(target, FLYOUT_SHOW_EVENT, &payload) {
         log::warn!("could not emit {FLYOUT_SHOW_EVENT}: {error}");
     }
+    let emitted = started.elapsed().as_micros();
     let physical = PhysicalSize::new(
         to_physical(size.width, monitor.scale),
         to_physical(size.height, monitor.scale),
     );
-    let position = PhysicalPosition::new(x, y);
-    // Moving onto a monitor with another DPI rescales the window, so the
-    // size is set after the move and the position once more after that.
-    window
-        .set_position(position)
-        .map_err(|e| format!("set_position: {e}"))?;
-    window
-        .set_size(physical)
-        .map_err(|e| format!("set_size: {e}"))?;
-    window
-        .set_position(position)
-        .map_err(|e| format!("set_position: {e}"))?;
+    place(
+        &window,
+        PhysicalPosition::new(x, y),
+        physical,
+        monitor.scale,
+    )?;
+    let placed = started.elapsed().as_micros();
+    // Most of the show time is here: tao rewrites the window styles,
+    // refreshes the frame and activates the window.
     window.show().map_err(|e| format!("show: {e}"))?;
+    let visible = started.elapsed().as_micros();
     // A flyout that cannot take focus would never blur, so never hide.
     focus(&window)?;
-    Ok(())
-}
-
-/// Moves keyboard focus to the flyout so a click elsewhere blurs it.
-/// `Err` only when both `SetForegroundWindow` and `set_focus` failed.
-fn focus<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
-    // Allowed by the AllowSetForegroundWindow every Grouper launch makes.
-    let foreground = raw_hwnd(window).and_then(bring_to_foreground);
-    if let Err(error) = &foreground {
-        log::warn!("flyout foreground: {error}");
-    }
-    let set_focus = window.set_focus().map_err(|e| e.to_string());
-    if let Err(error) = &set_focus {
-        log::warn!("flyout set_focus: {error}");
-    }
-    either_focused(foreground, set_focus)
-}
-
-/// Focus moved if either attempt succeeded; otherwise both errors.
-fn either_focused(
-    foreground: Result<(), String>,
-    set_focus: Result<(), String>,
-) -> Result<(), String> {
-    match (foreground, set_focus) {
-        (Err(fg), Err(sf)) => Err(format!("focus failed: foreground: {fg}; set_focus: {sf}")),
-        _ => Ok(()),
-    }
+    Ok(format!(
+        "emitted_us={emitted} placed_us={placed} visible_us={visible}"
+    ))
 }
 
 pub(super) fn flyout_window<R: Runtime>(app: &AppHandle<R>) -> Result<WebviewWindow<R>, String> {
@@ -200,7 +194,9 @@ pub(super) fn flyout_window<R: Runtime>(app: &AppHandle<R>) -> Result<WebviewWin
 }
 
 #[cfg(windows)]
-fn raw_hwnd<R: Runtime>(window: &WebviewWindow<R>) -> Result<*mut std::ffi::c_void, String> {
+pub(super) fn raw_hwnd<R: Runtime>(
+    window: &WebviewWindow<R>,
+) -> Result<*mut std::ffi::c_void, String> {
     window
         .hwnd()
         .map(|hwnd| hwnd.0)
@@ -208,28 +204,8 @@ fn raw_hwnd<R: Runtime>(window: &WebviewWindow<R>) -> Result<*mut std::ffi::c_vo
 }
 
 #[cfg(not(windows))]
-fn raw_hwnd<R: Runtime>(_window: &WebviewWindow<R>) -> Result<*mut std::ffi::c_void, String> {
+pub(super) fn raw_hwnd<R: Runtime>(
+    _window: &WebviewWindow<R>,
+) -> Result<*mut std::ffi::c_void, String> {
     Err("unsupported platform".to_owned())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::either_focused;
-
-    fn err() -> Result<(), String> {
-        Err("no".to_owned())
-    }
-
-    #[test]
-    fn focus_succeeds_if_either_attempt_does() {
-        assert_eq!(either_focused(Ok(()), Ok(())), Ok(()));
-        assert_eq!(either_focused(err(), Ok(())), Ok(()));
-        assert_eq!(either_focused(Ok(()), err()), Ok(()));
-    }
-
-    #[test]
-    fn focus_fails_only_if_both_do() {
-        let error = either_focused(Err("fg".into()), Err("sf".into())).unwrap_err();
-        assert!(error.contains("fg") && error.contains("sf"), "{error}");
-    }
 }

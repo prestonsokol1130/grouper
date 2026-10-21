@@ -10,6 +10,7 @@ pub mod apps_folder;
 pub mod balloon;
 pub mod com;
 pub mod cursor;
+pub mod dir_watch;
 pub mod env;
 pub mod file_dialog;
 pub mod flyout_window;
@@ -29,6 +30,7 @@ pub mod taskbar_icons;
 pub mod unpin;
 pub mod version_info;
 pub mod wide;
+pub mod window_rect;
 
 #[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;

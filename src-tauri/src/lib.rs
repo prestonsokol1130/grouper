@@ -103,7 +103,7 @@ fn start() -> Result<(), String> {
             // Shortcuts are kept in sync in the background; at startup any
             // tracked shortcut whose .lnk or .ico is missing is rebuilt.
             commands::shortcut_worker::start_shortcut_sync(handle, &store);
-            commands::icon_cmds::start_cache_watch(handle, &store);
+            commands::cache_watch::start_cache_watch(handle, &store);
             // A failed first scan is logged; the app still starts.
             if let Err(error) = commands::scan_cmds::scan_if_empty(handle, &store) {
                 log::error!("could not start the first app scan: {error}");

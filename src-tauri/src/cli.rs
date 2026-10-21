@@ -16,6 +16,9 @@ pub enum LaunchCommand {
     /// folder and sign-in entry, and with `--delete-data` its app data,
     /// then exit. Handled before the app starts; see [`crate::cleanup`].
     Cleanup { delete_data: bool },
+    /// Hidden, for measuring (`--bench flyout`): show and hide the flyout
+    /// 100 times and log the timings. Never launches anything.
+    BenchFlyout,
     /// Nothing to do; stay in the tray.
     None,
 }
@@ -38,6 +41,11 @@ pub fn parse_args(args: &[String]) -> LaunchCommand {
                 let delete_data = rest.any(|arg| arg == DELETE_DATA_FLAG);
                 return LaunchCommand::Cleanup { delete_data };
             }
+            // Only the exact value counts; anything else does nothing.
+            BENCH_FLAG if rest.next().is_some_and(|value| value == "flyout") => {
+                return LaunchCommand::BenchFlyout;
+            }
+            BENCH_FLAG => return LaunchCommand::None,
             _ => {}
         }
     }
@@ -53,15 +61,18 @@ pub const CLEANUP_FLAG: &str = "--cleanup";
 
 /// With [`CLEANUP_FLAG`]: the user ticked "Delete the application data".
 pub const DELETE_DATA_FLAG: &str = "--delete-data";
+/// The hidden measuring flag; see [`LaunchCommand::BenchFlyout`].
+const BENCH_FLAG: &str = "--bench";
 
 /// The flags [`parse_args`] knows. One of them after `--flyout` is a
 /// missing id, not an id.
-const KNOWN_FLAGS: [&str; 5] = [
+const KNOWN_FLAGS: [&str; 6] = [
     "--flyout",
     "--launchpad",
     "--manager",
     BACKGROUND_FLAG,
     CLEANUP_FLAG,
+    BENCH_FLAG,
 ];
 
 /// Validates the id that follows `--flyout`. Group ids may start with `--`
@@ -210,6 +221,21 @@ mod tests {
         assert_eq!(parse_args(&data_first), cleanup(false));
         let as_id = args(&["--flyout", "--cleanup"]);
         assert_eq!(parse_args(&as_id), LaunchCommand::None);
+    }
+
+    #[test]
+    fn bench_needs_the_exact_value() {
+        assert_eq!(
+            parse_args(&args(&["--bench", "flyout"])),
+            LaunchCommand::BenchFlyout
+        );
+        for bad in [&["--bench"][..], &["--bench", "Flyout"], &["--bench", "x"]] {
+            assert_eq!(parse_args(&args(bad)), LaunchCommand::None, "{bad:?}");
+        }
+        assert_eq!(
+            parse_args(&args(&["--flyout", "--bench"])),
+            LaunchCommand::None
+        );
     }
 
     #[test]

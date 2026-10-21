@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode, RefObject } from "react";
+import { useDeferredValue, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import type { LaunchpadItem } from "../../bindings";
 import type { GridLayout } from "../../lib/grid";
 import { itemKey } from "./launchpadGrid";
@@ -74,12 +74,32 @@ export function ResultsGrid({ query, results, grid, resultsRef, onLeaveTop, rend
         rows={Math.ceil(results.length / grid.columns)}
         onKeyDown={onKeyDown}
       >
-        {results.map((item) => (
-          <div key={itemKey(item)} className="flex items-center justify-center">
-            {renderTile(item)}
-          </div>
-        ))}
+        <ResultCells
+          key={query}
+          results={results}
+          first={grid.columns * (grid.rows + 1)}
+          renderTile={renderTile}
+        />
       </TileGrid>
     </div>
   );
+}
+
+type CellsProps = Pick<Props, "results" | "renderTile"> & { first: number };
+
+/**
+ * The result cells. Mounted afresh for every query: the frame after a
+ * keystroke draws only the first screenful (`first` cells), and React
+ * adds the rest in the background straight after, so a broad query
+ * ("e" matches hundreds of apps) never holds up typing. The grid already
+ * has every row, so nothing moves when they arrive.
+ */
+function ResultCells({ results, first, renderTile }: CellsProps) {
+  const all = useDeferredValue(true, false);
+  const shown = all ? results : results.slice(0, first);
+  return shown.map((item) => (
+    <div key={itemKey(item)} className="flex items-center justify-center">
+      {renderTile(item)}
+    </div>
+  ));
 }

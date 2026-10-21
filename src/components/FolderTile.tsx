@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useFolderIconApps, useGroup } from "../store/hooks";
 import { useSetting } from "../store/settings";
 import { activationKeys, type PreviewState, type TileButtonProps } from "./activation";
@@ -26,7 +27,7 @@ const INSET = 8;
  * grid of its first four visible apps (the same rule and layout as the
  * taskbar `.ico`), and the group name under it. Behaves like an AppTile.
  */
-export function FolderTile({
+export const FolderTile = memo(function FolderTile({
   groupId,
   onOpen,
   size = 72,
@@ -65,7 +66,7 @@ export function FolderTile({
       )}
     </button>
   );
-}
+});
 
 /**
  * Just the folder picture: the section 5 background and the mini grid of

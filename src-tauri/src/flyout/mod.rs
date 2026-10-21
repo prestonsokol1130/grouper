@@ -5,12 +5,14 @@
 //! [`layout`] sizes it, [`icon_size`] picks its icon size, [`origin`] finds
 //! where it animates from and [`toggle`] decides whether a request shows or
 //! hides it; all are pure. [`window`] does the Tauri and Win32 work and [`hide`]
-//! hides it.
+//! hides it. [`bench`] is the hidden `--bench flyout` measurement.
 
+pub mod bench;
 pub mod hide;
 pub mod icon_size;
 pub mod layout;
 pub mod origin;
+mod present;
 pub mod toggle;
 pub mod window;
 

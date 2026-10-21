@@ -18,6 +18,7 @@ pub fn route<R: Runtime>(app: &AppHandle<R>, cmd: LaunchCommand) {
         LaunchCommand::Manager => {
             let _ = show_window(app, "manager");
         }
+        LaunchCommand::BenchFlyout => flyout::bench::start(app),
         // Cleanup runs before the app starts (see lib::run), never here.
         LaunchCommand::Background | LaunchCommand::Cleanup { .. } | LaunchCommand::None => {}
     }
