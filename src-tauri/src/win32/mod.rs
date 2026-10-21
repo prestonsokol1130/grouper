@@ -13,6 +13,7 @@ pub mod cursor;
 pub mod dir_watch;
 pub mod env;
 pub mod file_dialog;
+pub mod file_replace;
 pub mod flyout_window;
 pub mod foreground;
 #[cfg(windows)]
@@ -36,5 +37,7 @@ pub mod window_rect;
 pub(crate) mod dir_watch_tests;
 #[cfg(all(test, windows))]
 pub(crate) mod lnk_read_tests;
+#[cfg(all(test, windows))]
+mod lnk_replace_tests;
 #[cfg(all(test, windows))]
 mod lnk_write_tests;

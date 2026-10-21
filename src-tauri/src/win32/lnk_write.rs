@@ -36,9 +36,11 @@ pub struct LnkSpec {
 /// the Start menu and the taskbar watch that folder: a temp shortcut that
 /// appears there and is renamed a few milliseconds later has its icon read
 /// after it is gone, so the Shell caches the blank document icon for the
-/// group's shortcut. Only when the move fails (`stage_dir` is on another
-/// volume) is the temp file saved next to `lnk_path` instead, still with a
-/// name that does not end in `.lnk`.
+/// group's shortcut. Only when the move crosses volumes (`stage_dir` is
+/// on another volume, as with a redirected Start Menu) is the temp file
+/// saved next to `lnk_path` instead, still named `*.tmp`, never `*.lnk`.
+/// A `lnk_path` that Explorer holds open is waited for
+/// ([`move_over`](super::file_replace::move_over)), not worked around.
 ///
 /// The caller's thread must hold a live
 /// [`ComGuard`](super::com::ComGuard) for the whole call. Every COM
@@ -51,7 +53,7 @@ pub fn write_group_lnk(spec: &LnkSpec) -> Result<(), String> {
         .ok_or_else(|| format!("{} has no parent folder", spec.lnk_path.display()))?;
     crate::state::disk_write::reject_symlink(&spec.lnk_path)?;
     let result = match save_and_move(spec, &spec.stage_dir) {
-        Err(Staged::NotMoved(error)) => {
+        Err(Staged::NotMoved(error, true)) => {
             log::warn!("{error}; saving the shortcut in its own folder");
             save_and_move(spec, dir).map_err(Staged::into_message)
         }
@@ -64,14 +66,15 @@ pub fn write_group_lnk(spec: &LnkSpec) -> Result<(), String> {
 enum Staged {
     /// The shortcut could not be saved.
     NotSaved(String),
-    /// It was saved, but could not be moved into place.
-    NotMoved(String),
+    /// It was saved, but could not be moved into place; true when the
+    /// move crossed volumes.
+    NotMoved(String, bool),
 }
 
 impl Staged {
     fn into_message(self) -> String {
         match self {
-            Self::NotSaved(message) | Self::NotMoved(message) => message,
+            Self::NotSaved(message) | Self::NotMoved(message, _) => message,
         }
     }
 }
@@ -85,10 +88,11 @@ fn save_and_move(spec: &LnkSpec, stage: &Path) -> Result<(), Staged> {
         crate::state::disk_write::discard(&temp);
         return Err(Staged::NotSaved(error));
     }
-    std::fs::rename(&temp, &spec.lnk_path).map_err(|e| {
+    super::file_replace::move_over(&temp, &spec.lnk_path).map_err(|e| {
         crate::state::disk_write::discard(&temp);
         let (from, to) = (temp.display(), spec.lnk_path.display());
-        Staged::NotMoved(format!("move {from} over {to}: {e}"))
+        let cross_volume = super::file_replace::is_cross_volume(&e);
+        Staged::NotMoved(format!("move {from} over {to}: {e}"), cross_volume)
     })
 }
 
