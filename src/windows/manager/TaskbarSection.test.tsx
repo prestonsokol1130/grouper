@@ -97,6 +97,25 @@ describe("taskbar section", () => {
     expect(useToastStore.getState().toasts[0]?.title).toBe("Couldn't create the shortcut.");
   });
 
+  it("says where the shortcut is when File Explorer won't open", async () => {
+    useAppStore.getState().applyState({
+      ...STATE,
+      groups: [{ id: "g1", name: "Coding", appIds: ["a"], hasShortcut: true }],
+    });
+    invokeMock.mockImplementation((command: string) =>
+      command === "reveal_group_shortcut"
+        ? Promise.reject("explorer-unavailable: Operation aborted; start explorer.exe failed")
+        : Promise.resolve(null),
+    );
+    render(<ManagerRoot />);
+    await act(async () => {
+      fireEvent.click(within(card()).getByRole("button", { name: "Show in Explorer" }));
+    });
+    const toast = useToastStore.getState().toasts[0];
+    expect(toast?.title).toBe("Couldn't open File Explorer.");
+    expect(toast?.message).toBe("The shortcut is in Start Menu › Programs › Grouper.");
+  });
+
   it("previews the folder icon live as apps change", () => {
     render(<ManagerRoot />);
     const art = () => within(card()).getByTestId("folder-art");

@@ -41,11 +41,27 @@ export async function createShortcut(id: string): Promise<boolean> {
   return false;
 }
 
-/** Opens Explorer with group `id`'s shortcut selected. Returns whether it worked. */
+/** How the backend's error starts when File Explorer itself would not open. */
+const EXPLORER_UNAVAILABLE = "explorer-unavailable";
+
+/**
+ * Opens Explorer with group `id`'s shortcut selected. Returns whether it
+ * worked. When File Explorer would not open at all, the toast says where
+ * the shortcut is so it can be found by hand.
+ */
 export async function revealShortcut(id: string): Promise<boolean> {
   const result = await api.revealGroupShortcut(id);
   if (result.ok) return true;
-  fail(`reveal shortcut ${id}`, result.error, "Couldn't show the shortcut.");
+  if (result.error.startsWith(EXPLORER_UNAVAILABLE)) {
+    fail(
+      `reveal shortcut ${id}`,
+      result.error,
+      "Couldn't open File Explorer.",
+      "The shortcut is in Start Menu › Programs › Grouper.",
+    );
+  } else {
+    fail(`reveal shortcut ${id}`, result.error, "Couldn't show the shortcut.");
+  }
   return false;
 }
 
