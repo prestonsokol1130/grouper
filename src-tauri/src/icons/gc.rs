@@ -29,7 +29,7 @@ pub struct Collected {
 pub fn collect(app_data_dir: &Path, state: &AppState) -> Collected {
     Collected {
         pngs: collect_pngs(app_data_dir, state),
-        icos: collect_icos(app_data_dir, state),
+        icos: collect_icos(app_data_dir, state, &HashSet::new()),
     }
 }
 
@@ -43,9 +43,11 @@ pub fn collect_pngs(app_data_dir: &Path, state: &AppState) -> usize {
 /// `{group_id}-v{N}.ico` of groups no longer in `state`. Run after their
 /// leftover shortcuts were unpinned, so a pin keeps its icon until then.
 /// Both the group icon folder and the old `{app_data_dir}/cache/groups`
-/// are swept.
-pub fn collect_icos(app_data_dir: &Path, state: &AppState) -> usize {
-    let groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
+/// are swept. Deleted groups in `keep` (a shortcut or pin of theirs is
+/// still on disk) keep their files too.
+pub fn collect_icos(app_data_dir: &Path, state: &AppState, keep: &HashSet<&str>) -> usize {
+    let mut groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
+    groups.extend(keep);
     let legacy = group_cache_dir(app_data_dir);
     let current = group_icons_dir(&cache_dir(app_data_dir));
     let mut removed = sweep(&legacy, |name| stale_ico(name, &groups));

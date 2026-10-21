@@ -32,6 +32,10 @@ pub struct Orphans {
     pub shortcuts: Vec<(PathBuf, String)>,
     /// Temp files the shortcut writer left behind.
     pub temps: Vec<PathBuf>,
+    /// Whether the folder was really looked through: true when it is
+    /// missing (nothing can be left in it) or was listed, false when it is
+    /// a link, not a folder, or could not be listed.
+    pub listed: bool,
 }
 
 /// The deleted group a shortcut with AppUserModelID `aumid` belongs to:
@@ -56,17 +60,23 @@ pub fn is_stray_temp(name: &str) -> bool {
 }
 
 /// The orphaned shortcuts and stray temp files directly in `dir`. A
-/// missing folder, or one that is a link, gives nothing. Links and
-/// folders inside are skipped; so is a shortcut whose ID cannot be read.
+/// missing folder, or one that is a link, gives nothing (see
+/// [`Orphans::listed`]). Links and folders inside are skipped; so is a
+/// shortcut whose ID cannot be read.
 pub fn find_orphans(dir: &Path, live: &HashSet<&str>, read_aumid: ReadAumid<'_>) -> Orphans {
     let mut found = Orphans::default();
     match fs::symlink_metadata(dir) {
         Ok(meta) if meta.is_dir() && !is_link(&meta) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            found.listed = true;
+            return found;
+        }
         _ => return found,
     }
     let Ok(entries) = fs::read_dir(dir) else {
         return found;
     };
+    found.listed = true;
     for entry in entries.flatten() {
         let path = entry.path();
         let plain = fs::symlink_metadata(&path).is_ok_and(|m| m.is_file() && !is_link(&m));
@@ -99,40 +109,69 @@ pub struct Swept {
     pub temps: usize,
     /// Pinned copies of deleted groups' shortcuts that were unpinned.
     pub pins: usize,
+    /// Both folders were found and looked through ([`Orphans::listed`]).
+    pub listed: bool,
+    /// Deleted groups (sorted ids) that still have a shortcut or a pinned
+    /// copy on disk after the sweep: their `.ico` files must stay.
+    pub kept: Vec<String>,
 }
 
 /// Unpins and deletes the orphaned shortcuts in Grouper's Start Menu
 /// folder `dir`, deletes its stray temp files, and unpins the deleted
 /// groups' copies in `pins.taskbar_dir` (without touching those files).
 /// The caller holds a `ComGuard` when `read_aumid` needs one. Failures are
-/// logged and the rest still run.
+/// logged and the rest still run; what is still on disk afterwards is
+/// reported in [`Swept::kept`]. A failed unpin alone keeps nothing: the
+/// Shell fails it for every group that was never pinned.
 pub fn sweep_orphans(
     dir: Option<&Path>,
     live: &HashSet<&str>,
     read_aumid: ReadAumid<'_>,
     pins: &Pins<'_>,
 ) -> Swept {
-    let mut swept = Swept::default();
-    if let Some(dir) = dir {
-        let found = find_orphans(dir, live, read_aumid);
-        for (path, id) in found.shortcuts {
-            unpin_each(std::slice::from_ref(&path), pins);
-            if remove(&path) {
-                log::info!("removed deleted group {id}'s shortcut {}", path.display());
-                swept.shortcuts += 1;
+    let mut swept = Swept {
+        listed: true,
+        ..Swept::default()
+    };
+    match dir {
+        None => swept.listed = false,
+        Some(dir) => {
+            let found = find_orphans(dir, live, read_aumid);
+            swept.listed &= found.listed;
+            for (path, id) in found.shortcuts {
+                unpin_each(std::slice::from_ref(&path), pins);
+                if remove(&path) {
+                    log::info!("removed deleted group {id}'s shortcut {}", path.display());
+                    swept.shortcuts += 1;
+                }
+                if path.exists() {
+                    swept.kept.push(id);
+                }
             }
+            swept.temps = found.temps.iter().filter(|path| remove(path)).count();
         }
-        swept.temps = found.temps.iter().filter(|path| remove(path)).count();
     }
-    if let Some(taskbar) = pins.taskbar_dir {
-        let pinned: Vec<PathBuf> = find_orphans(taskbar, live, read_aumid)
-            .shortcuts
-            .into_iter()
-            .map(|(path, _)| path)
-            .collect();
-        unpin_each(&pinned, pins);
-        swept.pins = pinned.len();
+    match pins.taskbar_dir {
+        None => swept.listed = false,
+        Some(taskbar) => {
+            let found = find_orphans(taskbar, live, read_aumid);
+            swept.listed &= found.listed;
+            let pinned: Vec<PathBuf> = found
+                .shortcuts
+                .iter()
+                .map(|(path, _)| path.clone())
+                .collect();
+            unpin_each(&pinned, pins);
+            swept.pins = pinned.len();
+            let left = found
+                .shortcuts
+                .into_iter()
+                .filter(|(path, _)| path.exists());
+            swept.kept.extend(left.map(|(_, id)| id));
+        }
     }
+    swept.kept.sort();
+    swept.kept.dedup();
     swept
 }
 

@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use super::{collect, Collected};
+use super::{collect, collect_icos, Collected};
 use crate::state::paths::{ensure_dirs, group_cache_dir, icon_cache_dir};
 use crate::state::{AppEntry, AppState, Group};
 
@@ -134,6 +134,18 @@ fn an_empty_state_cleans_every_grouper_file() {
     touch(&group_cache_dir(data.path()), &format!("{KEPT_GROUP}.ico"));
     let collected = collect(data.path(), &AppState::default());
     assert_eq!(collected, Collected { pngs: 1, icos: 1 });
+}
+
+#[test]
+fn a_deleted_group_with_a_shortcut_left_keeps_its_icon() {
+    let data = tempfile::tempdir().unwrap();
+    ensure_dirs(data.path()).unwrap();
+    let groups = group_cache_dir(data.path());
+    touch(&groups, &format!("{GONE_GROUP}-v1.ico"));
+    touch(&groups, &format!("{KEPT_GROUP}-v1.ico"));
+    let keep = [GONE_GROUP].into_iter().collect();
+    assert_eq!(collect_icos(data.path(), &AppState::default(), &keep), 1);
+    assert_eq!(names(&groups), [format!("{GONE_GROUP}-v1.ico")]);
 }
 
 /// Symlinks need Developer Mode or admin on Windows; without them the

@@ -2,9 +2,10 @@ type Props = {
   count: number;
   page: number;
   onSelect: (page: number) => void;
-  /** Adds ‹ › buttons either side of the dots ("Show page arrows"). */
+  /** Adds previous and next buttons ("Show page arrows"): either side of
+   * a row of dots, above and below a `vertical` column. */
   arrows?: boolean;
-  /** The row's height class: 48px on the Launchpad, 32px in the flyout. */
+  /** The row's height class: 48px on the Launchpad, 32px for a compact row. */
   height?: "h-12" | "h-8";
   /** A 32px-wide column of dots instead of a row, its arrows above and
    * below (the flyout). */

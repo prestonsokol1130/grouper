@@ -41,9 +41,10 @@ pub(super) fn remove_deleted_group(group_id: &str, cache_dir: &Path) {
 
 /// At startup: unpins and deletes shortcuts of groups that no longer
 /// exist (their removal never ran), deletes stray temp files, then the
-/// deleted groups' `.ico` files. The `.ico` files stay while the Start
-/// Menu or taskbar pin folder cannot be found, because a leftover shortcut
-/// or pin there may still show one. Skipped when `state` has no groups: that
+/// deleted groups' `.ico` files. The `.ico` files all stay while the Start
+/// Menu or taskbar pin folder cannot be looked through, and a group's stay
+/// while a shortcut or pin of it is still on disk, because those still
+/// show them. Skipped when `state` has no groups: that
 /// is also what an unreadable `app_state.json` loads as, and then nothing
 /// may be taken for deleted. Runs on the worker thread, under its
 /// `ComGuard`.
@@ -53,11 +54,8 @@ pub(super) fn sweep_at_startup(state: &AppState, app_data_dir: &Path) {
     }
     let live: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
     let dir = start_menu_dir();
-    let (swept, looked_everywhere) = with_pins(|pins| {
-        let swept = sweep_orphans(dir.as_deref(), &live, &read_lnk_aumid, pins);
-        (swept, dir.is_some() && pins.taskbar_dir.is_some())
-    });
-    if swept != Default::default() {
+    let swept = with_pins(|pins| sweep_orphans(dir.as_deref(), &live, &read_lnk_aumid, pins));
+    if swept.shortcuts + swept.temps + swept.pins > 0 {
         log::info!(
             "startup clean-up: {} orphaned shortcut(s), {} temp file(s), {} pin(s)",
             swept.shortcuts,
@@ -65,10 +63,17 @@ pub(super) fn sweep_at_startup(state: &AppState, app_data_dir: &Path) {
             swept.pins
         );
     }
-    if !looked_everywhere {
+    if !swept.listed {
         log::warn!("keeping deleted groups' .ico files until both folders can be checked");
         return;
     }
-    let icos = gc::collect_icos(app_data_dir, state);
+    if !swept.kept.is_empty() {
+        log::warn!(
+            "keeping the .ico files of {:?}: a shortcut or pin is left",
+            swept.kept
+        );
+    }
+    let keep: HashSet<&str> = swept.kept.iter().map(String::as_str).collect();
+    let icos = gc::collect_icos(app_data_dir, state, &keep);
     log::info!("group icon clean-up removed {icos} .ico file(s)");
 }
