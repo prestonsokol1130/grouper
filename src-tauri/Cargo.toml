@@ -79,6 +79,12 @@ strip = true
 [dev-dependencies]
 tempfile = "3"
 
-# Test-only Win32 APIs: GetCurrentProcess and GetGuiResources (GDI leak tests).
+# Test-only Win32 APIs: GetCurrentProcess and GetGuiResources (GDI leak
+# tests); CreateFileW, CreateEventW and ReadDirectoryChangesW with
+# overlapped I/O (shortcut folder watch).
 [target.'cfg(windows)'.dev-dependencies]
-windows = { version = "0.62", features = ["Win32_System_Threading"] }
+windows = { version = "0.62", features = [
+  "Win32_Security",
+  "Win32_System_IO",
+  "Win32_System_Threading",
+] }
