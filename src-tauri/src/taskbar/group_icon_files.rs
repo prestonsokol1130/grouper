@@ -9,12 +9,40 @@
 //! still point at them (a pin must never point at a missing file). This
 //! replaces the stable `{group_id}.ico` path, per Preston, 2026-10-20;
 //! such a file is likewise kept until the group is deleted.
+//!
+//! The files live in [`group_icons_dir`]: on Windows that is
+//! `%LOCALAPPDATA%\Programs\Grouper\group-icons`, set at startup.
+//! Explorer and the taskbar draw a blank page for an `.ico` kept in
+//! `%APPDATA%\com.grouper.app\cache\groups` (or other AppData folders),
+//! whatever its name, while the same file draws fine from there (tested
+//! on Windows 11, 2026-10-21).
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use crate::icons::cache::check_id;
 use crate::state::paths::GROUPS_DIR;
+
+/// The folder set by [`set_group_icons_dir`], if any.
+static GROUP_ICONS_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Makes `dir` the folder group icons are written to and read from.
+/// Set once at startup; later calls are ignored.
+pub fn set_group_icons_dir(dir: PathBuf) {
+    if GROUP_ICONS_DIR.set(dir).is_err() {
+        log::debug!("group icon folder already set");
+    }
+}
+
+/// Where group icons live: the folder set by [`set_group_icons_dir`], else
+/// `{cache_dir}/groups` (tests, and platforms without the setting).
+pub fn group_icons_dir(cache_dir: &Path) -> PathBuf {
+    GROUP_ICONS_DIR
+        .get()
+        .cloned()
+        .unwrap_or_else(|| cache_dir.join(GROUPS_DIR))
+}
 
 /// `{groups_dir}/{group_id}-v{version}.ico`.
 pub fn group_icon_path(groups_dir: &Path, group_id: &str, version: u32) -> PathBuf {
@@ -63,15 +91,15 @@ pub fn latest_group_icon(groups_dir: &Path, group_id: &str) -> Option<(u32, Path
         .max_by_key(|(version, _)| *version)
 }
 
-/// The group's current icon, `{cache_dir}/groups/{group_id}-v{N}.ico` with
-/// the highest `N`, if any was built.
+/// The group's current icon, `{group_icons_dir}/{group_id}-v{N}.ico` with the
+/// highest `N`, if any was built.
 pub fn current_icon(cache_dir: &Path, group_id: &str) -> Option<PathBuf> {
-    latest_group_icon(&cache_dir.join(GROUPS_DIR), group_id).map(|(_, path)| path)
+    latest_group_icon(&group_icons_dir(cache_dir), group_id).map(|(_, path)| path)
 }
 
 /// Deletes every cached `.ico` of group `group_id`: each
-/// `{group_id}-v{N}.ico` and the old `{group_id}.ico` in
-/// `{cache_dir}/groups`. Called only when the group is deleted, after its
+/// `{group_id}-v{N}.ico` and the old `{group_id}.ico`, in [`group_icons_dir`]
+/// and in `{cache_dir}/groups`, where older builds wrote them. Called only when the group is deleted, after its
 /// pins were unpinned. Only regular files are removed; an unsafe id or a
 /// missing folder touches nothing; failures are logged, never returned.
 pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
@@ -79,18 +107,26 @@ pub fn remove_group_icons(cache_dir: &Path, group_id: &str) {
         log::warn!("not removing icons: {error}");
         return;
     }
-    let groups_dir = cache_dir.join(GROUPS_DIR);
-    let stable = stable_icon_path(&groups_dir, group_id);
-    let stable = fs::symlink_metadata(&stable)
-        .is_ok_and(|meta| meta.is_file())
-        .then_some(stable);
-    let paths = versioned_icons(&groups_dir, group_id)
-        .into_iter()
-        .map(|(_, path)| path)
-        .chain(stable);
-    for path in paths {
-        if let Err(error) = fs::remove_file(&path) {
-            log::warn!("could not remove {}: {error}", path.display());
+    let legacy = cache_dir.join(GROUPS_DIR);
+    let current = group_icons_dir(cache_dir);
+    let dirs = if current == legacy {
+        vec![legacy]
+    } else {
+        vec![current, legacy]
+    };
+    for groups_dir in dirs {
+        let stable = stable_icon_path(&groups_dir, group_id);
+        let stable = fs::symlink_metadata(&stable)
+            .is_ok_and(|meta| meta.is_file())
+            .then_some(stable);
+        let paths = versioned_icons(&groups_dir, group_id)
+            .into_iter()
+            .map(|(_, path)| path)
+            .chain(stable);
+        for path in paths {
+            if let Err(error) = fs::remove_file(&path) {
+                log::warn!("could not remove {}: {error}", path.display());
+            }
         }
     }
 }

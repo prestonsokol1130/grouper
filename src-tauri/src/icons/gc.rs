@@ -13,8 +13,9 @@ use std::path::Path;
 
 use super::cache::check_id;
 use crate::state::ids::GROUP_ID_LEN;
-use crate::state::paths::{group_cache_dir, icon_cache_dir};
+use crate::state::paths::{cache_dir, group_cache_dir, icon_cache_dir};
 use crate::state::AppState;
+use crate::taskbar::group_icon_files::group_icons_dir;
 
 /// How many files [`collect`] deleted from each folder.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -41,11 +42,17 @@ pub fn collect_pngs(app_data_dir: &Path, state: &AppState) -> usize {
 /// The `.ico` half of [`collect`]: every `{group_id}.ico` and
 /// `{group_id}-v{N}.ico` of groups no longer in `state`. Run after their
 /// leftover shortcuts were unpinned, so a pin keeps its icon until then.
+/// Both the group icon folder and the old `{app_data_dir}/cache/groups`
+/// are swept.
 pub fn collect_icos(app_data_dir: &Path, state: &AppState) -> usize {
     let groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
-    sweep(&group_cache_dir(app_data_dir), |name| {
-        stale_ico(name, &groups)
-    })
+    let legacy = group_cache_dir(app_data_dir);
+    let current = group_icons_dir(&cache_dir(app_data_dir));
+    let mut removed = sweep(&legacy, |name| stale_ico(name, &groups));
+    if current != legacy {
+        removed += sweep(&current, |name| stale_ico(name, &groups));
+    }
+    removed
 }
 
 /// True for `{app_id}.png` (an id as [`crate::state::ids::app_id`] makes

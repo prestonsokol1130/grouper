@@ -7,14 +7,14 @@ use std::time::Duration;
 use image::{ImageFormat, RgbaImage};
 
 use super::compose::compose_folder;
-use super::group_icon_files::{group_icon_path, latest_group_icon};
+use super::group_icon_files::{group_icon_path, group_icons_dir, latest_group_icon};
 use super::ico::encode_ico;
 use super::icon_inputs::group_icon_inputs;
 use super::style::folder_style;
 use crate::icons::cache::{check_id, icon_path, ICON_SIZE};
 use crate::icons::fallback::fallback_icon;
 use crate::state::disk_write::{reject_symlink, write_atomic};
-use crate::state::paths::{GROUPS_DIR, ICONS_DIR};
+use crate::state::paths::ICONS_DIR;
 use crate::state::AppState;
 
 /// How often a write that another process (usually the indexer or an
@@ -25,7 +25,7 @@ const WRITE_TRIES: u32 = 3;
 const RETRY_PAUSE: Duration = Duration::from_millis(150);
 
 /// Builds the `.ico` for `group_id` and returns its path, a new
-/// `{cache_dir}/groups/{group_id}-v{N}.ico` one version past the newest
+/// `{group_icons_dir}/{group_id}-v{N}.ico` one version past the newest
 /// (see [`super::group_icon_files`] for why a path is never rewritten).
 ///
 /// `cache_dir` is `{app_data_dir}/cache` (see
@@ -55,7 +55,7 @@ pub fn build_group_icon(
         &folder_style(state.settings.folder_shape),
     ))?;
 
-    let groups_dir = cache_dir.join(GROUPS_DIR);
+    let groups_dir = group_icons_dir(cache_dir);
     reject_symlink(&groups_dir)?;
     fs::create_dir_all(&groups_dir).map_err(|e| format!("create {}: {e}", groups_dir.display()))?;
     let next = latest_group_icon(&groups_dir, group_id).map_or(1, |(n, _)| n.saturating_add(1));
