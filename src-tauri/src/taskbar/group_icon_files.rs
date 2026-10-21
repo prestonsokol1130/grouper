@@ -24,6 +24,18 @@ use std::sync::OnceLock;
 use crate::icons::cache::check_id;
 use crate::state::paths::GROUPS_DIR;
 
+/// The group icon folder's own name, under `%LOCALAPPDATA%\Programs\Grouper`.
+pub const GROUP_ICONS_FOLDER: &str = "group-icons";
+
+/// `{local_app_data}\Programs\Grouper\group-icons`: where Windows builds
+/// keep group icons. The uninstaller's cleanup removes the same folder.
+pub fn local_group_icons_dir(local_app_data: &Path) -> PathBuf {
+    local_app_data
+        .join("Programs")
+        .join("Grouper")
+        .join(GROUP_ICONS_FOLDER)
+}
+
 /// The folder set by [`set_group_icons_dir`], if any.
 static GROUP_ICONS_DIR: OnceLock<PathBuf> = OnceLock::new();
 

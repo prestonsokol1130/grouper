@@ -2,7 +2,9 @@
 //! (`src-tauri/windows/hooks.nsh`) before it removes Grouper's files.
 //!
 //! It unpins and deletes the group shortcuts in Grouper's Start Menu
-//! folder, then the folder, removes the "Start with Windows" entry, and with `--delete-data` also
+//! folder, then the folder, deletes the group icons in
+//! `%LOCALAPPDATA%\Programs\Grouper\group-icons` (nothing points at them
+//! once the shortcuts are gone), removes the "Start with Windows" entry, and with `--delete-data` also
 //! deletes the app data folder. Every failure is logged and the process
 //! always exits 0, so cleanup can never block an uninstall.
 
@@ -17,6 +19,7 @@ mod tests;
 
 use std::path::{Path, PathBuf};
 
+use crate::taskbar::group_icon_files::local_group_icons_dir;
 use crate::win32::com::ComGuard;
 use crate::win32::{known_folder, unpin};
 
@@ -29,6 +32,8 @@ pub struct Targets {
     pub programs_dir: Result<PathBuf, String>,
     /// `{app_data_dir}`: app_state.json and the icon caches.
     pub app_data_dir: Result<PathBuf, String>,
+    /// `%LOCALAPPDATA%\Programs\Grouper\group-icons`: the group `.ico` files.
+    pub group_icons_dir: Result<PathBuf, String>,
 }
 
 impl Targets {
@@ -37,6 +42,7 @@ impl Targets {
         Self {
             programs_dir: known_folder::programs(),
             app_data_dir: known_folder::roaming_app_data().map(|dir| dir.join(APP_IDENTIFIER)),
+            group_icons_dir: known_folder::local_app_data().map(|dir| local_group_icons_dir(&dir)),
         }
     }
 }
@@ -62,6 +68,15 @@ pub fn run(
     {
         Ok(outcome) => log::info!("cleanup: Start Menu folder: {outcome:?}"),
         Err(error) => fail("Start Menu folder", error),
+    }
+    match targets
+        .group_icons_dir
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(|dir| files::remove_group_icons(dir))
+    {
+        Ok(outcome) => log::info!("cleanup: group icons: {outcome:?}"),
+        Err(error) => fail("group icons", error),
     }
     match autostart_entry::remove(registry) {
         Ok(outcome) => log::info!("cleanup: start with Windows entry: {outcome:?}"),

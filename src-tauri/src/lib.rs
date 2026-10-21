@@ -168,7 +168,7 @@ fn open_store(app: &tauri::AppHandle) -> Result<Arc<state::Store>, String> {
     // group icons go to a folder it does draw from.
     match win32::known_folder::local_app_data() {
         Ok(local) => taskbar::group_icon_files::set_group_icons_dir(
-            local.join("Programs").join("Grouper").join("group-icons"),
+            taskbar::group_icon_files::local_group_icons_dir(&local),
         ),
         Err(error) => log::warn!("group icons stay in the cache folder: {error}"),
     }
