@@ -44,6 +44,9 @@ pub fn run() {
     // Before the single-instance check: a second launch from a taskbar
     // click passes its foreground right on to the running instance.
     win32::flyout_window::allow_any_foreground();
+    // Before any window: a launch from a group pin would otherwise put
+    // Grouper's windows on the taskbar as that group.
+    win32::app_id::set_process_app_id(cleanup::APP_IDENTIFIER);
     // The main thread runs the tray, the Launchpad and the flyout, which
     // call the Shell; it stays in an STA for the life of the process.
     let _com = win32::com::ComGuard::new()

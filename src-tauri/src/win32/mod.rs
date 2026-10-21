@@ -6,6 +6,7 @@
 //! Win32 handle types and so exists on Windows only.
 
 pub mod accent;
+pub mod app_id;
 pub mod apps_folder;
 pub mod balloon;
 pub mod com;
