@@ -33,11 +33,13 @@ Every `.rs`, `.ts`, and `.tsx` file must stay under **250 lines** (blank lines a
 
 All under the app data directory (`{app_data_dir}`):
 
-| Path                                         | Purpose                                                                                                   |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `{app_data_dir}/app_state.json`              | App state; write atomically (temp file + rename)                                                          |
-| `{app_data_dir}/cache/icons/{app_id}.png`    | Cached app icons                                                                                          |
-| `{app_data_dir}/cache/groups/{group_id}.ico` | Cached group composite icons; overwritten in place (temp file + rename) so taskbar pins keep a valid path |
+| Path                                              | Purpose                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `{app_data_dir}/app_state.json`                   | App state; write atomically (temp file + rename)                                                                         |
+| `{app_data_dir}/cache/icons/{app_id}.png`         | Cached app icons                                                                                                         |
+| `{app_data_dir}/cache/groups/{group_id}-v{n}.ico` | Cached group composite icons; every rebuild writes a new `n`, never rewrites a path, and the group's `.lnk` is repointed |
+
+Explorer and the taskbar cache a shortcut's icon by its path, so an `.ico` rewritten in place kept showing a stale blank icon. Versioned paths replace the stable `{group_id}.ico` path (per Preston, 2026-10-20). Older versions, and any old `{group_id}.ico`, are kept while the group exists because earlier taskbar pins still point at them; all of them are deleted only when the group is deleted, after its shortcut is unpinned.
 
 ## Group shortcuts and taskbar pinning
 

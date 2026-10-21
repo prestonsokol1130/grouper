@@ -7,13 +7,12 @@
 
 use std::path::{Path, PathBuf};
 
-use super::group_icon::{group_icon_path, remove_group_icons};
+use super::group_icon_files::current_icon;
 use super::shortcut::{group_aumid, shortcut_name_parts};
 use super::shortcut_write::{
     classify, find_group_shortcut, write_group_shortcut, write_shortcut_with_icon, Slot,
 };
 use crate::icons::cache::check_id;
-use crate::state::paths::GROUPS_DIR;
 use crate::state::AppState;
 use crate::win32::com::ComGuard;
 use crate::win32::lnk_read::resolve_lnk;
@@ -88,17 +87,12 @@ pub fn remove_own_shortcuts(dir: &Path, group_id: &str, keep: Option<&Path>) -> 
         .collect()
 }
 
-/// Group `group_id`'s `.ico`, `{cache_dir}/groups/{group_id}.ico`.
-pub fn icon_file(cache_dir: &Path, group_id: &str) -> PathBuf {
-    group_icon_path(&cache_dir.join(GROUPS_DIR), group_id)
-}
-
 /// Brings group `group_id`'s shortcut up to date after `change` and returns
 /// its path.
 ///
-/// On an icon change the group's `.ico` is rebuilt in place and the
-/// shortcut rewritten to show it; otherwise the `.ico` is reused, and
-/// built only if it is missing. On a rename the shortcut with the new name
+/// On an icon change a new versioned `.ico` is built and the shortcut
+/// rewritten to show it; otherwise the current `.ico` is reused, and one
+/// is built only if there is none. On a rename the shortcut with the new name
 /// is written first (same AppUserModelID); only when that worked are the
 /// group's other own shortcuts deleted. A failed write leaves every
 /// existing shortcut as it was.
@@ -113,11 +107,9 @@ pub fn update_group_shortcut(
     check_id(group_id).map_err(|_| format!("group id {group_id:?} is not a safe file name"))?;
     let (base, _) = shortcut_name_parts(&state.groups, group_id)
         .ok_or_else(|| format!("Group not found: {group_id}"))?;
-    let icon = icon_file(cache_dir, group_id);
-    let lnk = if change.icon || !icon.is_file() {
-        write_group_shortcut(state, group_id, cache_dir, dir, exe)?
-    } else {
-        write_shortcut_with_icon(state, group_id, &icon, dir, exe)?
+    let lnk = match current_icon(cache_dir, group_id).filter(|_| !change.icon) {
+        Some(icon) => write_shortcut_with_icon(state, group_id, &icon, dir, exe)?,
+        None => write_group_shortcut(state, group_id, cache_dir, dir, exe)?,
     };
     if !change.renamed {
         return Ok(lnk);
@@ -153,10 +145,11 @@ fn match_name_case(lnk: PathBuf, base: &str) -> PathBuf {
     }
 }
 
-/// Checks group `group_id`'s shortcut and its `.ico`. When either is
-/// missing, or the shortcut shows another icon file (such as a legacy
-/// `{group_id}-v{N}.ico`), the shortcut is written again showing
-/// `{group_id}.ico` (built first when missing).
+/// Checks group `group_id`'s shortcut and its `.ico`. Intact when the
+/// shortcut exists and shows the group's current versioned `.ico`. When
+/// either is missing, or the shortcut shows any other file (such as the
+/// old unversioned `{group_id}.ico`), a fresh `.ico` version is built and
+/// the shortcut repointed at it. Older files are kept for old pins.
 pub fn repair_group_shortcut(
     state: &AppState,
     group_id: &str,
@@ -167,15 +160,13 @@ pub fn repair_group_shortcut(
     if state.group_by_id(group_id).is_none() {
         return Err(format!("Group not found: {group_id}"));
     }
-    let icon = icon_file(cache_dir, group_id);
     let lnk = find_group_shortcut(state, group_id, dir)?;
-    match lnk {
-        Some(lnk) if icon.is_file() && shows_icon(&lnk, &icon)? => Ok(Repair::Intact(lnk)),
-        Some(_) if icon.is_file() => {
-            write_shortcut_with_icon(state, group_id, &icon, dir, exe).map(Repair::Rebuilt)
+    if let (Some(lnk), Some(icon)) = (lnk, current_icon(cache_dir, group_id)) {
+        if shows_icon(&lnk, &icon)? {
+            return Ok(Repair::Intact(lnk));
         }
-        _ => write_group_shortcut(state, group_id, cache_dir, dir, exe).map(Repair::Rebuilt),
     }
+    write_group_shortcut(state, group_id, cache_dir, dir, exe).map(Repair::Rebuilt)
 }
 
 /// Whether the shortcut at `lnk` shows the icon file `icon` (paths compared
@@ -188,19 +179,4 @@ fn shows_icon(lnk: &Path, icon: &Path) -> Result<bool, String> {
         .ok()
         .and_then(|link| link.icon_location)
         .is_some_and(|(path, _)| path.to_lowercase() == wanted))
-}
-
-/// Removes a deleted group's files: its own shortcuts in `dir` (when the
-/// folder exists) and its `.ico` (plus legacy versions) in `cache_dir`. Never
-/// fails; problems are logged.
-pub fn remove_group_files(group_id: &str, cache_dir: &Path, dir: Option<&Path>) {
-    if let Some(dir) = dir.filter(|dir| dir.is_dir()) {
-        for path in remove_own_shortcuts(dir, group_id, None) {
-            log::info!(
-                "removed deleted group {group_id}'s shortcut {}",
-                path.display()
-            );
-        }
-    }
-    remove_group_icons(cache_dir, group_id);
 }

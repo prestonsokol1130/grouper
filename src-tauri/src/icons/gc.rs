@@ -26,14 +26,26 @@ pub struct Collected {
 /// Deletes stale cache files under `{app_data_dir}/cache`, keeping
 /// everything `state` still uses. Failures are logged and skipped.
 pub fn collect(app_data_dir: &Path, state: &AppState) -> Collected {
-    let apps: HashSet<&str> = state.apps.iter().map(|app| app.id.as_str()).collect();
-    let groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
     Collected {
-        pngs: sweep(&icon_cache_dir(app_data_dir), |name| stale_png(name, &apps)),
-        icos: sweep(&group_cache_dir(app_data_dir), |name| {
-            stale_ico(name, &groups)
-        }),
+        pngs: collect_pngs(app_data_dir, state),
+        icos: collect_icos(app_data_dir, state),
     }
+}
+
+/// The PNG half of [`collect`]: app icons of apps no longer in `state`.
+pub fn collect_pngs(app_data_dir: &Path, state: &AppState) -> usize {
+    let apps: HashSet<&str> = state.apps.iter().map(|app| app.id.as_str()).collect();
+    sweep(&icon_cache_dir(app_data_dir), |name| stale_png(name, &apps))
+}
+
+/// The `.ico` half of [`collect`]: every `{group_id}.ico` and
+/// `{group_id}-v{N}.ico` of groups no longer in `state`. Run after their
+/// leftover shortcuts were unpinned, so a pin keeps its icon until then.
+pub fn collect_icos(app_data_dir: &Path, state: &AppState) -> usize {
+    let groups: HashSet<&str> = state.groups.iter().map(|g| g.id.as_str()).collect();
+    sweep(&group_cache_dir(app_data_dir), |name| {
+        stale_ico(name, &groups)
+    })
 }
 
 /// True for `{app_id}.png` (an id as [`crate::state::ids::app_id`] makes

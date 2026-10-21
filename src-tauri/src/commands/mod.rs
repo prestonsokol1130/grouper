@@ -10,6 +10,7 @@ pub mod launch_cmds;
 pub mod launchpad_cmds;
 pub mod scan_cmds;
 pub mod settings_cmds;
+mod shortcut_cleanup;
 pub mod shortcut_cmds;
 mod shortcut_jobs;
 pub mod shortcut_worker;

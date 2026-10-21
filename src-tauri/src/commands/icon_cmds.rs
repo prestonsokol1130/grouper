@@ -136,17 +136,15 @@ pub(super) fn queue_icons_then(
     }
 }
 
-/// Deletes cached icons nothing in `state` uses any more (see
-/// [`gc::collect`]). Run at startup, before the icon worker starts.
+/// Deletes cached app PNGs nothing in `state` uses any more (see
+/// [`gc::collect_pngs`]). Run at startup, before the icon worker starts.
+/// Deleted groups' `.ico` files go later, on the shortcut worker, after
+/// their leftover shortcuts are unpinned.
 pub fn collect_cache_garbage(app: &AppHandle, state: &AppState) {
     match app.path().app_data_dir() {
         Ok(data) => {
-            let removed = gc::collect(&data, state);
-            log::info!(
-                "icon cache clean-up removed {} PNG(s) and {} .ico file(s)",
-                removed.pngs,
-                removed.icos
-            );
+            let removed = gc::collect_pngs(&data, state);
+            log::info!("icon cache clean-up removed {removed} PNG(s)");
         }
         Err(error) => log::warn!("no icon cache clean-up: {error}"),
     }

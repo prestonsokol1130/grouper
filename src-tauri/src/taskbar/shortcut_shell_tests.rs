@@ -79,11 +79,13 @@ fn the_start_menu_folder_only_ever_sees_the_finished_shortcut() {
     assert!(seen.contains(&wanted), "never saw {wanted}: {seen:?}");
     assert!(others.is_empty(), "other names in the folder: {others:?}");
     // The staged temp files are gone from the icon cache too.
-    let left: Vec<String> = std::fs::read_dir(cache.join("groups"))
+    // The icon change wrote a second version and kept the first.
+    let mut left: Vec<String> = std::fs::read_dir(cache.join("groups"))
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
         .collect();
-    assert_eq!(left, [format!("{id}.ico")]);
+    left.sort();
+    assert_eq!(left, [format!("{id}-v1.ico"), format!("{id}-v2.ico")]);
 }
 
 /// A shortcut whose icon file cannot be read: the Shell shows the blank
@@ -115,7 +117,7 @@ fn a_new_shortcut_shows_the_folder_icon_at_once() {
     let exe = std::env::current_exe().unwrap();
 
     let lnk = write_group_shortcut(&state, &id, &cache, &menu, &exe).unwrap();
-    let ico = cache.join("groups").join(format!("{id}.ico"));
+    let ico = cache.join("groups").join(format!("{id}-v1.ico"));
     notify_shortcut_changed(&lnk, &ico);
     let blank = blank_lnk(temp.path(), &exe);
 
