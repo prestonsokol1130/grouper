@@ -1,0 +1,42 @@
+name: Build task
+description: A planned ticket from the Grouper Build Tasks list, with its agent prompt.
+title: "[S0-00] "
+labels: ["ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **For agents:** the source list is the [Build Tasks database](https://www.notion.so/84d10872ae6747919184df68db2fc4bf). Read the [Specs](https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c) and recent [Build Log](https://app.notion.com/p/a606963ead3646718f1d74ead7b7ecce) entries before starting. Agent rules, branch names and the definition of done are in `AGENTS.md`.
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Duplicates
+      options:
+        - label: I searched open and closed issues and this task is not already filed.
+          required: true
+  - type: input
+    id: task-id
+    attributes:
+      label: Task ID
+      description: Same ID as the Notion row. Also put it in the title.
+      placeholder: S4-02
+    validations:
+      required: true
+  - type: input
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: Task IDs or issue numbers that must be merged first.
+      placeholder: "S4-01, #20"
+  - type: input
+    id: notion-row
+    attributes:
+      label: Notion row
+      placeholder: https://www.notion.so/...
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Agent prompt
+      description: The self-contained prompt from the Notion row.
+    validations:
+      required: true

@@ -1,0 +1,94 @@
+name: Bug report
+description: Something in Grouper is broken or behaves wrongly.
+title: "[Bug] "
+labels: ["bug", "from-testing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **For agents:** check the [Specs](https://app.notion.com/p/40073b0b9f9381a4a1add7ea9b93876c) for intended behavior and the [Build Log](https://app.notion.com/p/a606963ead3646718f1d74ead7b7ecce) for when the area last changed. Agent rules are in `AGENTS.md`.
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Duplicates
+      options:
+        - label: I searched open and closed issues and this is not already reported.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what you expected instead
+      placeholder: Clicking the group pin opened nothing. I expected the flyout to open above the taskbar.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a group with Chrome and Spotify
+        2. Pin it to the taskbar
+        3. Click the pin
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Taskbar groups
+        - Flyout
+        - Launchpad
+        - Settings
+        - Icons
+        - Installer
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: app-type
+    attributes:
+      label: App type, if relevant
+      multiple: true
+      options:
+        - Normal .exe
+        - Store app
+        - Chrome web app
+        - Shortcut (.lnk)
+        - Not app specific
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often it happens
+      options:
+        - Always
+        - Sometimes
+        - Once
+    validations:
+      required: true
+  - type: input
+    id: grouper-version
+    attributes:
+      label: Grouper version
+      description: Shown in Settings, or in the installer file name you ran.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: Run `winver`.
+      placeholder: Windows 11 24H2 (26100.2033)
+  - type: input
+    id: scaling
+    attributes:
+      label: Display scaling
+      description: Settings > System > Display > Scale. List each monitor if you have several.
+      placeholder: 150%
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshot, recording and log file
+      description: |
+        Drag files in here. The log is `%LOCALAPPDATA%\com.grouper.app\logs\grouper.log` (paste that path into Explorer's address bar).
